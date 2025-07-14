@@ -1,0 +1,22 @@
+{
+  "name": "my-laravel-app",
+  "version": "1.0.0",
+  "description": "A Laravel application",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npm run watch",
+    "watch": "mix watch",
+    "build": "npm run production",
+    "production": "mix --production"
+  },
+  "dependencies": {
+    "laravel-mix": "^6.0.0"
+  },
+  "devDependencies": {
+    "axios": "^0.21",
+    "bootstrap": "^5.0.0",
+    "jquery": "^3.5.1",
+    "sass": "^1.32.0"
+  },
+  "license": "MIT"
+}
