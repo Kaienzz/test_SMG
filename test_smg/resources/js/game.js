@@ -34,7 +34,7 @@ let character = {
         shield: null,
         body: null,
         shoes: null,
-        accessory: null,
+        accessory: { name: 'サイコロの指輪', attack: 0, defense: 0, speed: 0, evasion: 0, hp: 0, mp: 0, accuracy: 0, effect: 'dice_face_plus3' },
         bag: null,
     },
     inventory: [
@@ -45,6 +45,20 @@ let character = {
         { type: 'item', name: '魔法の水', effect: 'mp+10', quantity: 1 },
     ],
 };
+
+// サイコロ仕様を装備から決定
+function getDiceSpecFromEquipments() {
+    let diceCount = 2; // デフォルト2個
+    let diceFace = 6;  // デフォルト6面
+    // 装備効果を走査
+    Object.values(character.equipments).forEach(eq => {
+        if (!eq) return;
+        if (eq.effect === 'dice_face_plus3') diceFace += 3;
+        if (eq.effect === 'dice_count_plus1') diceCount += 1;
+        // 今後の拡張: 他の効果もここに追加
+    });
+    return { diceCount, diceFace };
+}
 
 const root = document.getElementById('game-root');
 
@@ -171,9 +185,10 @@ function render() {
         root.appendChild(progressText);
 
         // サイコロ表示
+        const diceSpec = getDiceSpecFromEquipments();
         const diceDiv = document.createElement('div');
         diceDiv.className = 'mb-2';
-        diceDiv.textContent = `サイコロ: [${dice[0]}] [${dice[1]}] 合計: ${dice[0]+dice[1]}`;
+        diceDiv.textContent = `サイコロ: [${dice.join('] [')}] 合計: ${dice.reduce((a,b)=>a+b,0)}（${diceSpec.diceCount}個${diceSpec.diceFace}面）`;
         root.appendChild(diceDiv);
 
         // 左右ボタン
@@ -221,9 +236,11 @@ function render() {
 function move(dir) {
     if (dir !== 1 && dir !== -1) return;
     direction = dir;
+    // サイコロ仕様を取得
+    const diceSpec = getDiceSpecFromEquipments();
     // サイコロを振る
-    dice = [rollDice(), rollDice()];
-    const moveAmount = (dice[0] + dice[1]) * dir;
+    dice = Array.from({length: diceSpec.diceCount}, () => rollDice(diceSpec.diceFace));
+    const moveAmount = dice.reduce((a,b)=>a+b,0) * dir;
     progress += moveAmount;
     if (progress < 0) progress = 0;
     if (progress > 100) progress = 100;
@@ -254,8 +271,8 @@ function resetGame() {
     render();
 }
 
-function rollDice() {
-    return Math.floor(Math.random() * 6) + 1;
+function rollDice(face = 6) {
+    return Math.floor(Math.random() * face) + 1;
 }
 
 document.addEventListener('DOMContentLoaded', render);
