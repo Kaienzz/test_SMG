@@ -258,29 +258,51 @@ class DummyDataService
         
         if ($player['current_location_type'] === 'town') {
             if ($player['current_location_id'] === 'town_a') {
-                return ['type' => 'road', 'id' => 'road_1', 'name' => '道路1'];
+                return ['type' => 'road', 'id' => 'road_1', 'name' => '道路1', 'direction' => 'forward'];
             } elseif ($player['current_location_id'] === 'town_b') {
-                return ['type' => 'road', 'id' => 'road_3', 'name' => '道路3'];
+                return ['type' => 'road', 'id' => 'road_3', 'name' => '道路3', 'direction' => 'backward'];
             }
         } elseif ($player['current_location_type'] === 'road') {
             $roadNumber = (int) str_replace('road_', '', $player['current_location_id']);
             
             if ($player['position'] <= 0) {
                 if ($roadNumber === 1) {
-                    return ['type' => 'town', 'id' => 'town_a', 'name' => 'A町'];
+                    return ['type' => 'town', 'id' => 'town_a', 'name' => 'A町', 'direction' => 'backward'];
                 } else {
-                    return ['type' => 'road', 'id' => 'road_' . ($roadNumber - 1), 'name' => '道路' . ($roadNumber - 1)];
+                    return ['type' => 'road', 'id' => 'road_' . ($roadNumber - 1), 'name' => '道路' . ($roadNumber - 1), 'direction' => 'backward'];
                 }
             } elseif ($player['position'] >= 100) {
                 if ($roadNumber === 3) {
-                    return ['type' => 'town', 'id' => 'town_b', 'name' => 'B町'];
+                    return ['type' => 'town', 'id' => 'town_b', 'name' => 'B町', 'direction' => 'forward'];
                 } else {
-                    return ['type' => 'road', 'id' => 'road_' . ($roadNumber + 1), 'name' => '道路' . ($roadNumber + 1)];
+                    return ['type' => 'road', 'id' => 'road_' . ($roadNumber + 1), 'name' => '道路' . ($roadNumber + 1), 'direction' => 'forward'];
                 }
             }
         }
         
         return null;
+    }
+
+    public static function calculateNewPosition(array $nextLocation, int $currentPosition): int
+    {
+        // 町に移動する場合は常に0
+        if ($nextLocation['type'] === 'town') {
+            return 0;
+        }
+        
+        // 道路に移動する場合は移動方向に応じて位置を決定
+        if ($nextLocation['type'] === 'road') {
+            if ($nextLocation['direction'] === 'forward') {
+                // 右方向（前進）に移動する場合、新しい道路の左端（0）からスタート
+                return 0;
+            } elseif ($nextLocation['direction'] === 'backward') {
+                // 左方向（後退）に移動する場合、新しい道路の右端（100）からスタート
+                return 100;
+            }
+        }
+        
+        // デフォルト値
+        return 0;
     }
 
     public static function getSampleEquipmentItems(): array

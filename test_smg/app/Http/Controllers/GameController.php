@@ -129,13 +129,16 @@ class GameController extends Controller
     
     public function moveToNext(Request $request): JsonResponse
     {
+        $currentPosition = session('game_position', 0);
         $nextLocation = DummyDataService::getNextLocation();
         
         if ($nextLocation) {
+            $newPosition = DummyDataService::calculateNewPosition($nextLocation, $currentPosition);
+            
             session([
                 'location_type' => $nextLocation['type'],
                 'location_id' => $nextLocation['id'],
-                'game_position' => $nextLocation['type'] === 'road' ? 50 : 0,
+                'game_position' => $newPosition,
             ]);
         }
         

@@ -247,18 +247,25 @@
 
         // 初期読み込み時の表示制御
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initial load - Player position:', gameData.player.position, 'Type:', gameData.player.current_location_type);
+            console.log('Initial load - Next location:', gameData.nextLocation);
+            
             // 道路でposition=100または0のとき、次の場所ボタンを表示
             if (gameData.player.current_location_type === 'road') {
                 if ((gameData.player.position >= 100 || gameData.player.position <= 0) && gameData.nextLocation) {
+                    console.log('Initial load - Showing button for road at boundary');
                     updateNextLocationDisplay(gameData.nextLocation, true);
                 } else {
+                    console.log('Initial load - Hiding button for road not at boundary');
                     updateNextLocationDisplay(gameData.nextLocation, false);
                 }
             } else {
                 // 町にいるときは次の場所ボタンを表示
                 if (gameData.nextLocation) {
+                    console.log('Initial load - Showing button for town');
                     updateNextLocationDisplay(gameData.nextLocation, true);
                 } else {
+                    console.log('Initial load - Hiding button for town (no next location)');
                     updateNextLocationDisplay(gameData.nextLocation, false);
                 }
             }
@@ -359,7 +366,10 @@
                     updateGameDisplay(data);
                     hideMovementControls();
                     
-                    // position=100になったら次の道路ボタンを表示
+                    // gameDataのプレイヤー位置を更新
+                    gameData.player.position = data.position;
+                    
+                    // position=100または0になったら次の道路ボタンを表示
                     if (data.position >= 100 && data.nextLocation) {
                         updateNextLocationDisplay(data.nextLocation, true);
                     } else if (data.position <= 0 && data.nextLocation) {
@@ -500,12 +510,17 @@
             
             gameData.player.current_location_type = data.currentLocation.name.includes('町') ? 'town' : 'road';
             gameData.player.position = data.position;
+            
+            // 位置更新後にボタンの表示状態を確認
+            console.log('Position updated to:', data.position, 'Type:', gameData.player.current_location_type);
         }
 
         function updateNextLocationDisplay(nextLocation, canMove) {
+            console.log('updateNextLocationDisplay called:', nextLocation, 'canMove:', canMove);
             const nextLocationInfo = document.getElementById('next-location-info');
             if (nextLocationInfo) {
                 if (nextLocation && canMove) {
+                    console.log('Showing next location button for:', nextLocation.name);
                     nextLocationInfo.classList.remove('hidden');
                     const strongElement = nextLocationInfo.querySelector('strong');
                     const buttonElement = nextLocationInfo.querySelector('button');
@@ -517,9 +532,12 @@
                     }
                     nextLocationInfo.style.display = 'block';
                 } else {
+                    console.log('Hiding next location button');
                     nextLocationInfo.classList.add('hidden');
                     nextLocationInfo.style.display = 'none';
                 }
+            } else {
+                console.log('next-location-info element not found');
             }
         }
 
