@@ -2,29 +2,302 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Character extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'user_id', 'name', 'hp', 'mp', 'attack', 'defense', 'speed', 'evasion', 'accuracy',
+        'name',
+        'level',
+        'experience',
+        'attack',
+        'defense',
+        'agility',
+        'evasion',
+        'hp',
+        'max_hp',
+        'sp',
+        'max_sp',
+        'accuracy',
     ];
 
-    public function user()
+    protected $casts = [
+        'level' => 'integer',
+        'experience' => 'integer',
+        'attack' => 'integer',
+        'defense' => 'integer',
+        'agility' => 'integer',
+        'evasion' => 'integer',
+        'hp' => 'integer',
+        'max_hp' => 'integer',
+        'sp' => 'integer',
+        'max_sp' => 'integer',
+        'accuracy' => 'integer',
+    ];
+
+    public function getHpPercentage(): float
     {
-        return $this->belongsTo(User::class);
+        if ($this->max_hp <= 0) {
+            return 0;
+        }
+        return ($this->hp / $this->max_hp) * 100;
     }
 
-    public function equipments()
+    public function getSpPercentage(): float
     {
-        return $this->hasMany(Equipment::class);
+        if ($this->max_sp <= 0) {
+            return 0;
+        }
+        return ($this->sp / $this->max_sp) * 100;
     }
 
-    public function items()
+    public function isAlive(): bool
     {
-        return $this->hasMany(Item::class);
+        return $this->hp > 0;
+    }
+
+    public function takeDamage(int $damage): void
+    {
+        $this->hp = max(0, $this->hp - $damage);
+    }
+
+    public function heal(int $amount): void
+    {
+        $this->hp = min($this->max_hp, $this->hp + $amount);
+    }
+
+    public function consumeSP(int $amount): bool
+    {
+        if ($this->sp < $amount) {
+            return false;
+        }
+        $this->sp -= $amount;
+        return true;
+    }
+
+    public function restoreSP(int $amount): void
+    {
+        $this->sp = min($this->max_sp, $this->sp + $amount);
+    }
+
+    public function getStatusSummary(): array
+    {
+        return [
+            'name' => $this->name,
+            'level' => $this->level,
+            'hp' => "{$this->hp}/{$this->max_hp}",
+            'sp' => "{$this->sp}/{$this->max_sp}",
+            'hp_percentage' => $this->getHpPercentage(),
+            'sp_percentage' => $this->getSpPercentage(),
+            'is_alive' => $this->isAlive(),
+        ];
+    }
+
+    public function getDetailedStats(): array
+    {
+        return [
+            'basic_info' => [
+                'name' => $this->name,
+                'level' => $this->level,
+                'experience' => $this->experience,
+            ],
+            'combat_stats' => [
+                'attack' => $this->attack,
+                'defense' => $this->defense,
+                'agility' => $this->agility,
+                'evasion' => $this->evasion,
+                'accuracy' => $this->accuracy,
+            ],
+            'vitals' => [
+                'hp' => $this->hp,
+                'max_hp' => $this->max_hp,
+                'sp' => $this->sp,
+                'max_sp' => $this->max_sp,
+                'hp_percentage' => $this->getHpPercentage(),
+                'sp_percentage' => $this->getSpPercentage(),
+            ],
+        ];
+    }
+
+    public static function createNewCharacter(string $name): self
+    {
+        return new self([
+            'name' => $name,
+            'level' => 1,
+            'experience' => 0,
+            'attack' => 10,
+            'defense' => 8,
+            'agility' => 12,
+            'evasion' => 15,
+            'hp' => 100,
+            'max_hp' => 100,
+            'sp' => 50,
+            'max_sp' => 50,
+            'accuracy' => 85,
+        ]);
+    }
+
+    public function levelUp(): void
+    {
+        $this->level++;
+        
+        $hpIncrease = rand(8, 15);
+        $spIncrease = rand(3, 8);
+        $attackIncrease = rand(2, 5);
+        $defenseIncrease = rand(1, 4);
+        $agilityIncrease = rand(1, 3);
+        $evasionIncrease = rand(1, 3);
+        $accuracyIncrease = rand(1, 2);
+
+        $this->max_hp += $hpIncrease;
+        $this->hp = $this->max_hp;
+        $this->max_sp += $spIncrease;
+        $this->sp = $this->max_sp;
+        $this->attack += $attackIncrease;
+        $this->defense += $defenseIncrease;
+        $this->agility += $agilityIncrease;
+        $this->evasion += $evasionIncrease;
+        $this->accuracy += $accuracyIncrease;
+    }
+
+    public function getExperienceToNextLevel(): int
+    {
+        return $this->level * 100;
+    }
+
+    public function gainExperience(int $amount): bool
+    {
+        $this->experience += $amount;
+        $requiredExp = $this->getExperienceToNextLevel();
+        
+        if ($this->experience >= $requiredExp) {
+            $this->experience -= $requiredExp;
+            $this->levelUp();
+            return true;
+        }
+        
+        return false;
+    }
+
+    public function inventory(): HasOne
+    {
+        return $this->hasOne(Inventory::class);
+    }
+
+    public function equipment(): HasOne
+    {
+        return $this->hasOne(Equipment::class);
+    }
+
+    public function skills(): HasMany
+    {
+        return $this->hasMany(Skill::class);
+    }
+
+    public function activeEffects(): HasMany
+    {
+        return $this->hasMany(ActiveEffect::class);
+    }
+
+    public function getInventory(): Inventory
+    {
+        if ($this->inventory) {
+            return $this->inventory;
+        }
+        
+        return Inventory::createForCharacter($this->id ?? 1);
+    }
+
+    public function getEquipment(): Equipment
+    {
+        if ($this->equipment) {
+            return $this->equipment;
+        }
+        
+        return Equipment::createForCharacter($this->id ?? 1);
+    }
+
+    public function getCharacterWithInventory(): array
+    {
+        $inventory = $this->getInventory();
+        
+        return [
+            'character' => $this->getDetailedStats(),
+            'inventory' => $inventory->getInventoryData(),
+        ];
+    }
+
+    public function getCharacterWithEquipment(): array
+    {
+        $inventory = $this->getInventory();
+        $equipment = $this->getEquipment();
+        
+        return [
+            'character' => $this->getDetailedStats(),
+            'inventory' => $inventory->getInventoryData(),
+            'equipment' => $equipment->getEquippedItems(),
+            'equipment_stats' => $equipment->getTotalStats(),
+        ];
+    }
+
+    public function useSkill(string $skillName): array
+    {
+        $skill = $this->skills()->where('skill_name', $skillName)->where('is_active', true)->first();
+        
+        if (!$skill) {
+            return ['success' => false, 'message' => "スキル「{$skillName}」が見つからないか、無効になっています。"];
+        }
+
+        $spCost = $skill->getSkillSpCost();
+        
+        if (!$this->consumeSP($spCost)) {
+            return ['success' => false, 'message' => "SPが足りません。必要SP: {$spCost}"];
+        }
+
+        $this->save();
+
+        $experienceGained = $skill->calculateExperienceGain();
+        $leveledUp = $skill->gainExperience($experienceGained);
+
+        $effectResult = $skill->applySkillEffect($this->id);
+
+        return [
+            'success' => true,
+            'message' => "スキル「{$skillName}」を使用しました。",
+            'sp_consumed' => $spCost,
+            'remaining_sp' => $this->sp,
+            'experience_gained' => $experienceGained,
+            'leveled_up' => $leveledUp,
+            'effect_applied' => $effectResult,
+            'skill_level' => $skill->level,
+        ];
+    }
+
+    public function getSkill(string $skillName): ?Skill
+    {
+        return $this->skills()->where('skill_name', $skillName)->where('is_active', true)->first();
+    }
+
+    public function hasSkill(string $skillName): bool
+    {
+        return $this->getSkill($skillName) !== null;
+    }
+
+    public function getActiveSkills(): array
+    {
+        return $this->skills()->where('is_active', true)->get()->map(function($skill) {
+            return [
+                'id' => $skill->id,
+                'name' => $skill->skill_name,
+                'type' => $skill->skill_type,
+                'level' => $skill->level,
+                'experience' => $skill->experience,
+                'sp_cost' => $skill->getSkillSpCost(),
+                'can_use' => $this->sp >= $skill->getSkillSpCost(),
+                'effects' => $skill->getSkillEffects(),
+            ];
+        })->toArray();
     }
 }
