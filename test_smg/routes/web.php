@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\BattleController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\EquipmentController;
@@ -16,6 +17,14 @@ Route::post('/game/roll-dice', [GameController::class, 'rollDice'])->name('game.
 Route::post('/game/move', [GameController::class, 'move'])->name('game.move');
 Route::post('/game/move-to-next', [GameController::class, 'moveToNext'])->name('game.move-to-next');
 Route::post('/game/reset', [GameController::class, 'reset'])->name('game.reset');
+
+// Battle routes
+Route::get('/battle', [BattleController::class, 'index'])->name('battle.index');
+Route::post('/battle/start', [BattleController::class, 'startBattle'])->name('battle.start');
+Route::post('/battle/attack', [BattleController::class, 'attack'])->name('battle.attack');
+Route::post('/battle/defend', [BattleController::class, 'defend'])->name('battle.defend');
+Route::post('/battle/escape', [BattleController::class, 'escape'])->name('battle.escape');
+Route::post('/battle/end', [BattleController::class, 'endBattle'])->name('battle.end');
 
 // キャラクター関連ルート
 Route::get('/character', [CharacterController::class, 'index'])->name('character.index');

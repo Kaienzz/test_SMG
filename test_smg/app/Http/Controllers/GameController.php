@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\GameState;
 use App\Models\Character;
 use App\Models\ActiveEffect;
+use App\Models\Monster;
 use App\Services\MovementService;
 use App\Services\DummyDataService;
+use App\Services\BattleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
@@ -116,15 +118,30 @@ class GameController extends Controller
         $currentLocation = DummyDataService::getCurrentLocation();
         $nextLocation = DummyDataService::getNextLocation();
         
-        return response()->json([
+        // エンカウント判定
+        $currentLocationId = session('location_id', 'road_1');
+        $encounteredMonster = null;
+        
+        if (session('location_type') === 'road') {
+            $encounteredMonster = BattleService::checkEncounter($currentLocationId);
+        }
+        
+        $response = [
             'success' => true,
             'position' => $newPosition,
             'steps_moved' => abs($newPosition - $currentPosition),
             'currentLocation' => $currentLocation,
             'nextLocation' => $nextLocation,
             'canMoveToNext' => $newPosition >= 100,
-            'canMoveToPrevious' => $newPosition <= 0
-        ]);
+            'canMoveToPrevious' => $newPosition <= 0,
+        ];
+        
+        if ($encounteredMonster) {
+            $response['encounter'] = true;
+            $response['monster'] = $encounteredMonster;
+        }
+        
+        return response()->json($response);
     }
     
     public function moveToNext(Request $request): JsonResponse
