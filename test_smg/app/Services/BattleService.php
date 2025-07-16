@@ -58,9 +58,24 @@ class BattleService
     /**
      * 攻撃処理
      */
-    public static function calculateAttack(array $attacker, array $defender): array
+    public static function calculateAttack(array $attacker, array $defender, array $equipment = null): array
     {
-        $baseAttack = $attacker['attack'] ?? 10;
+        // 装備情報から武器タイプを判定
+        $weaponType = null;
+        $isMagicalAttack = false;
+        
+        if ($equipment && isset($equipment['weapon']) && $equipment['weapon']) {
+            $weaponType = $equipment['weapon']['weapon_type'] ?? 'physical';
+            $isMagicalAttack = $weaponType === 'magical';
+        }
+        
+        // 攻撃力の選択（物理武器は攻撃力、魔法武器は魔法攻撃力）
+        if ($isMagicalAttack) {
+            $baseAttack = $attacker['magic_attack'] ?? 8;
+        } else {
+            $baseAttack = $attacker['attack'] ?? 10;
+        }
+        
         $defense = $defender['defense'] ?? 5;
         $attackerAccuracy = $attacker['accuracy'] ?? 80;
         $defenderEvasion = $defender['evasion'] ?? 10;
@@ -70,11 +85,13 @@ class BattleService
         $hitRoll = mt_rand(1, 100);
         
         if ($hitRoll > $hitChance) {
+            $attackName = $isMagicalAttack ? '魔法攻撃' : '攻撃';
             return [
                 'hit' => false,
                 'damage' => 0,
                 'critical' => false,
-                'message' => '攻撃は外れた！'
+                'message' => $attackName . 'は外れた！',
+                'attack_type' => $isMagicalAttack ? 'magical' : 'physical'
             ];
         }
         
@@ -93,7 +110,8 @@ class BattleService
             'hit' => true,
             'damage' => $damage,
             'critical' => $critical,
-            'message' => $critical ? 'クリティカルヒット！' : ''
+            'message' => $critical ? 'クリティカルヒット！' : '',
+            'attack_type' => $isMagicalAttack ? 'magical' : 'physical'
         ];
     }
 
@@ -169,9 +187,27 @@ class BattleService
     /**
      * ダメージ適用
      */
-    public static function applyDamage(array $target, int $damage): array
+    public static function applyDamage(array $target, int $damage, string $damageType = 'physical', array $equipment = null): array
     {
-        $target['hp'] = max(0, $target['hp'] - $damage);
+        $finalDamage = $damage;
+        
+        // 装備による軽減効果を適用
+        if ($equipment) {
+            $reductionPercent = 0;
+            
+            // 装備の効果から軽減率を計算
+            if ($damageType === 'physical' && isset($equipment['effects']['physical_damage_reduction'])) {
+                $reductionPercent = $equipment['effects']['physical_damage_reduction'];
+            } elseif ($damageType === 'magical' && isset($equipment['effects']['magical_damage_reduction'])) {
+                $reductionPercent = $equipment['effects']['magical_damage_reduction'];
+            }
+            
+            if ($reductionPercent > 0) {
+                $finalDamage = (int) round($damage * (1 - $reductionPercent / 100));
+            }
+        }
+        
+        $target['hp'] = max(0, $target['hp'] - $finalDamage);
         return $target;
     }
 

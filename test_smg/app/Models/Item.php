@@ -3,10 +3,18 @@
 namespace App\Models;
 
 use App\Enums\ItemCategory;
+use App\Factories\ItemFactory;
+use App\Contracts\ItemInterface;
 use Illuminate\Database\Eloquent\Model;
 
 class Item extends Model
 {
+    /**
+     * 武器タイプの定数
+     */
+    const WEAPON_TYPE_PHYSICAL = 'physical';
+    const WEAPON_TYPE_MAGICAL = 'magical';
+
     protected $fillable = [
         'name',
         'description',
@@ -16,6 +24,8 @@ class Item extends Model
         'effects',
         'rarity',
         'value',
+        'battle_skill_id',
+        'weapon_type',
     ];
 
     protected $casts = [
@@ -84,6 +94,34 @@ class Item extends Model
         return $effects[$effectType] ?? 0;
     }
 
+    public function isWeapon(): bool
+    {
+        return $this->category === ItemCategory::WEAPON;
+    }
+
+    public function isMagicalWeapon(): bool
+    {
+        return $this->isWeapon() && $this->weapon_type === self::WEAPON_TYPE_MAGICAL;
+    }
+
+    public function isPhysicalWeapon(): bool
+    {
+        return $this->isWeapon() && $this->weapon_type === self::WEAPON_TYPE_PHYSICAL;
+    }
+
+    public function getBattleSkill(): ?BattleSkill
+    {
+        if (!$this->battle_skill_id) {
+            return null;
+        }
+        return BattleSkill::getSkillById($this->battle_skill_id);
+    }
+
+    public function hasBattleSkill(): bool
+    {
+        return !empty($this->battle_skill_id);
+    }
+
     public function getRarityName(): string
     {
         return match($this->rarity) {
@@ -127,6 +165,13 @@ class Item extends Model
             'is_usable' => $this->isUsable(),
             'has_durability' => $this->hasDurability(),
             'has_stack_limit' => $this->hasStackLimit(),
+            'battle_skill_id' => $this->battle_skill_id,
+            'weapon_type' => $this->weapon_type,
+            'is_weapon' => $this->isWeapon(),
+            'is_magical_weapon' => $this->isMagicalWeapon(),
+            'is_physical_weapon' => $this->isPhysicalWeapon(),
+            'has_battle_skill' => $this->hasBattleSkill(),
+            'battle_skill' => $this->getBattleSkill()?->getSkillInfo(),
         ];
     }
 
@@ -159,6 +204,29 @@ class Item extends Model
                 'effects' => ['attack' => 5],
                 'rarity' => 1,
                 'value' => 100,
+                'weapon_type' => self::WEAPON_TYPE_PHYSICAL,
+            ],
+            [
+                'name' => 'ファイヤーロッド',
+                'description' => '魔法攻撃力+6、ファイヤー魔法を使える杖',
+                'category' => ItemCategory::WEAPON,
+                'max_durability' => 80,
+                'effects' => ['magic_attack' => 6],
+                'rarity' => 2,
+                'value' => 150,
+                'weapon_type' => self::WEAPON_TYPE_MAGICAL,
+                'battle_skill_id' => 'fire_magic',
+            ],
+            [
+                'name' => 'アイスワンド',
+                'description' => '魔法攻撃力+5、アイス魔法を使える杖',
+                'category' => ItemCategory::WEAPON,
+                'max_durability' => 80,
+                'effects' => ['magic_attack' => 5],
+                'rarity' => 2,
+                'value' => 140,
+                'weapon_type' => self::WEAPON_TYPE_MAGICAL,
+                'battle_skill_id' => 'ice_magic',
             ],
             [
                 'name' => '革の鎧',
@@ -221,5 +289,83 @@ class Item extends Model
         }
         
         return null;
+    }
+
+    /**
+     * 新しいアイテムシステムのインスタンスに変換
+     */
+    public function toNewItemSystem(): ItemInterface
+    {
+        return ItemFactory::fromExistingItem($this);
+    }
+
+    /**
+     * 新しいアイテムシステムから既存のItemモデルを作成
+     */
+    public static function fromNewItemSystem(ItemInterface $newItem): self
+    {
+        $data = $newItem->getItemInfo();
+        
+        // 新しいシステムのデータを既存のシステムに適合させる
+        $legacyData = [
+            'name' => $data['name'],
+            'description' => $data['description'],
+            'category' => $data['category'],
+            'rarity' => $data['rarity'],
+            'value' => $data['value'],
+            'effects' => $data['effects'],
+            'stack_limit' => $data['stack_limit'] ?? null,
+            'max_durability' => $data['max_durability'] ?? null,
+        ];
+
+        // 武器固有のデータ
+        if (isset($data['weapon_type'])) {
+            $legacyData['weapon_type'] = $data['weapon_type'];
+        }
+        if (isset($data['battle_skill_id'])) {
+            $legacyData['battle_skill_id'] = $data['battle_skill_id'];
+        }
+
+        return new self($legacyData);
+    }
+
+    /**
+     * 新しいアイテムシステムとの互換性チェック
+     */
+    public function isCompatibleWithNewSystem(): bool
+    {
+        try {
+            $this->toNewItemSystem();
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * 新しいアイテムシステムを使用してアイテムを使用
+     */
+    public function useWithNewSystem(array $target): array
+    {
+        $newItem = $this->toNewItemSystem();
+        return $newItem->use($target);
+    }
+
+    /**
+     * アイテムの詳細情報を新しいシステム形式で取得
+     */
+    public function getDetailedInfo(): array
+    {
+        $newItem = $this->toNewItemSystem();
+        return $newItem->getItemInfo();
+    }
+
+    /**
+     * バックワード互換性のためのヘルパーメソッド
+     */
+    public function getNewSystemItemType(): string
+    {
+        $newItem = $this->toNewItemSystem();
+        return $newItem->item_type ?? 'unknown';
     }
 }

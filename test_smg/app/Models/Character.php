@@ -20,6 +20,9 @@ class Character extends Model
         'max_hp',
         'sp',
         'max_sp',
+        'mp',
+        'max_mp',
+        'magic_attack',
         'accuracy',
     ];
 
@@ -34,6 +37,9 @@ class Character extends Model
         'max_hp' => 'integer',
         'sp' => 'integer',
         'max_sp' => 'integer',
+        'mp' => 'integer',
+        'max_mp' => 'integer',
+        'magic_attack' => 'integer',
         'accuracy' => 'integer',
     ];
 
@@ -51,6 +57,14 @@ class Character extends Model
             return 0;
         }
         return ($this->sp / $this->max_sp) * 100;
+    }
+
+    public function getMpPercentage(): float
+    {
+        if ($this->max_mp <= 0) {
+            return 0;
+        }
+        return ($this->mp / $this->max_mp) * 100;
     }
 
     public function isAlive(): bool
@@ -82,6 +96,20 @@ class Character extends Model
         $this->sp = min($this->max_sp, $this->sp + $amount);
     }
 
+    public function consumeMP(int $amount): bool
+    {
+        if ($this->mp < $amount) {
+            return false;
+        }
+        $this->mp -= $amount;
+        return true;
+    }
+
+    public function restoreMP(int $amount): void
+    {
+        $this->mp = min($this->max_mp, $this->mp + $amount);
+    }
+
     public function getStatusSummary(): array
     {
         return [
@@ -89,8 +117,10 @@ class Character extends Model
             'level' => $this->level,
             'hp' => "{$this->hp}/{$this->max_hp}",
             'sp' => "{$this->sp}/{$this->max_sp}",
+            'mp' => "{$this->mp}/{$this->max_mp}",
             'hp_percentage' => $this->getHpPercentage(),
             'sp_percentage' => $this->getSpPercentage(),
+            'mp_percentage' => $this->getMpPercentage(),
             'is_alive' => $this->isAlive(),
         ];
     }
@@ -105,6 +135,7 @@ class Character extends Model
             ],
             'combat_stats' => [
                 'attack' => $this->attack,
+                'magic_attack' => $this->magic_attack,
                 'defense' => $this->defense,
                 'agility' => $this->agility,
                 'evasion' => $this->evasion,
@@ -115,8 +146,11 @@ class Character extends Model
                 'max_hp' => $this->max_hp,
                 'sp' => $this->sp,
                 'max_sp' => $this->max_sp,
+                'mp' => $this->mp,
+                'max_mp' => $this->max_mp,
                 'hp_percentage' => $this->getHpPercentage(),
                 'sp_percentage' => $this->getSpPercentage(),
+                'mp_percentage' => $this->getMpPercentage(),
             ],
         ];
     }
@@ -128,6 +162,7 @@ class Character extends Model
             'level' => 1,
             'experience' => 0,
             'attack' => 10,
+            'magic_attack' => 8,
             'defense' => 8,
             'agility' => 12,
             'evasion' => 15,
@@ -135,6 +170,8 @@ class Character extends Model
             'max_hp' => 100,
             'sp' => 50,
             'max_sp' => 50,
+            'mp' => 30,
+            'max_mp' => 30,
             'accuracy' => 85,
         ]);
     }
@@ -145,7 +182,9 @@ class Character extends Model
         
         $hpIncrease = rand(8, 15);
         $spIncrease = rand(3, 8);
+        $mpIncrease = rand(2, 6);
         $attackIncrease = rand(2, 5);
+        $magicAttackIncrease = rand(1, 4);
         $defenseIncrease = rand(1, 4);
         $agilityIncrease = rand(1, 3);
         $evasionIncrease = rand(1, 3);
@@ -155,7 +194,10 @@ class Character extends Model
         $this->hp = $this->max_hp;
         $this->max_sp += $spIncrease;
         $this->sp = $this->max_sp;
+        $this->max_mp += $mpIncrease;
+        $this->mp = $this->max_mp;
         $this->attack += $attackIncrease;
+        $this->magic_attack += $magicAttackIncrease;
         $this->defense += $defenseIncrease;
         $this->agility += $agilityIncrease;
         $this->evasion += $evasionIncrease;

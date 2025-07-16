@@ -101,6 +101,55 @@ class Equipment extends Model
         return $stats;
     }
 
+    public function getAvailableBattleSkills(): array
+    {
+        $skills = [];
+        
+        $equipmentSlots = [
+            'weapon',
+            'bodyArmor',
+            'shield',
+            'helmet',
+            'boots',
+            'accessory',
+        ];
+
+        foreach ($equipmentSlots as $slot) {
+            $item = $this->$slot;
+            if ($item && $item->hasBattleSkill()) {
+                $skill = $item->getBattleSkill();
+                if ($skill) {
+                    $skills[] = $skill->getSkillInfo();
+                }
+            }
+        }
+
+        return $skills;
+    }
+
+    public function getEquippedWeapon(): ?Item
+    {
+        return $this->weapon;
+    }
+
+    public function getWeaponType(): ?string
+    {
+        $weapon = $this->getEquippedWeapon();
+        return $weapon?->weapon_type;
+    }
+
+    public function isMagicalWeaponEquipped(): bool
+    {
+        $weapon = $this->getEquippedWeapon();
+        return $weapon && $weapon->isMagicalWeapon();
+    }
+
+    public function isPhysicalWeaponEquipped(): bool
+    {
+        $weapon = $this->getEquippedWeapon();
+        return $weapon && $weapon->isPhysicalWeapon();
+    }
+
     public function getEquippedItems(): array
     {
         return [

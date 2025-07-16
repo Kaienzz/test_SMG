@@ -24,6 +24,7 @@ Route::post('/battle/start', [BattleController::class, 'startBattle'])->name('ba
 Route::post('/battle/attack', [BattleController::class, 'attack'])->name('battle.attack');
 Route::post('/battle/defend', [BattleController::class, 'defend'])->name('battle.defend');
 Route::post('/battle/escape', [BattleController::class, 'escape'])->name('battle.escape');
+Route::post('/battle/skill', [BattleController::class, 'useSkill'])->name('battle.skill');
 Route::post('/battle/end', [BattleController::class, 'endBattle'])->name('battle.end');
 
 // キャラクター関連ルート

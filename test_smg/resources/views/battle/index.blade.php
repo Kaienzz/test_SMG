@@ -124,9 +124,76 @@
             background: #ffc107;
             color: black;
         }
+        .skill-btn {
+            background: #6f42c1;
+            color: white;
+        }
         .continue-btn {
             background: #28a745;
             color: white;
+        }
+        .mp-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            position: relative;
+            margin: 10px 0;
+        }
+        .mp-fill {
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #6f42c1, #8b5cf6);
+            transition: width 0.3s ease;
+        }
+        .mp-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            font-size: 12px;
+        }
+        .skill-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border: 2px solid #6f42c1;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 100;
+            min-width: 200px;
+        }
+        .skill-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .skill-item:last-child {
+            border-bottom: none;
+        }
+        .skill-item:hover {
+            background: #f8f9fa;
+        }
+        .skill-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .skill-cost {
+            font-size: 12px;
+            color: #6f42c1;
+            font-weight: bold;
+        }
+        .skill-button-container {
+            position: relative;
+            display: inline-block;
         }
         .battle-log {
             background: #f8f9fa;
@@ -210,11 +277,15 @@
                     <div class="hp-fill character-hp" id="character-hp" style="width: {{ ($character['hp'] / $character['max_hp']) * 100 }}%"></div>
                     <div class="hp-text" id="character-hp-text">{{ $character['hp'] }}/{{ $character['max_hp'] }}</div>
                 </div>
+                <div class="mp-bar">
+                    <div class="mp-fill" id="character-mp" style="width: {{ ($character['mp'] / $character['max_mp']) * 100 }}%"></div>
+                    <div class="mp-text" id="character-mp-text">{{ $character['mp'] }}/{{ $character['max_mp'] }}</div>
+                </div>
                 <div class="stats">
                     <div class="stat">攻撃力: {{ $character['attack'] }}</div>
+                    <div class="stat">魔法攻撃力: {{ $character['magic_attack'] }}</div>
                     <div class="stat">防御力: {{ $character['defense'] }}</div>
                     <div class="stat">素早さ: {{ $character['agility'] }}</div>
-                    <div class="stat">回避率: {{ $character['evasion'] }}</div>
                 </div>
             </div>
             
@@ -246,8 +317,14 @@
         </div>
         
         <div class="battle-actions" id="battle-actions">
-            <button class="action-btn attack-btn" onclick="performAction('attack')">攻撃</button>
+            <button class="action-btn attack-btn" onclick="performAction('attack')" id="attack-button">攻撃</button>
             <button class="action-btn defend-btn" onclick="performAction('defend')">防御</button>
+            <div class="skill-button-container">
+                <button class="action-btn skill-btn" onclick="toggleSkillMenu()" id="skill-button">特技</button>
+                <div class="skill-menu" id="skill-menu">
+                    <!-- 特技一覧がここに表示される -->
+                </div>
+            </div>
             <button class="action-btn escape-btn" onclick="performAction('escape')">
                 逃げる
                 <div class="escape-rate" id="escape-rate"></div>
@@ -270,19 +347,24 @@
         let battleData = @json($battle);
         let currentTurn = 1;
         let battleEnded = false;
+        let availableSkills = [];
         
-        function performAction(action) {
+        function performAction(action, skillId = null) {
             if (battleEnded) return;
             
             const buttons = document.querySelectorAll('.action-btn');
             buttons.forEach(btn => btn.disabled = true);
             
-            fetch(`/battle/${action}`, {
+            const url = skillId ? '/battle/skill' : `/battle/${action}`;
+            const requestData = skillId ? { skill_id: skillId } : {};
+            
+            fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
+                },
+                body: JSON.stringify(requestData)
             })
             .then(response => response.json())
             .then(data => {
@@ -325,10 +407,18 @@
             document.getElementById('character-hp').style.width = characterHpPercentage + '%';
             document.getElementById('character-hp-text').textContent = `${character.hp}/${character.max_hp}`;
             
+            // キャラクターMP更新
+            const characterMpPercentage = (character.mp / character.max_mp) * 100;
+            document.getElementById('character-mp').style.width = characterMpPercentage + '%';
+            document.getElementById('character-mp-text').textContent = `${character.mp}/${character.max_mp}`;
+            
             // モンスターHP更新
             const monsterHpPercentage = (monster.hp / monster.max_hp) * 100;
             document.getElementById('monster-hp').style.width = monsterHpPercentage + '%';
             document.getElementById('monster-hp-text').textContent = `${monster.hp}/${monster.max_hp}`;
+            
+            // 特技メニューを更新
+            updateSkillMenu(character);
         }
         
         function updateBattleLog(battleLog) {
@@ -411,6 +501,86 @@
             });
         }
         
+        function toggleSkillMenu() {
+            const skillMenu = document.getElementById('skill-menu');
+            if (skillMenu.style.display === 'none' || skillMenu.style.display === '') {
+                skillMenu.style.display = 'block';
+            } else {
+                skillMenu.style.display = 'none';
+            }
+        }
+
+        function updateSkillMenu(character) {
+            // 装備から使用可能な特技を取得（仮実装）
+            updateAvailableSkills(character);
+            const skillMenu = document.getElementById('skill-menu');
+            skillMenu.innerHTML = '';
+
+            if (availableSkills.length === 0) {
+                const noSkillItem = document.createElement('div');
+                noSkillItem.className = 'skill-item disabled';
+                noSkillItem.textContent = '使用可能な特技がありません';
+                skillMenu.appendChild(noSkillItem);
+                return;
+            }
+
+            availableSkills.forEach(skill => {
+                const skillItem = document.createElement('div');
+                skillItem.className = 'skill-item';
+                
+                const canUse = character.mp >= skill.mp_cost;
+                if (!canUse) {
+                    skillItem.classList.add('disabled');
+                }
+
+                skillItem.innerHTML = `
+                    <span>${skill.name}</span>
+                    <span class="skill-cost">MP ${skill.mp_cost}</span>
+                `;
+
+                if (canUse) {
+                    skillItem.onclick = function() {
+                        document.getElementById('skill-menu').style.display = 'none';
+                        performAction('skill', skill.skill_id);
+                    };
+                }
+
+                skillMenu.appendChild(skillItem);
+            });
+        }
+
+        function updateAvailableSkills(character) {
+            // 実際の実装では装備から特技を取得
+            // 仮実装として基本的な特技を設定
+            availableSkills = [
+                {
+                    skill_id: 'fire_magic',
+                    name: 'ファイヤー',
+                    mp_cost: 5
+                },
+                {
+                    skill_id: 'heal',
+                    name: 'ヒール',
+                    mp_cost: 4
+                }
+            ];
+        }
+
+        function updateAttackButtonText(isMagicalWeapon) {
+            const attackButton = document.getElementById('attack-button');
+            attackButton.textContent = isMagicalWeapon ? '魔法攻撃' : '攻撃';
+        }
+
+        // スキルメニューの外側をクリックで閉じる
+        document.addEventListener('click', function(event) {
+            const skillMenu = document.getElementById('skill-menu');
+            const skillButton = document.getElementById('skill-button');
+            
+            if (!skillButton.contains(event.target) && !skillMenu.contains(event.target)) {
+                skillMenu.style.display = 'none';
+            }
+        });
+
         // 初期化時に逃走率を設定
         document.addEventListener('DOMContentLoaded', function() {
             const character = battleData.character;
@@ -422,6 +592,9 @@
             const escapeRate = Math.max(10, Math.min(90, baseEscapeRate + (speedDifference * 3)));
             
             document.getElementById('escape-rate').textContent = `成功率: ${escapeRate}%`;
+            
+            // 特技メニューを初期化
+            updateSkillMenu(character);
         });
     </script>
 </body>
