@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('characters', function (Blueprint $table) {
-            $table->integer('gold')->default(1000)->after('accuracy');
+            $table->integer('mp')->default(20)->after('max_sp');
+            $table->integer('max_mp')->default(20)->after('mp');
+            $table->integer('magic_attack')->default(8)->after('accuracy');
         });
     }
 
@@ -22,7 +24,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('characters', function (Blueprint $table) {
-            $table->dropColumn('gold');
+            $table->dropColumn(['mp', 'max_mp', 'magic_attack']);
         });
     }
 };

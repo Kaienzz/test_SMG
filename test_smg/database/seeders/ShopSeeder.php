@@ -8,6 +8,7 @@ use App\Models\Shop;
 use App\Models\ShopItem;
 use App\Models\Item;
 use App\Enums\ShopType;
+use App\Enums\ItemCategory;
 
 class ShopSeeder extends Seeder
 {
@@ -24,11 +25,10 @@ class ShopSeeder extends Seeder
             ['name' => 'ポーション'],
             [
                 'description' => 'HPを50回復する',
-                'category' => 'consumable',
+                'category' => ItemCategory::POTION->value,
                 'rarity' => 1,
-                'effects' => json_encode(['heal_hp' => 50]),
-                'is_equippable' => false,
-                'is_usable' => true,
+                'effects' => ['heal_hp' => 50],
+                'value' => 100,
             ]
         );
 
@@ -36,11 +36,10 @@ class ShopSeeder extends Seeder
             ['name' => 'エーテル'],
             [
                 'description' => 'SPを30回復する',
-                'category' => 'consumable',
+                'category' => ItemCategory::POTION->value,
                 'rarity' => 1,
-                'effects' => json_encode(['heal_sp' => 30]),
-                'is_equippable' => false,
-                'is_usable' => true,
+                'effects' => ['heal_sp' => 30],
+                'value' => 150,
             ]
         );
     }

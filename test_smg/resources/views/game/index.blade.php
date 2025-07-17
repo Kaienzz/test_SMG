@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>ブラウザゲーム - 町と道の冒険</title>
-    <link rel="stylesheet" href="{{ asset('css/game.css') }}">
+    <link rel="stylesheet" href="/css/game.css">
 </head>
 <body>
     <div class="game-container">
@@ -24,7 +24,7 @@
         @include('game.partials.game_controls')
     </div>
 
-    <script src="{{ asset('js/game.js') }}"></script>
+    <script src="/js/game.js"></script>
     <script>
         // ゲームデータの初期化
         const gameData = @json([

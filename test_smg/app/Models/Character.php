@@ -10,7 +10,6 @@ class Character extends Model
 {
     protected $fillable = [
         'name',
-        'level',
         'experience',
         'attack',
         'defense',
@@ -28,7 +27,6 @@ class Character extends Model
     ];
 
     protected $casts = [
-        'level' => 'integer',
         'experience' => 'integer',
         'attack' => 'integer',
         'defense' => 'integer',
@@ -116,7 +114,6 @@ class Character extends Model
     {
         return [
             'name' => $this->name,
-            'level' => $this->level,
             'hp' => "{$this->hp}/{$this->max_hp}",
             'sp' => "{$this->sp}/{$this->max_sp}",
             'mp' => "{$this->mp}/{$this->max_mp}",
@@ -132,7 +129,6 @@ class Character extends Model
         return [
             'basic_info' => [
                 'name' => $this->name,
-                'level' => $this->level,
                 'experience' => $this->experience,
             ],
             'combat_stats' => [
@@ -161,7 +157,6 @@ class Character extends Model
     {
         return new self([
             'name' => $name,
-            'level' => 1,
             'experience' => 0,
             'attack' => 10,
             'magic_attack' => 8,
@@ -179,51 +174,9 @@ class Character extends Model
         ]);
     }
 
-    public function levelUp(): void
-    {
-        $this->level++;
-        
-        $hpIncrease = rand(8, 15);
-        $spIncrease = rand(3, 8);
-        $mpIncrease = rand(2, 6);
-        $attackIncrease = rand(2, 5);
-        $magicAttackIncrease = rand(1, 4);
-        $defenseIncrease = rand(1, 4);
-        $agilityIncrease = rand(1, 3);
-        $evasionIncrease = rand(1, 3);
-        $accuracyIncrease = rand(1, 2);
-
-        $this->max_hp += $hpIncrease;
-        $this->hp = $this->max_hp;
-        $this->max_sp += $spIncrease;
-        $this->sp = $this->max_sp;
-        $this->max_mp += $mpIncrease;
-        $this->mp = $this->max_mp;
-        $this->attack += $attackIncrease;
-        $this->magic_attack += $magicAttackIncrease;
-        $this->defense += $defenseIncrease;
-        $this->agility += $agilityIncrease;
-        $this->evasion += $evasionIncrease;
-        $this->accuracy += $accuracyIncrease;
-    }
-
-    public function getExperienceToNextLevel(): int
-    {
-        return $this->level * 100;
-    }
-
-    public function gainExperience(int $amount): bool
+    public function gainExperience(int $amount): void
     {
         $this->experience += $amount;
-        $requiredExp = $this->getExperienceToNextLevel();
-        
-        if ($this->experience >= $requiredExp) {
-            $this->experience -= $requiredExp;
-            $this->levelUp();
-            return true;
-        }
-        
-        return false;
     }
 
     public function inventory(): HasOne

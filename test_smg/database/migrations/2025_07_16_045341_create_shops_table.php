@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['location_id', 'location_type', 'shop_type']);
-        })
+        });
     }
 
     /**

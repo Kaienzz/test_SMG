@@ -103,10 +103,19 @@ class DiceManager {
         
         const diceResult = document.getElementById('dice-result');
         const diceTotal = document.getElementById('dice-total');
-        if (diceResult) diceResult.classList.remove('hidden');
+        const diceToggle = document.getElementById('dice-display-toggle');
+        
+        // ダイス表示の制御
+        if (diceToggle && diceToggle.checked) {
+            if (diceResult) diceResult.classList.remove('hidden');
+        } else {
+            if (diceResult) diceResult.classList.add('hidden');
+        }
+        
         if (diceTotal) diceTotal.classList.remove('hidden');
         
-        if (this.gameManager.gameData.player.current_location_type === 'road') {
+        const movableLocations = ['road', 'dungeon'];
+        if (movableLocations.includes(this.gameManager.gameData.player.current_location_type)) {
             const movementControls = document.getElementById('movement-controls');
             const moveLeft = document.getElementById('move-left');
             const moveRight = document.getElementById('move-right');
@@ -114,7 +123,7 @@ class DiceManager {
             if (moveLeft) moveLeft.disabled = false;
             if (moveRight) moveRight.disabled = false;
         } else {
-            alert('町にいるときはサイコロを振っても移動できません。道路に移動してください。');
+            alert('町にいるときはサイコロを振っても移動できません。道路やダンジョンに移動してください。');
         }
     }
 }
@@ -253,7 +262,10 @@ class UIManager {
     updateGameDisplay(data) {
         document.getElementById('current-location').textContent = data.currentLocation.name;
         
-        if (data.currentLocation.name.includes('町')) {
+        const townLocations = ['town'];
+        const movableLocations = ['road', 'dungeon'];
+        
+        if (data.currentLocation.name.includes('町') || townLocations.includes(this.gameManager.gameData.player.current_location_type)) {
             document.getElementById('location-type').textContent = '町にいます';
             const progressBar = document.querySelector('.progress-bar');
             if (progressBar) {
@@ -262,24 +274,28 @@ class UIManager {
             // 町にいるときはサイコロと移動コントロールを非表示
             const diceContainer = document.getElementById('dice-container');
             if (diceContainer) {
-                diceContainer.innerHTML = '<h3>' + data.currentLocation.name + 'にいます</h3><p>道路に移動すると、サイコロを振って移動できます。</p><p>今後、この町の店舗リストが表示される予定です。</p>';
+                diceContainer.innerHTML = '<h3>' + data.currentLocation.name + 'にいます</h3><p>道路やダンジョンに移動すると、サイコロを振って移動できます。</p>';
             }
             this.hideMovementControls();
             this.hideDiceResult();
-        } else {
-            document.getElementById('location-type').textContent = '道を歩いています';
-            const progressBar = document.querySelector('.progress-bar');
-            if (progressBar) {
-                progressBar.style.display = 'block';
-            }
-            const progressFill = document.getElementById('progress-fill');
-            const progressText = document.getElementById('progress-text');
-            if (progressFill && progressText) {
-                progressFill.style.width = data.position + '%';
-                progressText.textContent = data.position + '/100';
+        } else if (movableLocations.includes(this.gameManager.gameData.player.current_location_type)) {
+            const locationType = this.gameManager.gameData.player.current_location_type === 'road' ? '道を歩いています' : 'ダンジョンにいます';
+            document.getElementById('location-type').textContent = locationType;
+            
+            if (this.gameManager.gameData.player.current_location_type === 'road') {
+                const progressBar = document.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.display = 'block';
+                }
+                const progressFill = document.getElementById('progress-fill');
+                const progressText = document.getElementById('progress-text');
+                if (progressFill && progressText) {
+                    progressFill.style.width = data.position + '%';
+                    progressText.textContent = data.position + '/100';
+                }
             }
             
-            // 道路にいるときはサイコロコンテナを復元
+            // 移動可能場所にいるときはサイコロコンテナを復元
             const diceContainer = document.getElementById('dice-container');
             if (diceContainer && !diceContainer.innerHTML.includes('サイコロを振って移動しよう！')) {
                 diceContainer.innerHTML = this.getDiceContainerHTML();
@@ -460,4 +476,17 @@ function resetGame() {
         gameManager.hideMovementControls();
         gameManager.hideDiceResult();
     });
+}
+
+function toggleDiceDisplay() {
+    const diceResult = document.getElementById('dice-result');
+    const diceToggle = document.getElementById('dice-display-toggle');
+    
+    if (diceToggle && diceResult) {
+        if (diceToggle.checked) {
+            diceResult.classList.remove('hidden');
+        } else {
+            diceResult.classList.add('hidden');
+        }
+    }
 }

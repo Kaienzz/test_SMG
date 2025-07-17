@@ -1,4 +1,4 @@
-@if($player->current_location_type === 'road')
+@if(in_array($player->current_location_type, ['road', 'dungeon']))
     <div class="dice-container" id="dice-container">
         <h3>サイコロを振って移動しよう！</h3>
         
@@ -14,7 +14,16 @@
             @endif
         </div>
         
-        <button class="btn btn-primary" id="roll-dice" onclick="rollDice()">サイコロを振る</button>
+        <div class="dice-controls">
+            <button class="btn btn-primary" id="roll-dice" onclick="rollDice()">サイコロを振る</button>
+            
+            <div class="dice-toggle">
+                <label class="toggle-label">
+                    <input type="checkbox" id="dice-display-toggle" checked onchange="toggleDiceDisplay()">
+                    <span class="toggle-text">🎲 ダイス表示</span>
+                </label>
+            </div>
+        </div>
         
         <div class="dice-display hidden" id="dice-result">
             <div id="all-dice"></div>

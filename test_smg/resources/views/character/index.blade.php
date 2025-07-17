@@ -339,11 +339,7 @@
         <h1 class="character-name">{{ $character->name }}</h1>
 
         <div class="level-info">
-            <div class="level">レベル {{ $character->level }}</div>
-            <div>経験値: {{ $character->experience }} / {{ $character->getExperienceToNextLevel() }}</div>
-            <div class="experience-bar">
-                <div class="experience-fill" style="width: {{ ($character->experience / $character->getExperienceToNextLevel()) * 100 }}%"></div>
-            </div>
+            <div>経験値: {{ $character->experience }}</div>
         </div>
 
         <div class="game-card">
@@ -378,7 +374,6 @@
                         <span class="stat-label">
                             @switch($key)
                                 @case('name') 名前 @break
-                                @case('level') レベル @break
                                 @case('experience') 経験値 @break
                                 @default {{ $key }}
                             @endswitch

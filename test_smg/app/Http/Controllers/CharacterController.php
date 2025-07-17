@@ -102,17 +102,13 @@ class CharacterController extends Controller
         $character = $this->getOrCreateCharacter();
         $amount = $request->input('amount', 50);
         
-        $leveledUp = $character->gainExperience($amount);
+        $character->gainExperience($amount);
         
         $message = "経験値を{$amount}獲得しました";
-        if ($leveledUp) {
-            $message .= "！レベルアップしました！";
-        }
 
         return response()->json([
             'success' => true,
             'message' => $message,
-            'leveled_up' => $leveledUp,
             'character' => $character->getDetailedStats(),
         ]);
     }
@@ -147,7 +143,6 @@ class CharacterController extends Controller
     {
         $character = $this->getOrCreateCharacter();
         
-        $character->level = 1;
         $character->experience = 0;
         $character->attack = 10;
         $character->defense = 8;

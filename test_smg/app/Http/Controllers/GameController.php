@@ -17,6 +17,16 @@ class GameController extends Controller
 {
     public function index(): View
     {
+        // セッションの初期化（初回アクセス時）
+        if (!session()->has('location_type')) {
+            session([
+                'location_type' => 'town',
+                'location_id' => 'town_a',
+                'game_position' => 0,
+                'character_sp' => 30,
+            ]);
+        }
+        
         $character = DummyDataService::getCharacter(1);
         $playerData = DummyDataService::getPlayer();
         $currentLocation = DummyDataService::getCurrentLocation();
