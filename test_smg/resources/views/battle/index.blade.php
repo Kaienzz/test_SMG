@@ -311,9 +311,6 @@
         <div class="battle-result hidden" id="battle-result">
             <h2 id="result-title"></h2>
             <p id="result-message"></p>
-            <div id="experience-gained" class="hidden">
-                <strong>経験値: <span id="exp-amount"></span></strong>
-            </div>
         </div>
         
         <div class="battle-actions" id="battle-actions">

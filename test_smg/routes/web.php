@@ -37,7 +37,6 @@ Route::post('/character', [CharacterController::class, 'store'])->name('characte
 Route::get('/character/show', [CharacterController::class, 'show'])->name('character.show');
 Route::post('/character/heal', [CharacterController::class, 'heal'])->name('character.heal');
 Route::post('/character/restore-mp', [CharacterController::class, 'restoreMp'])->name('character.restore-mp');
-Route::post('/character/gain-experience', [CharacterController::class, 'gainExperience'])->name('character.gain-experience');
 Route::post('/character/take-damage', [CharacterController::class, 'takeDamage'])->name('character.take-damage');
 Route::post('/character/reset', [CharacterController::class, 'reset'])->name('character.reset');
 

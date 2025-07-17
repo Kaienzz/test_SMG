@@ -160,11 +160,9 @@ class BattleService
     public static function processBattleResult(array $character, array $monster, string $result): array
     {
         if ($result === 'victory') {
-            $experienceGained = $monster['experience_reward'] ?? 0;
             return [
                 'result' => 'victory',
-                'experience_gained' => $experienceGained,
-                'message' => "{$monster['name']}を倒した！経験値{$experienceGained}を獲得！"
+                'message' => "{$monster['name']}を倒した！"
             ];
         } elseif ($result === 'defeat') {
             return [

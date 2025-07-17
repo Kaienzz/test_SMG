@@ -338,9 +338,6 @@
 
         <h1 class="character-name">{{ $character->name }}</h1>
 
-        <div class="level-info">
-            <div>経験値: {{ $character->experience }}</div>
-        </div>
 
         <div class="game-card">
             <div class="hp-mp-bars">
@@ -374,7 +371,6 @@
                         <span class="stat-label">
                             @switch($key)
                                 @case('name') 名前 @break
-                                @case('experience') 経験値 @break
                                 @default {{ $key }}
                             @endswitch
                         </span>

@@ -10,7 +10,6 @@ class Character extends Model
 {
     protected $fillable = [
         'name',
-        'experience',
         'attack',
         'defense',
         'agility',
@@ -27,7 +26,6 @@ class Character extends Model
     ];
 
     protected $casts = [
-        'experience' => 'integer',
         'attack' => 'integer',
         'defense' => 'integer',
         'agility' => 'integer',
@@ -129,7 +127,6 @@ class Character extends Model
         return [
             'basic_info' => [
                 'name' => $this->name,
-                'experience' => $this->experience,
             ],
             'combat_stats' => [
                 'attack' => $this->attack,
@@ -157,7 +154,6 @@ class Character extends Model
     {
         return new self([
             'name' => $name,
-            'experience' => 0,
             'attack' => 10,
             'magic_attack' => 8,
             'defense' => 8,
@@ -174,10 +170,6 @@ class Character extends Model
         ]);
     }
 
-    public function gainExperience(int $amount): void
-    {
-        $this->experience += $amount;
-    }
 
     public function inventory(): HasOne
     {

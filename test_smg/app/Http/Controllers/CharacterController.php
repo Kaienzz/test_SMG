@@ -93,25 +93,6 @@ class CharacterController extends Controller
         ]);
     }
 
-    public function gainExperience(Request $request): JsonResponse
-    {
-        $request->validate([
-            'amount' => 'integer|min:1|max:10000'
-        ]);
-
-        $character = $this->getOrCreateCharacter();
-        $amount = $request->input('amount', 50);
-        
-        $character->gainExperience($amount);
-        
-        $message = "経験値を{$amount}獲得しました";
-
-        return response()->json([
-            'success' => true,
-            'message' => $message,
-            'character' => $character->getDetailedStats(),
-        ]);
-    }
 
     public function takeDamage(Request $request): JsonResponse
     {
@@ -143,7 +124,6 @@ class CharacterController extends Controller
     {
         $character = $this->getOrCreateCharacter();
         
-        $character->experience = 0;
         $character->attack = 10;
         $character->defense = 8;
         $character->agility = 12;

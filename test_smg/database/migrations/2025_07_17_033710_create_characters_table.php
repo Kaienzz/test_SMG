@@ -14,7 +14,6 @@ return new class extends Migration
         Schema::create('characters', function (Blueprint $table) {
             $table->id();
             $table->string('name')->default('冒険者');
-            $table->integer('experience')->default(0);
             $table->integer('attack')->default(10);
             $table->integer('defense')->default(8);
             $table->integer('agility')->default(12);
