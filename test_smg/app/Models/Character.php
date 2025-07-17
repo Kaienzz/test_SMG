@@ -24,6 +24,7 @@ class Character extends Model
         'max_mp',
         'magic_attack',
         'accuracy',
+        'gold',
     ];
 
     protected $casts = [
@@ -41,6 +42,7 @@ class Character extends Model
         'max_mp' => 'integer',
         'magic_attack' => 'integer',
         'accuracy' => 'integer',
+        'gold' => 'integer',
     ];
 
     public function getHpPercentage(): float
@@ -173,6 +175,7 @@ class Character extends Model
             'mp' => 30,
             'max_mp' => 30,
             'accuracy' => 85,
+            'gold' => 1000,
         ]);
     }
 
@@ -341,5 +344,24 @@ class Character extends Model
                 'effects' => $skill->getSkillEffects(),
             ];
         })->toArray();
+    }
+
+    public function spendGold(int $amount): bool
+    {
+        if ($this->gold >= $amount) {
+            $this->gold -= $amount;
+            return true;
+        }
+        return false;
+    }
+
+    public function addGold(int $amount): void
+    {
+        $this->gold += $amount;
+    }
+
+    public function hasGold(int $amount): bool
+    {
+        return $this->gold >= $amount;
     }
 }

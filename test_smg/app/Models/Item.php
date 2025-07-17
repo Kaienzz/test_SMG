@@ -24,6 +24,7 @@ class Item extends Model
         'effects',
         'rarity',
         'value',
+        'sell_price',
         'battle_skill_id',
         'weapon_type',
     ];
@@ -35,6 +36,7 @@ class Item extends Model
         'effects' => 'array',
         'rarity' => 'integer',
         'value' => 'integer',
+        'sell_price' => 'integer',
     ];
 
     public function getDisplayName(): string
@@ -146,6 +148,11 @@ class Item extends Model
         };
     }
 
+    public function getSellPrice(): int
+    {
+        return $this->sell_price ?? (int)($this->value * 0.5);
+    }
+
     public function getItemInfo(): array
     {
         return [
@@ -161,6 +168,7 @@ class Item extends Model
             'rarity_name' => $this->getRarityName(),
             'rarity_color' => $this->getRarityColor(),
             'value' => $this->value,
+            'sell_price' => $this->getSellPrice(),
             'is_equippable' => $this->isEquippable(),
             'is_usable' => $this->isUsable(),
             'has_durability' => $this->hasDurability(),

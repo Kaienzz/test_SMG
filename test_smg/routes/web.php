@@ -7,6 +7,9 @@ use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\EquipmentController;
 use App\Http\Controllers\SkillController;
+use App\Http\Controllers\ShopController;
+use App\Http\Controllers\ItemShopController;
+use App\Http\Controllers\BlacksmithController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -64,3 +67,15 @@ Route::post('/skills/use', [SkillController::class, 'useSkill'])->name('skills.u
 Route::post('/skills/add-sample', [SkillController::class, 'addSampleSkill'])->name('skills.add-sample');
 Route::get('/skills/active-effects', [SkillController::class, 'getActiveEffects'])->name('skills.active-effects');
 Route::post('/skills/decrease-durations', [SkillController::class, 'decreaseEffectDurations'])->name('skills.decrease-durations');
+
+// ショップ関連ルート（抽象化後）
+Route::get('/shops/item', [ItemShopController::class, 'index'])->name('shops.item.index');
+Route::get('/shops/item/inventory', [ItemShopController::class, 'inventory'])->name('shops.item.inventory');
+Route::post('/shops/item/transaction', [ItemShopController::class, 'processTransaction'])->name('shops.item.transaction');
+
+Route::get('/shops/blacksmith', [BlacksmithController::class, 'index'])->name('shops.blacksmith.index');
+Route::post('/shops/blacksmith/transaction', [BlacksmithController::class, 'processTransaction'])->name('shops.blacksmith.transaction');
+
+// 旧ショップルート（互換性のため残す）
+Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
+Route::post('/shop/purchase', [ShopController::class, 'purchase'])->name('shop.purchase');
