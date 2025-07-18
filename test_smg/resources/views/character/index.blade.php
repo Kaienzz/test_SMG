@@ -182,6 +182,10 @@
             background: linear-gradient(90deg, #3b82f6, #8b5cf6);
         }
 
+        .sp-bar {
+            background: linear-gradient(90deg, #f59e0b, #eab308);
+        }
+
         .btn {
             padding: var(--space-3) var(--space-5);
             border-radius: var(--radius-md);
@@ -223,6 +227,11 @@
 
         .btn-warning {
             background: var(--warning);
+            color: white;
+        }
+
+        .btn-info {
+            background: var(--info);
             color: white;
         }
 
@@ -338,6 +347,17 @@
 
         <h1 class="character-name">{{ $character->name }}</h1>
 
+        <div class="game-card">
+            <div class="level-info">
+                <div class="level">Lv. {{ $character->level ?? 1 }}</div>
+                <div>キャラクターレベル</div>
+                @if(isset($character->total_skill_level))
+                    <div style="font-size: 0.9rem; margin-top: 0.5rem;">
+                        総スキルレベル: {{ $character->total_skill_level }}
+                    </div>
+                @endif
+            </div>
+        </div>
 
         <div class="game-card">
             <div class="hp-mp-bars">
@@ -360,6 +380,16 @@
                         <div class="progress-fill mp-bar" style="width: {{ $character->getMpPercentage() }}%"></div>
                     </div>
                 </div>
+
+                <div class="bar-container">
+                    <div class="bar-label">
+                        <span>SP</span>
+                        <span>{{ $character->sp }} / {{ $character->max_sp }}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill sp-bar" style="width: {{ $character->getSpPercentage() }}%"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -371,6 +401,7 @@
                         <span class="stat-label">
                             @switch($key)
                                 @case('name') 名前 @break
+                                @case('level') レベル @break
                                 @default {{ $key }}
                             @endswitch
                         </span>
@@ -390,6 +421,7 @@
                                 @case('agility') 素早さ @break
                                 @case('evasion') 回避 @break
                                 @case('accuracy') 命中力 @break
+                                @case('magic_attack') 魔力 @break
                                 @default {{ $key }}
                             @endswitch
                         </span>
@@ -399,7 +431,7 @@
             </div>
 
             <div class="stat-section">
-                <h3>HP/MP</h3>
+                <h3>HP/MP/SP</h3>
                 <div class="stat-item">
                     <span class="stat-label">現在HP</span>
                     <span class="stat-value">{{ $character->hp }}</span>
@@ -416,6 +448,14 @@
                     <span class="stat-label">最大MP</span>
                     <span class="stat-value">{{ $character->max_mp }}</span>
                 </div>
+                <div class="stat-item">
+                    <span class="stat-label">現在SP</span>
+                    <span class="stat-value">{{ $character->sp }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">最大SP</span>
+                    <span class="stat-value">{{ $character->max_sp }}</span>
+                </div>
             </div>
         </div>
 
@@ -427,6 +467,7 @@
             <div class="button-group">
                 <button class="btn btn-success" onclick="healCharacter()">HP回復 (+10)</button>
                 <button class="btn btn-primary" onclick="restoreMp()">MP回復 (+10)</button>
+                <button class="btn btn-info" onclick="restoreSp()">SP回復 (+10)</button>
                 <button class="btn btn-warning" onclick="gainExp()">経験値獲得 (+50)</button>
             </div>
 
@@ -471,6 +512,22 @@
 
         function restoreMp() {
             fetch('/character/restore-mp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ amount: 10 })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showMessage(data.message);
+                updateCharacterDisplay(data.character);
+            });
+        }
+
+        function restoreSp() {
+            fetch('/character/restore-sp', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

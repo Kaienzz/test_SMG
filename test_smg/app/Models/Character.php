@@ -23,6 +23,16 @@ class Character extends Model
         'magic_attack',
         'accuracy',
         'gold',
+        'level',
+        'base_attack',
+        'base_defense',
+        'base_agility',
+        'base_evasion',
+        'base_max_hp',
+        'base_max_sp',
+        'base_max_mp',
+        'base_magic_attack',
+        'base_accuracy',
     ];
 
     protected $casts = [
@@ -39,6 +49,16 @@ class Character extends Model
         'magic_attack' => 'integer',
         'accuracy' => 'integer',
         'gold' => 'integer',
+        'level' => 'integer',
+        'base_attack' => 'integer',
+        'base_defense' => 'integer',
+        'base_agility' => 'integer',
+        'base_evasion' => 'integer',
+        'base_max_hp' => 'integer',
+        'base_max_sp' => 'integer',
+        'base_max_mp' => 'integer',
+        'base_magic_attack' => 'integer',
+        'base_accuracy' => 'integer',
     ];
 
     public function getHpPercentage(): float
@@ -112,6 +132,7 @@ class Character extends Model
     {
         return [
             'name' => $this->name,
+            'level' => $this->level ?? 1,
             'hp' => "{$this->hp}/{$this->max_hp}",
             'sp' => "{$this->sp}/{$this->max_sp}",
             'mp' => "{$this->mp}/{$this->max_mp}",
@@ -127,6 +148,7 @@ class Character extends Model
         return [
             'basic_info' => [
                 'name' => $this->name,
+                'level' => $this->level ?? 1,
             ],
             'combat_stats' => [
                 'attack' => $this->attack,
@@ -154,6 +176,7 @@ class Character extends Model
     {
         return new self([
             'name' => $name,
+            'level' => 1,
             'attack' => 10,
             'magic_attack' => 8,
             'defense' => 8,
@@ -167,6 +190,15 @@ class Character extends Model
             'max_mp' => 30,
             'accuracy' => 85,
             'gold' => 1000,
+            'base_attack' => 10,
+            'base_magic_attack' => 8,
+            'base_defense' => 8,
+            'base_agility' => 12,
+            'base_evasion' => 15,
+            'base_max_hp' => 100,
+            'base_max_sp' => 50,
+            'base_max_mp' => 30,
+            'base_accuracy' => 85,
         ]);
     }
 
@@ -181,9 +213,10 @@ class Character extends Model
         return $this->hasOne(Equipment::class);
     }
 
-    public function skills(): HasMany
+    // スキルシステムが削除されたため、空のクエリビルダーを返す
+    public function skills()
     {
-        return $this->hasMany(Skill::class);
+        return $this->newQuery()->whereRaw('1 = 0'); // 常に空を返す
     }
 
     public function activeEffects(): HasMany
@@ -234,61 +267,26 @@ class Character extends Model
 
     public function useSkill(string $skillName): array
     {
-        $skill = $this->skills()->where('skill_name', $skillName)->where('is_active', true)->first();
-        
-        if (!$skill) {
-            return ['success' => false, 'message' => "スキル「{$skillName}」が見つからないか、無効になっています。"];
-        }
-
-        $spCost = $skill->getSkillSpCost();
-        
-        if (!$this->consumeSP($spCost)) {
-            return ['success' => false, 'message' => "SPが足りません。必要SP: {$spCost}"];
-        }
-
-        $this->save();
-
-        $experienceGained = $skill->calculateExperienceGain();
-        $leveledUp = $skill->gainExperience($experienceGained);
-
-        $effectResult = $skill->applySkillEffect($this->id);
-
-        return [
-            'success' => true,
-            'message' => "スキル「{$skillName}」を使用しました。",
-            'sp_consumed' => $spCost,
-            'remaining_sp' => $this->sp,
-            'experience_gained' => $experienceGained,
-            'leveled_up' => $leveledUp,
-            'effect_applied' => $effectResult,
-            'skill_level' => $skill->level,
-        ];
+        // スキルシステムが削除されたため、このメソッドは無効化
+        return ['success' => false, 'message' => "スキルシステムは現在利用できません。"];
     }
 
     public function getSkill(string $skillName): ?Skill
     {
-        return $this->skills()->where('skill_name', $skillName)->where('is_active', true)->first();
+        // スキルシステムが削除されたため、このメソッドは無効化
+        return null;
     }
 
     public function hasSkill(string $skillName): bool
     {
-        return $this->getSkill($skillName) !== null;
+        // スキルシステムが削除されたため、このメソッドは無効化
+        return false;
     }
 
     public function getActiveSkills(): array
     {
-        return $this->skills()->where('is_active', true)->get()->map(function($skill) {
-            return [
-                'id' => $skill->id,
-                'name' => $skill->skill_name,
-                'type' => $skill->skill_type,
-                'level' => $skill->level,
-                'experience' => $skill->experience,
-                'sp_cost' => $skill->getSkillSpCost(),
-                'can_use' => $this->sp >= $skill->getSkillSpCost(),
-                'effects' => $skill->getSkillEffects(),
-            ];
-        })->toArray();
+        // スキルシステムが削除されたため、このメソッドは無効化
+        return [];
     }
 
     public function spendGold(int $amount): bool
@@ -308,5 +306,148 @@ class Character extends Model
     public function hasGold(int $amount): bool
     {
         return $this->gold >= $amount;
+    }
+
+    public function calculateCharacterLevel(): int
+    {
+        // スキルシステムが削除されたため、デフォルトレベルを返す
+        return $this->level ?? 1;
+    }
+
+    public function updateCharacterLevel(): bool
+    {
+        $newLevel = $this->calculateCharacterLevel();
+        $oldLevel = $this->level ?? 1;
+        
+        if ($newLevel !== $oldLevel) {
+            $this->level = $newLevel;
+            $this->updateStatsForLevel();
+            $this->save();
+            return true;
+        }
+        
+        return false;
+    }
+
+    public function updateStatsForLevel(): void
+    {
+        $baseStats = $this->getBaseStats();
+        $skillBonuses = $this->calculateSkillBonuses();
+        
+        // 基本ステータス + スキルボーナス
+        $this->attack = $baseStats['attack'] + $skillBonuses['attack'];
+        $this->defense = $baseStats['defense'] + $skillBonuses['defense'];
+        $this->agility = $baseStats['agility'] + $skillBonuses['agility'];
+        $this->evasion = $baseStats['evasion'] + $skillBonuses['evasion'];
+        $this->magic_attack = $baseStats['magic_attack'] + $skillBonuses['magic_attack'];
+        $this->accuracy = $baseStats['accuracy'] + $skillBonuses['accuracy'];
+        
+        // HP/SP/MPの最大値を更新
+        $oldMaxHp = $this->max_hp;
+        $oldMaxSp = $this->max_sp;
+        $oldMaxMp = $this->max_mp;
+        
+        $this->max_hp = $baseStats['max_hp'] + $skillBonuses['max_hp'];
+        $this->max_sp = $baseStats['max_sp'] + $skillBonuses['max_sp'];
+        $this->max_mp = $baseStats['max_mp'] + $skillBonuses['max_mp'];
+        
+        // 現在値を比例して増加
+        if ($oldMaxHp > 0) {
+            $this->hp = min($this->max_hp, floor($this->hp * ($this->max_hp / $oldMaxHp)));
+        }
+        if ($oldMaxSp > 0) {
+            $this->sp = min($this->max_sp, floor($this->sp * ($this->max_sp / $oldMaxSp)));
+        }
+        if ($oldMaxMp > 0) {
+            $this->mp = min($this->max_mp, floor($this->mp * ($this->max_mp / $oldMaxMp)));
+        }
+    }
+
+    private function getBaseStats(): array
+    {
+        return [
+            'attack' => $this->base_attack ?? 10,
+            'defense' => $this->base_defense ?? 8,
+            'agility' => $this->base_agility ?? 12,
+            'evasion' => $this->base_evasion ?? 15,
+            'max_hp' => $this->base_max_hp ?? 100,
+            'max_sp' => $this->base_max_sp ?? 50,
+            'max_mp' => $this->base_max_mp ?? 30,
+            'magic_attack' => $this->base_magic_attack ?? 8,
+            'accuracy' => $this->base_accuracy ?? 85,
+        ];
+    }
+
+    private function calculateSkillBonuses(): array
+    {
+        $bonuses = [
+            'attack' => 0,
+            'defense' => 0,
+            'agility' => 0,
+            'evasion' => 0,
+            'max_hp' => 0,
+            'max_sp' => 0,
+            'max_mp' => 0,
+            'magic_attack' => 0,
+            'accuracy' => 0,
+        ];
+
+        // スキルシステムが削除されたため、空のコレクションを使用
+        $skills = collect();
+        
+        foreach ($skills as $skill) {
+            $skillLevel = $skill->level;
+            $skillType = $skill->skill_type;
+            
+            // 全スキル共通のボーナス
+            $bonuses['max_hp'] += $skillLevel * 2;
+            $bonuses['max_sp'] += $skillLevel * 1;
+            $bonuses['max_mp'] += $skillLevel * 1;
+            
+            // スキル種類別のボーナス
+            switch ($skillType) {
+                case 'combat':
+                    $bonuses['attack'] += $skillLevel * 2;
+                    $bonuses['defense'] += $skillLevel * 1;
+                    $bonuses['accuracy'] += $skillLevel * 1;
+                    break;
+                    
+                case 'movement':
+                    $bonuses['agility'] += $skillLevel * 2;
+                    $bonuses['evasion'] += $skillLevel * 1;
+                    break;
+                    
+                case 'gathering':
+                    $bonuses['agility'] += $skillLevel * 1;
+                    $bonuses['evasion'] += $skillLevel * 1;
+                    break;
+                    
+                case 'magic':
+                    $bonuses['magic_attack'] += $skillLevel * 2;
+                    $bonuses['accuracy'] += $skillLevel * 1;
+                    break;
+                    
+                case 'utility':
+                    $bonuses['defense'] += $skillLevel * 1;
+                    $bonuses['evasion'] += $skillLevel * 1;
+                    break;
+            }
+        }
+        
+        return $bonuses;
+    }
+
+    public function getDetailedStatsWithLevel(): array
+    {
+        $baseStats = $this->getDetailedStats();
+        $skillBonuses = $this->calculateSkillBonuses();
+        $totalSkillLevel = 0; // スキルシステムが削除されたため、0を返す
+        
+        return array_merge($baseStats, [
+            'character_level' => $this->level ?? 1,
+            'total_skill_level' => $totalSkillLevel,
+            'skill_bonuses' => $skillBonuses,
+            'base_stats' => $this->getBaseStats(),
+        ]);
     }
 }

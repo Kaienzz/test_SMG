@@ -81,7 +81,29 @@ class Inventory extends Model
         
         for ($i = 0; $i < $this->getMaxSlots(); $i++) {
             if (isset($slots[$i]) && 
-                $slots[$i]['item_id'] === $item->id && 
+                $slots[$i]['item_name'] === $item->name && 
+                $slots[$i]['quantity'] < $stackLimit) {
+                return $i;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 指定されたスロット配列内でスタック可能なスロットを検索する
+     */
+    private function findStackableSlotInArray(array $slots, Item $item): ?int
+    {
+        if (!(method_exists($item, 'hasStackLimit') && $item->hasStackLimit())) {
+            return null;
+        }
+
+        $stackLimit = method_exists($item, 'getStackLimit') ? $item->getStackLimit() : 50;
+        
+        for ($i = 0; $i < $this->getMaxSlots(); $i++) {
+            if (isset($slots[$i]) && 
+                $slots[$i]['item_name'] === $item->name && 
                 $slots[$i]['quantity'] < $stackLimit) {
                 return $i;
             }
@@ -103,6 +125,20 @@ class Inventory extends Model
         return null;
     }
 
+    /**
+     * 指定されたスロット配列内で空きスロットを検索する
+     */
+    private function findEmptySlotInArray(array $slots): ?int
+    {
+        for ($i = 0; $i < $this->getMaxSlots(); $i++) {
+            if (!isset($slots[$i]) || empty($slots[$i])) {
+                return $i;
+            }
+        }
+        
+        return null;
+    }
+
     public function addItem(Item $item, int $quantity = 1, ?int $durability = null): array
     {
         $slots = $this->getSlotData();
@@ -111,9 +147,13 @@ class Inventory extends Model
 
         // スタック可能アイテムの場合、既存スロットに追加を試みる
         if (method_exists($item, 'hasStackLimit') && $item->hasStackLimit()) {
-            $stackableSlot = $this->findStackableSlot($item);
-            
-            if ($stackableSlot !== null) {
+            while ($remainingQuantity > 0) {
+                $stackableSlot = $this->findStackableSlotInArray($slots, $item);
+                
+                if ($stackableSlot === null) {
+                    break; // これ以上スタック可能なスロットがない
+                }
+                
                 $currentQuantity = $slots[$stackableSlot]['quantity'];
                 $maxAddable = (method_exists($item, 'getStackLimit') ? $item->getStackLimit() : 50) - $currentQuantity;
                 $toAdd = min($maxAddable, $remainingQuantity);
@@ -126,7 +166,7 @@ class Inventory extends Model
 
         // 残りの数量を新しいスロットに追加
         while ($remainingQuantity > 0) {
-            $emptySlot = $this->findEmptySlot();
+            $emptySlot = $this->findEmptySlotInArray($slots);
             
             if ($emptySlot === null) {
                 break; // インベントリが満杯
@@ -156,6 +196,8 @@ class Inventory extends Model
                     'is_equippable' => $item->isEquippable() ?? false,
                     'is_usable' => $item->isUsable() ?? false,
                     'max_durability' => $item->max_durability ?? (method_exists($item, 'getMaxDurability') ? $item->getMaxDurability() : 100),
+                    'has_stack_limit' => method_exists($item, 'hasStackLimit') ? $item->hasStackLimit() : false,
+                    'stack_limit' => method_exists($item, 'getStackLimit') ? $item->getStackLimit() : 1,
                 ],
             ];
 
@@ -195,6 +237,9 @@ class Inventory extends Model
             // アイテムを完全に削除
             unset($slots[$slotIndex]);
             $removedQuantity = $currentQuantity;
+            
+            // アイテムが完全に削除された場合、スロットを詰める
+            $slots = $this->reorganizeSlots($slots);
         } else {
             // 数量を減らす
             $slots[$slotIndex]['quantity'] -= $quantity;
@@ -318,9 +363,17 @@ class Inventory extends Model
                     
                     // スロットデータを更新
                     $slots[$i]['item_info'] = $itemInfo;
-                } elseif ($itemInfo && $item && !isset($itemInfo['max_durability'])) {
-                    // item_info は存在するが max_durability がない場合
-                    $itemInfo['max_durability'] = $item->max_durability ?? ($item->getMaxDurability() ?? 100);
+                } elseif ($itemInfo && $item && (!isset($itemInfo['max_durability']) || !isset($itemInfo['has_stack_limit']) || !isset($itemInfo['stack_limit']))) {
+                    // item_info は存在するが必要な情報がない場合
+                    if (!isset($itemInfo['max_durability'])) {
+                        $itemInfo['max_durability'] = $item->max_durability ?? ($item->getMaxDurability() ?? 100);
+                    }
+                    if (!isset($itemInfo['has_stack_limit'])) {
+                        $itemInfo['has_stack_limit'] = method_exists($item, 'hasStackLimit') ? $item->hasStackLimit() : false;
+                    }
+                    if (!isset($itemInfo['stack_limit'])) {
+                        $itemInfo['stack_limit'] = method_exists($item, 'getStackLimit') ? $item->getStackLimit() : 1;
+                    }
                     $slots[$i]['item_info'] = $itemInfo;
                 }
                 
@@ -356,8 +409,32 @@ class Inventory extends Model
         $this->max_slots = $this->getMaxSlots() + $additionalSlots;
     }
 
+    /**
+     * 空きスロットを除去して、アイテムを連続したスロットに再配置する
+     */
+    private function reorganizeSlots(array $slots): array
+    {
+        $reorganizedSlots = [];
+        $currentIndex = 0;
+        
+        // 最大スロット数まで順番にチェック
+        for ($i = 0; $i < $this->getMaxSlots(); $i++) {
+            if (isset($slots[$i]) && !empty($slots[$i])) {
+                $reorganizedSlots[$currentIndex] = $slots[$i];
+                $currentIndex++;
+            }
+        }
+        
+        return $reorganizedSlots;
+    }
+
     private function getAddItemMessage(Item $item, int $addedQuantity, int $remainingQuantity): string
     {
+        // 1個も追加できなかった場合
+        if ($addedQuantity === 0) {
+            return "スロットがいっぱいでアイテムが追加できませんでした。";
+        }
+        
         $message = "{$item->name}を{$addedQuantity}個追加しました";
         
         if ($remainingQuantity > 0) {

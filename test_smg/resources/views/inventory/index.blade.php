@@ -384,7 +384,9 @@
                         
                         @if(!isset($slot['empty']))
                             <div class="item-name">{{ $slot['item_name'] }}</div>
-                            @if($slot['quantity'] > 1)
+                            @if(isset($slot['item_info']) && isset($slot['item_info']['has_stack_limit']) && $slot['item_info']['has_stack_limit'])
+                                <div class="item-quantity">{{ $slot['quantity'] }}/{{ $slot['item_info']['stack_limit'] ?? 50 }}</div>
+                            @elseif($slot['quantity'] > 1)
                                 <div class="item-quantity">x{{ $slot['quantity'] }}</div>
                             @endif
                             @if(!is_null($slot['durability']))
@@ -489,7 +491,9 @@
                 
                 if (!slot.empty) {
                     innerHTML += `<div class="item-name">${slot.item_name}</div>`;
-                    if (slot.quantity > 1) {
+                    if (slot.item_info && slot.item_info.has_stack_limit && slot.item_info.stack_limit) {
+                        innerHTML += `<div class="item-quantity">${slot.quantity}/${slot.item_info.stack_limit}</div>`;
+                    } else if (slot.quantity > 1) {
                         innerHTML += `<div class="item-quantity">x${slot.quantity}</div>`;
                     }
                     if (slot.durability !== null) {
