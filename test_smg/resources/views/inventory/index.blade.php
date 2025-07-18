@@ -364,6 +364,10 @@
                     <span>MP</span>
                     <span id="character-mp">{{ $character->mp }}/{{ $character->max_mp }}</span>
                 </div>
+                <div class="stat-item">
+                    <span>SP</span>
+                    <span id="character-sp">{{ $character->sp }}/{{ $character->max_sp }}</span>
+                </div>
             </div>
         </div>
 
@@ -438,10 +442,6 @@
             messageEl.textContent = text;
             messageEl.className = `message ${type}`;
             messageEl.style.display = 'block';
-            
-            setTimeout(() => {
-                messageEl.style.display = 'none';
-            }, 3000);
         }
 
         function selectSlot(slotIndex) {
@@ -493,7 +493,7 @@
                         innerHTML += `<div class="item-quantity">x${slot.quantity}</div>`;
                     }
                     if (slot.durability !== null) {
-                        const maxDur = slot.item_info ? slot.item_info.max_durability : 100;
+                        const maxDur = slot.item_info && slot.item_info.max_durability ? slot.item_info.max_durability : 100;
                         innerHTML += `<div class="item-durability">${slot.durability}/${maxDur}</div>`;
                     }
                     
@@ -516,76 +516,98 @@
         function updateCharacterDisplay(character) {
             document.getElementById('character-hp').textContent = `${character.hp}/${character.max_hp}`;
             document.getElementById('character-mp').textContent = `${character.mp}/${character.max_mp}`;
+            document.getElementById('character-sp').textContent = `${character.sp}/${character.max_sp}`;
         }
 
         function addSelectedItem() {
             const itemName = document.getElementById('item-select').value;
-            const quantity = parseInt(document.getElementById('quantity-input').value);
+            const quantity = parseInt(document.getElementById('quantity-input').value) || 1;
             
             if (!itemName) {
                 showMessage('アイテムを選択してください', 'error');
                 return;
             }
 
+            const formData = new FormData();
+            formData.append('item_name', itemName);
+            formData.append('quantity', quantity);
+            formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+
             fetch('/inventory/add-item', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({
-                    item_name: itemName,
-                    quantity: quantity
-                })
+                body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 showMessage(data.message, data.success ? 'success' : 'error');
                 if (data.success) {
                     updateInventoryDisplay(data.inventory);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('アイテム追加中にエラーが発生しました: ' + error.message, 'error');
             });
         }
 
         function removeItem(slotIndex, quantity) {
+            const formData = new FormData();
+            formData.append('slot_index', slotIndex);
+            formData.append('quantity', quantity);
+            formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+
             fetch('/inventory/remove-item', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({
-                    slot_index: slotIndex,
-                    quantity: quantity
-                })
+                body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 showMessage(data.message, data.success ? 'success' : 'error');
                 if (data.success) {
                     updateInventoryDisplay(data.inventory);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('削除中にエラーが発生しました: ' + error.message, 'error');
             });
         }
 
         function useItem(slotIndex) {
+            const formData = new FormData();
+            formData.append('slot_index', slotIndex);
+            formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+
             fetch('/inventory/use-item', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({
-                    slot_index: slotIndex
-                })
+                body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 showMessage(data.message, data.success ? 'success' : 'error');
                 if (data.success) {
                     updateInventoryDisplay(data.inventory);
                     updateCharacterDisplay(data.character);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('使用中にエラーが発生しました: ' + error.message, 'error');
             });
         }
 
