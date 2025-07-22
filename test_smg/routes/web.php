@@ -10,6 +10,7 @@ use App\Http\Controllers\SkillController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\ItemShopController;
 use App\Http\Controllers\BlacksmithController;
+use App\Http\Controllers\GatheringController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -78,3 +79,7 @@ Route::post('/shops/blacksmith/transaction', [BlacksmithController::class, 'proc
 // 旧ショップルート（互換性のため残す）
 Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
 Route::post('/shop/purchase', [ShopController::class, 'purchase'])->name('shop.purchase');
+
+// 採集関連ルート
+Route::post('/gathering/gather', [GatheringController::class, 'gather'])->name('gathering.gather');
+Route::get('/gathering/info', [GatheringController::class, 'getGatheringInfo'])->name('gathering.info');

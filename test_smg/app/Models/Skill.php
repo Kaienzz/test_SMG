@@ -72,6 +72,12 @@ class Skill extends Model
     public function getSkillSpCost(): int
     {
         $baseCost = $this->sp_cost ?? 10;
+        
+        if ($this->skill_type === 'gathering') {
+            $levelReduction = max(0, floor($this->level / 2));
+            return max(3, $baseCost - $levelReduction);
+        }
+        
         $levelReduction = max(0, floor($this->level / 3));
         return max(1, $baseCost - $levelReduction);
     }
@@ -87,6 +93,10 @@ class Skill extends Model
     {
         if ($this->skill_name === '飛脚術') {
             return $this->applyHikyakuEffect($characterId);
+        }
+
+        if ($this->skill_type === 'gathering') {
+            return $this->applyGatheringEffect($characterId);
         }
 
         return ['success' => false, 'message' => 'スキル効果が実装されていません。'];
@@ -133,6 +143,41 @@ class Skill extends Model
             'message' => '飛脚術効果が発動しました。',
             'effects' => $effects,
             'duration' => $duration
+        ];
+    }
+
+    private function applyGatheringEffect(int $characterId): array
+    {
+        $character = Character::find($characterId);
+        $player = Player::where('character_id', $characterId)->first();
+        
+        if (!$player || !$player->isOnRoad()) {
+            return ['success' => false, 'message' => '道にいる時のみ採集できます。'];
+        }
+
+        $roadId = $player->current_location_id;
+        $gatheringTable = GatheringTable::getAvailableItems($roadId, $this->level);
+        
+        if (empty($gatheringTable)) {
+            return ['success' => false, 'message' => 'この道では何も採集できません。'];
+        }
+
+        $selectedItem = $gatheringTable[array_rand($gatheringTable)];
+        $result = GatheringTable::rollForItem($selectedItem);
+        
+        if (!$result['success']) {
+            return ['success' => false, 'message' => '採集に失敗しました。'];
+        }
+
+        $inventory = $character->getInventory();
+        $inventory->addItem($result['item'], $result['quantity']);
+        
+        return [
+            'success' => true,
+            'message' => "{$result['item']}を{$result['quantity']}個採集しました。",
+            'item' => $result['item'],
+            'quantity' => $result['quantity'],
+            'rarity' => $result['rarity'],
         ];
     }
 
@@ -184,6 +229,15 @@ class Skill extends Model
                 'duration' => 20,
                 'max_level' => 1,
             ],
+            [
+                'skill_type' => 'gathering',
+                'skill_name' => '採集',
+                'description' => '道で材料や薬草を採集する',
+                'effects' => ['gathering_bonus' => 1],
+                'sp_cost' => 8,
+                'duration' => 0,
+                'max_level' => 99,
+            ],
         ];
     }
 
@@ -195,6 +249,10 @@ class Skill extends Model
 
     public function getRequiredExperienceForNextLevel(): int
     {
+        if ($this->skill_type === 'gathering') {
+            return ($this->level * $this->level * 50) + ($this->level * 100);
+        }
+        
         return ($this->level + 1) * 100;
     }
 
@@ -210,12 +268,21 @@ class Skill extends Model
         }
         
         $this->save();
+        
+        // スキルレベルアップ時にキャラクターレベルも更新
+        if ($leveledUp) {
+            $character = $this->character;
+            if ($character) {
+                $character->updateCharacterLevel();
+            }
+        }
+        
         return $leveledUp;
     }
 
     public static function createForCharacter(int $characterId, string $skillType, string $skillName, array $effects = [], int $spCost = 10, int $duration = 5): self
     {
-        return self::create([
+        $skill = self::create([
             'character_id' => $characterId,
             'skill_type' => $skillType,
             'skill_name' => $skillName,
@@ -226,5 +293,13 @@ class Skill extends Model
             'duration' => $duration,
             'is_active' => true,
         ]);
+        
+        // スキル追加時にキャラクターレベルも更新
+        $character = Character::find($characterId);
+        if ($character) {
+            $character->updateCharacterLevel();
+        }
+        
+        return $skill;
     }
 }

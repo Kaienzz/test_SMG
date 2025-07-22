@@ -12,9 +12,10 @@ class CharacterController extends Controller
 {
     public function index(): View
     {
-        $character = (object) DummyDataService::getCharacter(1);
-        $stats = DummyDataService::getCharacterDetailedStats(1);
-        $summary = DummyDataService::getCharacterStatusSummary(1);
+        $character = $this->getOrCreateCharacter();
+        $character->updateCharacterLevel();
+        $stats = $character->getDetailedStatsWithLevel();
+        $summary = $character->getStatusSummary();
         
         return view('character.index', [
             'character' => $character,
@@ -124,15 +125,22 @@ class CharacterController extends Controller
     {
         $character = $this->getOrCreateCharacter();
         
-        $character->attack = 10;
-        $character->defense = 8;
-        $character->agility = 12;
-        $character->evasion = 15;
-        $character->hp = 100;
-        $character->max_hp = 100;
-        $character->mp = 50;
-        $character->max_mp = 50;
-        $character->accuracy = 85;
+        $character->level = 1;
+        $character->base_attack = 10;
+        $character->base_defense = 8;
+        $character->base_agility = 12;
+        $character->base_evasion = 15;
+        $character->base_max_hp = 100;
+        $character->base_max_sp = 50;
+        $character->base_max_mp = 30;
+        $character->base_magic_attack = 8;
+        $character->base_accuracy = 85;
+        
+        $character->updateStatsForLevel();
+        $character->hp = $character->max_hp;
+        $character->sp = $character->max_sp;
+        $character->mp = $character->max_mp;
+        $character->save();
 
         return response()->json([
             'success' => true,
@@ -143,6 +151,11 @@ class CharacterController extends Controller
 
     private function getOrCreateCharacter(): Character
     {
-        return Character::createNewCharacter('冒険者');
+        $character = Character::first();
+        if (!$character) {
+            $character = Character::createNewCharacter('冒険者');
+            $character->save();
+        }
+        return $character;
     }
 }

@@ -341,6 +341,7 @@
     <div class="character-container">
         <nav>
             <a href="/inventory" class="nav-link">インベントリー</a>
+            <a href="/skills" class="nav-link">スキル</a>
             <a href="/game" class="nav-link">← ゲームに戻る</a>
             <a href="/" class="nav-link">ホーム</a>
         </nav>

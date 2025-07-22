@@ -188,17 +188,17 @@ class Item extends Model
         return [
             [
                 'name' => '薬草',
-                'description' => 'HPを20回復する薬草',
-                'category' => ItemCategory::POTION,
+                'description' => 'HPを5回復する薬草',
+                'category' => ItemCategory::POTION->value,
                 'stack_limit' => 50,
-                'effects' => ['heal_hp' => 20],
+                'effects' => ['heal_hp' => 5],
                 'rarity' => 1,
                 'value' => 10,
             ],
             [
                 'name' => 'マナポーション',
                 'description' => 'MPを30回復するポーション',
-                'category' => ItemCategory::POTION,
+                'category' => ItemCategory::POTION->value,
                 'stack_limit' => 50,
                 'effects' => ['heal_mp' => 30],
                 'rarity' => 1,
@@ -207,7 +207,7 @@ class Item extends Model
             [
                 'name' => '鉄の剣',
                 'description' => '攻撃力+5の基本的な剣',
-                'category' => ItemCategory::WEAPON,
+                'category' => ItemCategory::WEAPON->value,
                 'max_durability' => 100,
                 'effects' => ['attack' => 5],
                 'rarity' => 1,
@@ -217,7 +217,7 @@ class Item extends Model
             [
                 'name' => 'ファイヤーロッド',
                 'description' => '魔法攻撃力+6、ファイヤー魔法を使える杖',
-                'category' => ItemCategory::WEAPON,
+                'category' => ItemCategory::WEAPON->value,
                 'max_durability' => 80,
                 'effects' => ['magic_attack' => 6],
                 'rarity' => 2,
@@ -228,7 +228,7 @@ class Item extends Model
             [
                 'name' => 'アイスワンド',
                 'description' => '魔法攻撃力+5、アイス魔法を使える杖',
-                'category' => ItemCategory::WEAPON,
+                'category' => ItemCategory::WEAPON->value,
                 'max_durability' => 80,
                 'effects' => ['magic_attack' => 5],
                 'rarity' => 2,
@@ -239,7 +239,7 @@ class Item extends Model
             [
                 'name' => '革の鎧',
                 'description' => '防御力+3の軽装鎧',
-                'category' => ItemCategory::BODY_EQUIPMENT,
+                'category' => ItemCategory::BODY_EQUIPMENT->value,
                 'max_durability' => 80,
                 'effects' => ['defense' => 3],
                 'rarity' => 1,

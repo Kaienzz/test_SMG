@@ -490,3 +490,85 @@ function toggleDiceDisplay() {
         }
     }
 }
+
+// 採集関連の関数
+function performGathering() {
+    const gatheringBtn = document.getElementById('gathering-btn');
+    if (gatheringBtn) {
+        gatheringBtn.disabled = true;
+        gatheringBtn.textContent = '採集中...';
+    }
+    
+    fetch('/gathering/gather', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let message = data.message;
+            if (data.leveled_up) {
+                message += `\n採集スキルがレベルアップしました！ (Lv.${data.skill_level})`;
+            }
+            message += `\n経験値: +${data.experience_gained}`;
+            message += `\nSP: ${data.remaining_sp} (${data.sp_consumed}消費)`;
+            
+            alert(message);
+        } else {
+            alert(data.error || data.message || '採集に失敗しました');
+        }
+        
+        if (gatheringBtn) {
+            gatheringBtn.disabled = false;
+            gatheringBtn.innerHTML = '<span class="icon">🌿</span> 採集する';
+        }
+    })
+    .catch(error => {
+        console.error('Gathering error:', error);
+        alert('採集中にエラーが発生しました');
+        
+        if (gatheringBtn) {
+            gatheringBtn.disabled = false;
+            gatheringBtn.innerHTML = '<span class="icon">🌿</span> 採集する';
+        }
+    });
+}
+
+function showGatheringInfo() {
+    fetch('/gathering/info', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        let info = `=== 採集情報 (${data.road_name}) ===\n`;
+        info += `採集スキル: Lv.${data.skill_level}\n`;
+        info += `経験値: ${data.experience}/${data.required_exp_for_next_level}\n`;
+        info += `SP消費: ${data.sp_cost} (現在SP: ${data.current_sp})\n`;
+        info += `採集可能: ${data.can_gather ? 'はい' : 'いいえ'}\n`;
+        info += `採集可能アイテム数: ${data.available_items_count}\n\n`;
+        
+        info += `=== 採集可能アイテム ===\n`;
+        data.all_items.forEach(item => {
+            const status = item.can_gather ? '✓' : '✗';
+            info += `${status} ${item.item_name} (Lv.${item.required_skill_level}必要, 成功率${item.success_rate}%)\n`;
+        });
+        
+        alert(info);
+    })
+    .catch(error => {
+        console.error('Gathering info error:', error);
+        alert('採集情報の取得中にエラーが発生しました');
+    });
+}

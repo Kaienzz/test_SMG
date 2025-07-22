@@ -38,5 +38,26 @@
             <div class="progress-fill" id="progress-fill" style="width: {{ $player->position }}%"></div>
             <div class="progress-text" id="progress-text">{{ $player->position }}/100</div>
         </div>
+        
+        @php
+            $character = $player->getCharacter();
+            $gatheringSkill = $character->getSkill('採集');
+        @endphp
+        
+        @if($gatheringSkill)
+            <div class="road-actions">
+                <h3>道での行動</h3>
+                <div class="gathering-section">
+                    <button id="gathering-btn" class="btn btn-success" onclick="performGathering()">
+                        <span class="icon">🌿</span>
+                        採集する
+                    </button>
+                    <button id="gathering-info-btn" class="btn btn-info" onclick="showGatheringInfo()">
+                        <span class="icon">📊</span>
+                        採集情報
+                    </button>
+                </div>
+            </div>
+        @endif
     @endif
 </div>

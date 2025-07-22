@@ -15,8 +15,9 @@ class InventoryController extends Controller
 {
     public function index(): View
     {
-        $character = (object) DummyDataService::getCharacter(1);
-        $inventoryData = DummyDataService::getInventory(1);
+        $character = $this->getOrCreateCharacter();
+        $inventory = $this->getOrCreateInventory($character);
+        $inventoryData = $inventory->getInventoryData();
         
         // ダミーサンプルアイテム（カテゴリは文字列として扱う）
         $sampleItems = [
@@ -58,33 +59,47 @@ class InventoryController extends Controller
 
     public function addItem(Request $request): JsonResponse
     {
-        $request->validate([
-            'item_name' => 'required|string',
-            'quantity' => 'integer|min:1|max:999',
-        ]);
+        try {
+            $request->validate([
+                'item_name' => 'required|string',
+                'quantity' => 'integer|min:1|max:999',
+            ]);
 
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
-        
-        $item = Item::findSampleItem($request->input('item_name'));
-        
-        if (!$item) {
+            $character = $this->getOrCreateCharacter();
+            $inventory = $this->getOrCreateInventory($character);
+            
+            $item = Item::findSampleItem($request->input('item_name'));
+            
+            if (!$item) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'アイテムが見つかりません',
+                ]);
+            }
+
+            $quantity = $request->input('quantity', 1);
+            $result = $inventory->addItem($item, $quantity);
+            
+            // Save inventory state to session after modification
+            if ($result['success']) {
+                $this->saveInventoryToSession($inventory, $character->id ?? 1);
+            }
+
+            return response()->json([
+                'success' => $result['success'],
+                'message' => $result['message'],
+                'inventory' => $inventory->getInventoryData(),
+                'added_quantity' => $result['added_quantity'],
+                'remaining_quantity' => $result['remaining_quantity'],
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'アイテムが見つかりません',
-            ]);
+                'message' => 'エラーが発生しました: ' . $e->getMessage(),
+                'error_line' => $e->getLine(),
+                'error_file' => basename($e->getFile()),
+            ], 500);
         }
-
-        $quantity = $request->input('quantity', 1);
-        $result = $inventory->addItem($item, $quantity);
-
-        return response()->json([
-            'success' => $result['success'],
-            'message' => $result['message'],
-            'inventory' => $inventory->getInventoryData(),
-            'added_quantity' => $result['added_quantity'],
-            'remaining_quantity' => $result['remaining_quantity'],
-        ]);
     }
 
     public function removeItem(Request $request): JsonResponse
@@ -101,6 +116,11 @@ class InventoryController extends Controller
         $quantity = $request->input('quantity', 1);
         
         $result = $inventory->removeItem($slotIndex, $quantity);
+        
+        // Save inventory state to session after modification
+        if ($result['success']) {
+            $this->saveInventoryToSession($inventory, $character->id ?? 1);
+        }
 
         return response()->json([
             'success' => $result['success'],
@@ -121,6 +141,11 @@ class InventoryController extends Controller
         
         $slotIndex = $request->input('slot_index');
         $result = $inventory->useItem($slotIndex, $character);
+        
+        // Save inventory state to session after modification
+        if ($result['success']) {
+            $this->saveInventoryToSession($inventory, $character->id ?? 1);
+        }
 
         return response()->json([
             'success' => $result['success'],
@@ -279,6 +304,40 @@ class InventoryController extends Controller
 
     private function getOrCreateInventory(Character $character): Inventory
     {
-        return Inventory::createForCharacter($character->id ?? 1);
+        $inventory = Inventory::createForCharacter($character->id ?? 1);
+        
+        // Check if we have inventory data in session
+        $sessionKey = 'inventory_data_' . ($character->id ?? 1);
+        $sessionSlotData = session($sessionKey);
+        
+        if ($sessionSlotData) {
+            // Use existing session data
+            $inventory->setSlotData($sessionSlotData);
+        } else {
+            // Initialize with dummy data only if no session data exists
+            $dummyInventoryData = DummyDataService::getInventory($character->id ?? 1);
+            
+            // Convert the dummy data format to the format expected by the Inventory model
+            $slotData = [];
+            foreach ($dummyInventoryData['items'] as $item) {
+                $slotData[$item['slot']] = [
+                    'item_name' => $item['item']['name'],
+                    'quantity' => $item['quantity'],
+                    'item_info' => $item['item'],
+                ];
+            }
+            
+            $inventory->setSlotData($slotData);
+            // Save to session
+            session([$sessionKey => $slotData]);
+        }
+        
+        return $inventory;
+    }
+    
+    private function saveInventoryToSession(Inventory $inventory, int $characterId): void
+    {
+        $sessionKey = 'inventory_data_' . $characterId;
+        session([$sessionKey => $inventory->getSlotData()]);
     }
 }

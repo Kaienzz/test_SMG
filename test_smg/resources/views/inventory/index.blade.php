@@ -323,6 +323,7 @@
     <div class="container">
         <nav>
             <a href="/character" class="nav-link">キャラクター</a>
+            <a href="/skills" class="nav-link">スキル</a>
             <a href="/game" class="nav-link">ゲーム</a>
             <a href="/" class="nav-link">ホーム</a>
         </nav>

@@ -241,13 +241,13 @@ class ConsumableItem extends AbstractItem implements ConsumableInterface
         return [
             [
                 'name' => '薬草',
-                'description' => 'HPを20回復する薬草',
+                'description' => 'HPを5回復する薬草',
                 'category' => ItemCategory::POTION,
                 'rarity' => 1,
                 'value' => 10,
-                'effects' => ['heal_hp' => 20],
+                'effects' => ['heal_hp' => 5],
                 'effect_type' => 'heal_hp',
-                'effect_value' => 20,
+                'effect_value' => 5,
                 'stack_limit' => 50,
                 'item_type' => 'consumable',
             ],

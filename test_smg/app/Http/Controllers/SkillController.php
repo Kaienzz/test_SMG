@@ -90,7 +90,16 @@ class SkillController extends Controller
         $characterId = $request->character_id;
         $skillName = $request->skill_name;
         
-        $sampleSkills = DummyDataService::getSampleSkills();
+        $character = Character::findOrFail($characterId);
+        
+        if ($character->hasSkill($skillName)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'そのスキルは既に習得済みです。',
+            ], 400);
+        }
+        
+        $sampleSkills = Skill::getSampleSkills();
         $skillData = collect($sampleSkills)->firstWhere('skill_name', $skillName);
 
         if (!$skillData) {
@@ -100,17 +109,26 @@ class SkillController extends Controller
             ], 404);
         }
 
+        $skill = Skill::createForCharacter(
+            $characterId,
+            $skillData['skill_type'],
+            $skillData['skill_name'],
+            $skillData['effects'],
+            $skillData['sp_cost'],
+            $skillData['duration']
+        );
+
         return response()->json([
             'success' => true,
             'message' => "スキル「{$skillName}」を習得しました。",
             'skill' => [
-                'id' => rand(10, 99),
-                'name' => $skillData['skill_name'],
-                'type' => $skillData['skill_type'],
-                'level' => 1,
-                'sp_cost' => $skillData['sp_cost'],
+                'id' => $skill->id,
+                'name' => $skill->skill_name,
+                'type' => $skill->skill_type,
+                'level' => $skill->level,
+                'sp_cost' => $skill->getSkillSpCost(),
             ],
-            'updated_skills' => DummyDataService::getSkills($characterId),
+            'updated_skills' => $character->getActiveSkills(),
         ]);
     }
 

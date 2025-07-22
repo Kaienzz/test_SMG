@@ -20,6 +20,8 @@ class DummyDataService
             'evasion' => 22,
             'hp' => 85,
             'max_hp' => 120,
+            'mp' => 45,
+            'max_mp' => 80,
             'sp' => $currentSp,
             'max_sp' => 60,
             'accuracy' => 90,
@@ -69,18 +71,15 @@ class DummyDataService
 
     public static function getInventory(int $characterId = 1): array
     {
-        return [
-            'character_id' => $characterId,
-            'max_slots' => 20,
-            'items' => [
+        $items = [
                 [
                     'item' => [
                         'id' => 1,
                         'name' => '薬草',
-                        'description' => 'HPを20回復する薬草',
+                        'description' => 'HPを5回復する薬草',
                         'category' => 'potion',
                         'category_name' => 'ポーション',
-                        'effects' => ['heal_hp' => 20],
+                        'effects' => ['heal_hp' => 5],
                         'rarity' => 1,
                         'rarity_name' => 'コモン',
                         'rarity_color' => '#9ca3af',
@@ -124,7 +123,36 @@ class DummyDataService
                     'quantity' => 1,
                     'slot' => 2,
                 ],
-            ],
+            ];
+        
+        $maxSlots = 20;
+        $usedSlots = count($items);
+        
+        // Convert items array to slots format expected by the view
+        $slots = [];
+        foreach ($items as $item) {
+            $slots[$item['slot']] = [
+                'item_info' => $item['item'],
+                'item_name' => $item['item']['name'],
+                'quantity' => $item['quantity'],
+                'durability' => null, // Add durability support
+            ];
+        }
+        
+        // Fill empty slots
+        for ($i = 0; $i < $maxSlots; $i++) {
+            if (!isset($slots[$i])) {
+                $slots[$i] = ['empty' => true];
+            }
+        }
+        
+        return [
+            'character_id' => $characterId,
+            'max_slots' => $maxSlots,
+            'used_slots' => $usedSlots,
+            'available_slots' => $maxSlots - $usedSlots,
+            'items' => $items,
+            'slots' => $slots,
         ];
     }
 
