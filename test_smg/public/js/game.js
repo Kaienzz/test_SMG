@@ -25,6 +25,14 @@ class GameManager {
         console.log('Initial load - Player position:', this.gameData.player.position, 'Type:', this.gameData.player.current_location_type);
         console.log('Initial load - Next location:', this.gameData.nextLocation);
         
+        // 初期状態でUI全体を適切に設定
+        const initialData = {
+            currentLocation: this.gameData.currentLocation,
+            position: this.gameData.player.position,
+            location_type: this.gameData.player.current_location_type
+        };
+        this.updateGameDisplay(initialData);
+        
         // 道路でposition=100または0のとき、次の場所ボタンを表示
         if (this.gameData.player.current_location_type === 'road') {
             if ((this.gameData.player.position >= 100 || this.gameData.player.position <= 0) && this.gameData.nextLocation) {
@@ -227,12 +235,12 @@ class MovementManager {
         })
         .then(response => response.json())
         .then(data => {
+            // UI全体を更新（新しいupdateGameDisplayが場所タイプに応じてUI切り替えを行う）
             this.gameManager.updateGameDisplay(data);
-            this.gameManager.gameData.player.current_location_type = data.currentLocation.name.includes('町') ? 'town' : 'road';
-            this.gameManager.gameData.player.position = data.position;
             
             // 移動後の次の場所ボタンの表示制御
-            if (this.gameManager.gameData.player.current_location_type === 'town') {
+            const locationType = data.location_type || this.gameManager.gameData.player.current_location_type;
+            if (locationType === 'town') {
                 // 町にいるときは次の道路ボタンを表示
                 if (data.nextLocation) {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
@@ -247,9 +255,6 @@ class MovementManager {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
                 }
             }
-            
-            this.gameManager.hideMovementControls();
-            this.gameManager.hideDiceResult();
         });
     }
 }
@@ -262,51 +267,171 @@ class UIManager {
     updateGameDisplay(data) {
         document.getElementById('current-location').textContent = data.currentLocation.name;
         
-        const townLocations = ['town'];
-        const movableLocations = ['road', 'dungeon'];
-        
-        if (data.currentLocation.name.includes('町') || townLocations.includes(this.gameManager.gameData.player.current_location_type)) {
-            document.getElementById('location-type').textContent = '町にいます';
-            const progressBar = document.querySelector('.progress-bar');
-            if (progressBar) {
-                progressBar.style.display = 'none';
-            }
-            // 町にいるときはサイコロと移動コントロールを非表示
-            const diceContainer = document.getElementById('dice-container');
-            if (diceContainer) {
-                diceContainer.innerHTML = '<h3>' + data.currentLocation.name + 'にいます</h3><p>道路やダンジョンに移動すると、サイコロを振って移動できます。</p>';
-            }
-            this.hideMovementControls();
-            this.hideDiceResult();
-        } else if (movableLocations.includes(this.gameManager.gameData.player.current_location_type)) {
-            const locationType = this.gameManager.gameData.player.current_location_type === 'road' ? '道を歩いています' : 'ダンジョンにいます';
-            document.getElementById('location-type').textContent = locationType;
-            
-            if (this.gameManager.gameData.player.current_location_type === 'road') {
-                const progressBar = document.querySelector('.progress-bar');
-                if (progressBar) {
-                    progressBar.style.display = 'block';
-                }
-                const progressFill = document.getElementById('progress-fill');
-                const progressText = document.getElementById('progress-text');
-                if (progressFill && progressText) {
-                    progressFill.style.width = data.position + '%';
-                    progressText.textContent = data.position + '/100';
-                }
-            }
-            
-            // 移動可能場所にいるときはサイコロコンテナを復元
-            const diceContainer = document.getElementById('dice-container');
-            if (diceContainer && !diceContainer.innerHTML.includes('サイコロを振って移動しよう！')) {
-                diceContainer.innerHTML = this.getDiceContainerHTML();
-            }
-        }
-        
-        this.gameManager.gameData.player.current_location_type = data.currentLocation.name.includes('町') ? 'town' : 'road';
+        // location_typeを確実に取得
+        const locationType = data.location_type || (data.currentLocation.name.includes('町') ? 'town' : 'road');
+        this.gameManager.gameData.player.current_location_type = locationType;
         this.gameManager.gameData.player.position = data.position;
         
+        // 場所タイプに応じてUI全体を切り替え
+        if (locationType === 'town') {
+            this.showTownUI(data);
+        } else if (locationType === 'road') {
+            this.showRoadUI(data);
+        }
+        
         // 位置更新後にボタンの表示状態を確認
-        console.log('Position updated to:', data.position, 'Type:', this.gameManager.gameData.player.current_location_type);
+        console.log('Position updated to:', data.position, 'Type:', locationType);
+    }
+
+    showTownUI(data) {
+        // 町の表示
+        document.getElementById('location-type').textContent = '町にいます';
+        
+        // プログレスバーを非表示
+        const progressBar = document.querySelector('.progress-bar');
+        if (progressBar) {
+            progressBar.style.display = 'none';
+        }
+        
+        // サイコロコンテナを町用に変更
+        const diceContainer = document.getElementById('dice-container');
+        if (diceContainer) {
+            diceContainer.innerHTML = `
+                <h3>${data.currentLocation.name}にいます</h3>
+                <p>道路に移動すると、サイコロを振って移動できます。</p>
+            `;
+        }
+        
+        // 町の施設メニューを表示
+        this.showTownMenu();
+        
+        // 道路専用UIを非表示
+        this.hideRoadActions();
+        
+        // 移動コントロールを非表示
+        this.hideMovementControls();
+        this.hideDiceResult();
+    }
+
+    showRoadUI(data) {
+        // 道路の表示
+        document.getElementById('location-type').textContent = '道を歩いています';
+        
+        // プログレスバーを表示・更新
+        const progressBar = document.querySelector('.progress-bar');
+        if (progressBar) {
+            progressBar.style.display = 'block';
+        }
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        if (progressFill && progressText) {
+            progressFill.style.width = data.position + '%';
+            progressText.textContent = data.position + '/100';
+        }
+        
+        // サイコロコンテナを道路用に変更
+        const diceContainer = document.getElementById('dice-container');
+        if (diceContainer) {
+            diceContainer.innerHTML = this.getDiceContainerHTML();
+        }
+        
+        // 町の施設メニューを非表示
+        this.hideTownMenu();
+        
+        // 道路専用UIを表示
+        this.showRoadActions();
+        
+        // 移動コントロール用のDOMを確保（非表示状態で）
+        this.ensureMovementControls();
+    }
+
+    showTownMenu() {
+        const locationInfo = document.querySelector('.location-info');
+        if (!locationInfo) return;
+        
+        // 既存の町メニューがあるか確認
+        let townMenu = locationInfo.querySelector('.town-menu');
+        if (!townMenu) {
+            // 町メニューを動的作成
+            townMenu = document.createElement('div');
+            townMenu.className = 'town-menu';
+            townMenu.innerHTML = `
+                <h3>町の施設</h3>
+                <div class="town-actions">
+                    <a href="/shops/item" class="btn btn-primary" title="アイテムショップ">
+                        <span class="shop-icon">🛒</span>
+                        アイテムショップ
+                    </a>
+                    <a href="/shops/blacksmith" class="btn btn-primary" title="鍛冶屋">
+                        <span class="shop-icon">⚒️</span>
+                        鍛冶屋
+                    </a>
+                </div>
+            `;
+            locationInfo.appendChild(townMenu);
+        }
+        townMenu.style.display = 'block';
+    }
+
+    hideTownMenu() {
+        const townMenu = document.querySelector('.town-menu');
+        if (townMenu) {
+            townMenu.style.display = 'none';
+        }
+    }
+
+    showRoadActions() {
+        const locationInfo = document.querySelector('.location-info');
+        if (!locationInfo) return;
+        
+        // 道路専用アクション（採集など）を表示
+        let roadActions = locationInfo.querySelector('.road-actions');
+        if (!roadActions) {
+            roadActions = document.createElement('div');
+            roadActions.className = 'road-actions';
+            roadActions.innerHTML = `
+                <h3>道での行動</h3>
+                <div class="gathering-section">
+                    <button id="gathering-btn" class="btn btn-success" onclick="performGathering()">
+                        <span class="icon">🌿</span>
+                        採集する
+                    </button>
+                    <button id="gathering-info-btn" class="btn btn-info" onclick="showGatheringInfo()">
+                        <span class="icon">📊</span>
+                        採集情報
+                    </button>
+                </div>
+            `;
+            locationInfo.appendChild(roadActions);
+        }
+        roadActions.style.display = 'block';
+    }
+
+    hideRoadActions() {
+        const roadActions = document.querySelector('.road-actions');
+        if (roadActions) {
+            roadActions.style.display = 'none';
+        }
+    }
+
+    ensureMovementControls() {
+        // 移動コントロールのDOMが存在しない場合作成
+        let movementControls = document.getElementById('movement-controls');
+        if (!movementControls) {
+            movementControls = document.createElement('div');
+            movementControls.className = 'movement-controls hidden';
+            movementControls.id = 'movement-controls';
+            movementControls.innerHTML = `
+                <button class="btn btn-warning" id="move-left" onclick="move('left')">←左に移動</button>
+                <button class="btn btn-warning" id="move-right" onclick="move('right')">→右に移動</button>
+            `;
+            
+            // dice-containerの後に挿入
+            const diceContainer = document.getElementById('dice-container');
+            if (diceContainer && diceContainer.parentNode) {
+                diceContainer.parentNode.insertBefore(movementControls, diceContainer.nextSibling);
+            }
+        }
     }
 
     getDiceContainerHTML() {

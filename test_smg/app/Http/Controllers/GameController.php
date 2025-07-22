@@ -39,6 +39,9 @@ class GameController extends Controller
             },
             'isOnRoad' => function() use ($playerData) {
                 return $playerData['current_location_type'] === 'road';
+            },
+            'getCharacter' => function() use ($character) {
+                return (object) $character;
             }
         ]);
         
@@ -172,11 +175,14 @@ class GameController extends Controller
         $currentLocation = DummyDataService::getCurrentLocation();
         $newNextLocation = DummyDataService::getNextLocation();
         $position = session('game_position', 0);
+        $locationType = session('location_type', 'town');
         
         return response()->json([
             'currentLocation' => $currentLocation,
             'position' => $position,
-            'nextLocation' => $newNextLocation
+            'nextLocation' => $newNextLocation,
+            'location_type' => $locationType,
+            'success' => true
         ]);
     }
     

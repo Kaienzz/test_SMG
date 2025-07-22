@@ -40,8 +40,20 @@
         </div>
         
         @php
-            $character = $player->getCharacter();
-            $gatheringSkill = $character->getSkill('採集');
+            $character = null;
+            $gatheringSkill = null;
+            
+            // 安全にgetCharacter()メソッドを呼び出し
+            if (is_object($player) && method_exists($player, 'getCharacter')) {
+                $character = $player->getCharacter();
+            } elseif (is_object($player) && isset($player->getCharacter) && is_callable($player->getCharacter)) {
+                $character = call_user_func($player->getCharacter);
+            }
+            
+            // キャラクターが取得できた場合のみスキルチェック
+            if ($character && is_object($character) && method_exists($character, 'getSkill')) {
+                $gatheringSkill = $character->getSkill('採集');
+            }
         @endphp
         
         @if($gatheringSkill)
