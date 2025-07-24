@@ -446,11 +446,13 @@ class Inventory extends Model
 
     public static function createForCharacter(int $characterId): self
     {
-        return new self([
-            'character_id' => $characterId,
-            'slot_data' => [],
-            'max_slots' => self::DEFAULT_MAX_SLOTS,
-        ]);
+        return self::firstOrCreate(
+            ['character_id' => $characterId],
+            [
+                'slot_data' => [],
+                'max_slots' => self::DEFAULT_MAX_SLOTS,
+            ]
+        );
     }
 
     public function addSampleItems(): void

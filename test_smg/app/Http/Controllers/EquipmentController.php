@@ -6,22 +6,24 @@ use App\Models\Character;
 use App\Models\Equipment;
 use App\Models\Item;
 use App\Models\Inventory;
-use App\Services\DummyDataService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 
 class EquipmentController extends Controller
 {
     public function show(Request $request): View
     {
-        $characterId = $request->query('character_id', 1);
-        $character = (object) DummyDataService::getCharacter($characterId);
-        $equippedItems = DummyDataService::getEquippedItems($characterId);
-        $totalStats = DummyDataService::getEquipmentTotalStats($characterId);
-        $inventoryData = DummyDataService::getInventory($characterId);
-        $inventoryItems = $inventoryData['items'];
-        $sampleEquipmentItems = DummyDataService::getSampleEquipmentItems();
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
+        $equipment = $this->getOrCreateEquipment($character->id);
+        $inventory = $character->getInventory();
+        
+        $equippedItems = $equipment->getEquippedItems();
+        $totalStats = $equipment->getTotalStats();
+        $inventoryItems = $inventory->getItems();
+        $sampleEquipmentItems = Equipment::getSampleEquipmentItems();
 
         return view('equipment.index', compact(
             'character',
@@ -35,32 +37,64 @@ class EquipmentController extends Controller
     public function equip(Request $request): JsonResponse
     {
         $request->validate([
-            'character_id' => 'required|integer',
             'item_id' => 'required|integer',
             'slot' => 'required|string|in:weapon,body_armor,shield,helmet,boots,accessory',
         ]);
 
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
+        $equipment = $this->getOrCreateEquipment($character->id);
+        $inventory = $character->getInventory();
+        
+        $itemId = $request->item_id;
+        $slot = $request->slot;
+        
+        // インベントリからアイテムを確認
+        if (!$inventory->hasItem($itemId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'そのアイテムを持っていません。'
+            ], 400);
+        }
+        
+        // 現在装備しているアイテムを外してインベントリに戻す
+        $currentEquippedItemId = $this->getCurrentEquippedItemId($equipment, $slot);
+        if ($currentEquippedItemId) {
+            $inventory->addItem($currentEquippedItemId, 1);
+        }
+        
+        // 新しいアイテムを装備
+        $item = Item::find($itemId);
+        if (!$item || !$equipment->equipItem($item, $slot)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'そのアイテムはこのスロットに装備できません。'
+            ], 400);
+        }
+        
+        // インベントリからアイテムを削除
+        $inventory->removeItem($itemId, 1);
+
         return response()->json([
             'success' => true,
             'message' => "アイテムを装備しました。",
-            'equipped_items' => DummyDataService::getEquippedItems($request->character_id),
-            'total_stats' => DummyDataService::getEquipmentTotalStats($request->character_id),
-            'inventory' => DummyDataService::getInventory($request->character_id),
+            'equipped_items' => $equipment->getEquippedItems(),
+            'total_stats' => $equipment->getTotalStats(),
+            'inventory' => $inventory->getInventoryData(),
         ]);
     }
 
     public function unequip(Request $request): JsonResponse
     {
         $request->validate([
-            'character_id' => 'required|integer',
             'slot' => 'required|string|in:weapon,body_armor,shield,helmet,boots,accessory',
         ]);
 
-        $characterId = $request->character_id;
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         $slot = $request->slot;
 
-        $character = Character::findOrFail($characterId);
-        $equipment = $this->getOrCreateEquipment($characterId);
+        $equipment = $this->getOrCreateEquipment($character->id);
         $inventory = $character->getInventory();
 
         $currentEquippedItemId = $this->getCurrentEquippedItemId($equipment, $slot);
@@ -92,10 +126,10 @@ class EquipmentController extends Controller
 
     public function getAvailableItems(Request $request): JsonResponse
     {
-        $characterId = $request->query('character_id', 1);
         $slot = $request->query('slot');
 
-        $character = Character::findOrFail($characterId);
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         $inventory = $character->getInventory();
         $items = $inventory->getItems();
 
@@ -158,17 +192,22 @@ class EquipmentController extends Controller
     public function addSampleEquipment(Request $request): JsonResponse
     {
         $request->validate([
-            'character_id' => 'required|integer',
             'category' => 'required|string',
             'item_name' => 'required|string',
         ]);
 
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
+        $inventory = $character->getInventory();
         $itemName = $request->item_name;
+
+        // TODO: サンプル装備の実際の追加処理を実装
+        // 現在はサンプルなので成功レスポンスのみ
 
         return response()->json([
             'success' => true,
             'message' => "{$itemName}をインベントリに追加しました。",
-            'inventory' => DummyDataService::getInventory($request->character_id),
+            'inventory' => $inventory->getInventoryData(),
         ]);
     }
 }

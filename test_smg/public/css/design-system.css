@@ -1,0 +1,539 @@
+/* シンプルブラウザゲーム デザインシステム */
+/* design_rules.mdに基づく統一デザインシステム */
+
+:root {
+  /* プライマリカラー */
+  --primary-50: #f0f9ff;
+  --primary-100: #dbeafe;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;
+  --primary-900: #1e3a8a;
+
+  /* セカンダリカラー */
+  --secondary-50: #fff7ed;
+  --secondary-100: #ffedd5;
+  --secondary-500: #f97316;
+  --secondary-600: #ea580c;
+  --secondary-900: #9a3412;
+
+  /* セマンティックカラー */
+  --success: #059669;
+  --warning: #d97706;
+  --error: #dc2626;
+  --info: #0284c7;
+
+  /* ゲーム専用カラー */
+  --town-color: #059669;
+  --road-color: #92400e;
+  --dice-color: #fbbf24;
+  --neutral-bg: #f3f4f6;
+
+  /* ニュートラルカラー */
+  --gray-50: #fafafa;
+  --gray-100: #f4f4f5;
+  --gray-200: #e4e4e7;
+  --gray-300: #d4d4d8;
+  --gray-500: #71717a;
+  --gray-700: #3f3f46;
+  --gray-900: #18181b;
+
+  /* 基本色設定 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #fafafa;
+  --bg-game: #f8fafc;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --border-light: #e5e7eb;
+  --border-medium: #d1d5db;
+
+  /* フォントファミリー */
+  --font-primary: system-ui, -apple-system, 'Segoe UI', 'Noto Sans JP', sans-serif;
+  --font-mono: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+  --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* フォントサイズ */
+  --text-3xl: 1.875rem;
+  --text-2xl: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-lg: 1.125rem;
+  --text-base: 1rem;
+  --text-sm: 0.875rem;
+  --text-xs: 0.75rem;
+  --text-dice: 1.5rem;
+  --text-status: 1.125rem;
+
+  /* 行間 */
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* フォントウェイト */
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* スペーシングシステム */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* コンポーネント間隔 */
+  --game-section-gap: var(--space-6);
+  --card-padding: var(--space-5);
+  --button-padding-y: var(--space-3);
+  --button-padding-x: var(--space-5);
+  --button-gap: var(--space-3);
+  --choice-gap: var(--space-2);
+
+  /* 角丸 */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+
+  /* コンポーネント別設定 */
+  --button-radius: var(--radius-md);
+  --card-radius: var(--radius-lg);
+  --choice-radius: var(--radius-sm);
+  --dice-radius: var(--radius-md);
+
+  /* 影の効果 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 6px 0 rgba(0, 0, 0, 0.1);
+
+  /* ボタン専用影 */
+  --shadow-button: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+  --shadow-button-hover: 0 3px 6px 0 rgba(0, 0, 0, 0.15);
+  --shadow-button-active: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+
+  /* カード影 */
+  --shadow-card: 0 2px 8px 0 rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 4px 12px 0 rgba(0, 0, 0, 0.12);
+
+  /* フォーカス表示 */
+  --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* ベーススタイル */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-primary);
+  background: var(--bg-game);
+  color: var(--text-primary);
+  line-height: var(--leading-normal);
+  margin: 0;
+  padding: 0;
+}
+
+/* ボタンシステム */
+.btn {
+  padding: var(--button-padding-y) var(--button-padding-x);
+  border-radius: var(--button-radius);
+  font-family: var(--font-primary);
+  font-weight: var(--font-medium);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  min-width: 120px;
+  box-shadow: var(--shadow-button);
+}
+
+.btn:hover {
+  box-shadow: var(--shadow-button-hover);
+}
+
+.btn:active {
+  box-shadow: var(--shadow-button-active);
+}
+
+.btn:focus {
+  box-shadow: var(--shadow-focus);
+}
+
+.btn-primary {
+  background: var(--primary-500);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-600);
+}
+
+.btn-secondary {
+  background: var(--gray-100);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.btn-secondary:hover {
+  background: var(--gray-200);
+}
+
+.btn-success {
+  background: var(--success);
+  color: white;
+}
+
+.btn-warning {
+  background: var(--warning);
+  color: white;
+}
+
+.btn-large {
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--text-xl);
+  min-width: 160px;
+}
+
+/* ゲーム情報カード */
+.game-card {
+  background: var(--bg-primary);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  box-shadow: var(--shadow-card);
+  border: 2px solid var(--border-light);
+  margin-bottom: var(--game-section-gap);
+}
+
+.game-card-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4) 0;
+  text-align: center;
+}
+
+.game-card-content {
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+/* 特殊カード */
+.location-card {
+  background: linear-gradient(135deg, var(--town-color), var(--success));
+  color: white;
+  text-align: center;
+}
+
+.location-card .game-card-title {
+  color: white;
+}
+
+.dice-card {
+  background: var(--neutral-bg);
+  border-color: var(--dice-color);
+  text-align: center;
+}
+
+/* ラジオボタン・選択肢 */
+.choice-group {
+  margin: var(--space-4) 0;
+}
+
+.choice-option {
+  display: block;
+  margin-bottom: var(--choice-gap);
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--border-light);
+  border-radius: var(--choice-radius);
+  background: var(--bg-primary);
+  transition: all 0.2s ease;
+}
+
+.choice-option:hover {
+  border-color: var(--primary-500);
+  background: var(--primary-50);
+}
+
+.choice-option input[type="radio"] {
+  margin-right: var(--space-2);
+  accent-color: var(--primary-500);
+}
+
+.choice-option:has(input:checked) {
+  border-color: var(--primary-500);
+  background: var(--primary-100);
+}
+
+/* プログレスバー */
+.progress {
+  width: 100%;
+  height: 1.5rem;
+  background: var(--gray-200);
+  border-radius: var(--radius-full);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--road-color);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+/* サイコロ・特殊UI */
+.dice {
+  display: inline-block;
+  width: 3rem;
+  height: 3rem;
+  background: white;
+  border: 2px solid var(--gray-300);
+  border-radius: var(--dice-radius);
+  font-size: var(--text-dice);
+  font-weight: var(--font-bold);
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 2.5rem;
+  margin: 0 var(--space-2);
+  box-shadow: var(--shadow-md);
+}
+
+.dice-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: var(--space-4) 0;
+}
+
+/* ゲーム状態表示 */
+.game-status {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: var(--space-4) 0;
+  text-align: center;
+  font-size: var(--text-status);
+  color: var(--text-secondary);
+}
+
+/* ボタングループ */
+.button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--button-gap);
+  justify-content: center;
+  margin: var(--space-4) 0;
+}
+
+.button-group .btn {
+  flex: 0 1 auto;
+}
+
+/* ナビゲーション */
+.nav {
+  background: var(--bg-primary);
+  border-bottom: 2px solid var(--border-light);
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-6);
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--primary-500);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: var(--space-6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: var(--font-medium);
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--primary-500);
+}
+
+/* ヒーローセクション */
+.hero {
+  text-align: center;
+  padding: var(--space-12) var(--space-4);
+  background: linear-gradient(135deg, var(--primary-50), var(--secondary-50));
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-8);
+}
+
+.hero-title {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4) 0;
+}
+
+.hero-subtitle {
+  font-size: var(--text-xl);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-6) 0;
+  line-height: var(--leading-relaxed);
+}
+
+/* メインコンテナ */
+.main-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
+  margin-bottom: var(--space-8);
+}
+
+/* フィーチャーセクション */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-6);
+  margin: var(--space-8) 0;
+}
+
+.feature-card {
+  background: var(--bg-primary);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  box-shadow: var(--shadow-card);
+  border: 2px solid var(--border-light);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.feature-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.feature-icon {
+  font-size: 2rem;
+  margin-bottom: var(--space-4);
+}
+
+.feature-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.feature-description {
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+/* アクセシビリティ */
+.focusable:focus {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+}
+
+/* モーション配慮 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+  }
+  
+  .progress-fill {
+    transition: none !important;
+  }
+}
+
+/* モバイル対応 */
+@media (max-width: 640px) {
+  .btn {
+    padding: var(--space-3) var(--space-4);
+    min-width: 100px;
+    font-size: var(--text-base);
+  }
+  
+  .button-group {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .game-card {
+    padding: var(--space-4);
+  }
+  
+  .dice {
+    width: 2.5rem;
+    height: 2.5rem;
+    line-height: 2rem;
+    font-size: 1.25rem;
+  }
+
+  .nav-container {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .nav-links {
+    gap: var(--space-4);
+  }
+
+  .hero {
+    padding: var(--space-8) var(--space-4);
+  }
+
+  .hero-title {
+    font-size: var(--text-2xl);
+  }
+
+  .features {
+    grid-template-columns: 1fr;
+  }
+}

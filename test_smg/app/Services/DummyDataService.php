@@ -8,6 +8,7 @@ class DummyDataService
     {
         $baseSp = 30;
         $currentSp = session('character_sp', $baseSp);
+        $currentGold = session('character_gold', 500); // デフォルト500G
         
         return [
             'id' => $id,
@@ -25,6 +26,8 @@ class DummyDataService
             'sp' => $currentSp,
             'max_sp' => 60,
             'accuracy' => 90,
+            'magic_attack' => 12,
+            'gold' => $currentGold,
         ];
     }
 
@@ -53,6 +56,7 @@ class DummyDataService
             ],
             'combat_stats' => [
                 'attack' => $character['attack'],
+                'magic_attack' => $character['magic_attack'],
                 'defense' => $character['defense'],
                 'agility' => $character['agility'],
                 'evasion' => $character['evasion'],

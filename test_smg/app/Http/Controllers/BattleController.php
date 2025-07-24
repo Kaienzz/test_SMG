@@ -5,40 +5,65 @@ namespace App\Http\Controllers;
 use App\Models\Character;
 use App\Models\Monster;
 use App\Models\BattleSkill;
+use App\Models\ActiveBattle;
 use App\Services\BattleService;
-use App\Services\DummyDataService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 
 class BattleController extends Controller
 {
-    public function index(): View
+    use \App\Http\Controllers\Traits\HasCharacter;
+    public function index(): View|RedirectResponse
     {
-        $battleData = session('battle_data');
+        $userId = Auth::id();
         
-        if (!$battleData) {
+        // セッションから戦闘データを移行（下位互換性のため）
+        $this->migrateBattleSessionToDatabase($userId);
+        
+        $activeBattle = ActiveBattle::getUserActiveBattle($userId);
+        
+        if (!$activeBattle) {
             return redirect()->route('game.index');
         }
         
         return view('battle.index', [
-            'battle' => $battleData,
-            'character' => $battleData['character'],
-            'monster' => $battleData['monster'],
+            'battle' => [
+                'battle_id' => $activeBattle->battle_id,
+                'character' => $activeBattle->character_data,
+                'monster' => $activeBattle->monster_data,
+                'battle_log' => $activeBattle->battle_log,
+                'turn' => $activeBattle->turn,
+            ],
+            'character' => $activeBattle->character_data,
+            'monster' => $activeBattle->monster_data,
         ]);
     }
 
     public function startBattle(Request $request): JsonResponse
     {
         $monster = $request->input('monster');
-        $character = DummyDataService::getCharacter(1);
+        $user = Auth::user();
+        $character = $this->getOrCreateCharacter();
         
-        $battleData = BattleService::startBattle($character, $monster);
-        session(['battle_data' => $battleData]);
+        // CharacterをBattleService用の配列形式に変換
+        $characterArray = $this->createPlayerFromCharacter($character);
+        
+        $battleData = BattleService::startBattle($characterArray, $monster);
+        
+        // ActiveBattleに保存
+        $activeBattle = ActiveBattle::startBattle(
+            $user->id,
+            $battleData['character'],
+            $battleData['monster'],
+            $character->location_type
+        );
         
         return response()->json([
             'success' => true,
-            'battle_id' => $battleData['battle_id'],
+            'battle_id' => $activeBattle->battle_id,
             'character' => $battleData['character'],
             'monster' => $battleData['monster'],
             'message' => "{$monster['name']}が現れた！"
@@ -47,15 +72,16 @@ class BattleController extends Controller
 
     public function attack(Request $request): JsonResponse
     {
-        $battleData = session('battle_data');
+        $userId = Auth::id();
+        $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
-        if (!$battleData) {
+        if (!$activeBattle) {
             return response()->json(['success' => false, 'message' => '戦闘データが見つかりません']);
         }
         
-        $character = $battleData['character'];
-        $monster = $battleData['monster'];
-        $battleLog = $battleData['battle_log'];
+        $character = $activeBattle->character_data;
+        $monster = $activeBattle->monster_data;
+        $battleLog = $activeBattle->battle_log;
         
         // プレイヤーの攻撃
         $attackResult = BattleService::calculateAttack($character, $monster);
@@ -79,7 +105,8 @@ class BattleController extends Controller
                 'message' => $battleResult['message']
             ];
             
-            session()->forget('battle_data');
+            $activeBattle->endBattle($result);
+            $this->updateCharacterFromBattle($userId, $character);
             
             return response()->json([
                 'success' => true,
@@ -118,7 +145,8 @@ class BattleController extends Controller
                 'message' => $battleResult['message']
             ];
             
-            session()->forget('battle_data');
+            $activeBattle->endBattle($result);
+            $this->updateCharacterFromBattle($userId, $character);
             
             return response()->json([
                 'success' => true,
@@ -131,13 +159,8 @@ class BattleController extends Controller
             ]);
         }
         
-        // 戦闘データを更新
-        $battleData['character'] = $character;
-        $battleData['monster'] = $monster;
-        $battleData['battle_log'] = $battleLog;
-        $battleData['turn']++;
-        
-        session(['battle_data' => $battleData]);
+        // 戦闘データをDB更新
+        $activeBattle->updateBattleData($character, $monster, $battleLog);
         
         return response()->json([
             'success' => true,
@@ -145,21 +168,22 @@ class BattleController extends Controller
             'character' => $character,
             'monster' => $monster,
             'battle_log' => $battleLog,
-            'turn' => $battleData['turn'],
+            'turn' => $activeBattle->turn + 1,
         ]);
     }
 
     public function defend(Request $request): JsonResponse
     {
-        $battleData = session('battle_data');
+        $userId = Auth::id();
+        $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
-        if (!$battleData) {
+        if (!$activeBattle) {
             return response()->json(['success' => false, 'message' => '戦闘データが見つかりません']);
         }
         
-        $character = $battleData['character'];
-        $monster = $battleData['monster'];
-        $battleLog = $battleData['battle_log'];
+        $character = $activeBattle->character_data;
+        $monster = $activeBattle->monster_data;
+        $battleLog = $activeBattle->battle_log;
         
         // プレイヤーの防御
         $defenseResult = BattleService::calculateDefense($character);
@@ -190,7 +214,8 @@ class BattleController extends Controller
                 'message' => $battleResult['message']
             ];
             
-            session()->forget('battle_data');
+            $activeBattle->endBattle($result);
+            $this->updateCharacterFromBattle($userId, $character);
             
             return response()->json([
                 'success' => true,
@@ -203,13 +228,8 @@ class BattleController extends Controller
             ]);
         }
         
-        // 戦闘データを更新
-        $battleData['character'] = $character;
-        $battleData['monster'] = $monster;
-        $battleData['battle_log'] = $battleLog;
-        $battleData['turn']++;
-        
-        session(['battle_data' => $battleData]);
+        // 戦闘データをDB更新
+        $activeBattle->updateBattleData($character, $monster, $battleLog);
         
         return response()->json([
             'success' => true,
@@ -217,21 +237,22 @@ class BattleController extends Controller
             'character' => $character,
             'monster' => $monster,
             'battle_log' => $battleLog,
-            'turn' => $battleData['turn'],
+            'turn' => $activeBattle->turn + 1,
         ]);
     }
 
     public function escape(Request $request): JsonResponse
     {
-        $battleData = session('battle_data');
+        $userId = Auth::id();
+        $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
-        if (!$battleData) {
+        if (!$activeBattle) {
             return response()->json(['success' => false, 'message' => '戦闘データが見つかりません']);
         }
         
-        $character = $battleData['character'];
-        $monster = $battleData['monster'];
-        $battleLog = $battleData['battle_log'];
+        $character = $activeBattle->character_data;
+        $monster = $activeBattle->monster_data;
+        $battleLog = $activeBattle->battle_log;
         
         // 逃走判定
         $escapeResult = BattleService::calculateEscape($character, $monster);
@@ -243,7 +264,8 @@ class BattleController extends Controller
         if ($escapeResult['success']) {
             // 逃走成功
             $battleResult = BattleService::processBattleResult($character, $monster, 'escaped');
-            session()->forget('battle_data');
+            $activeBattle->endBattle('escaped');
+            $this->updateCharacterFromBattle($userId, $character);
             
             return response()->json([
                 'success' => true,
@@ -277,7 +299,8 @@ class BattleController extends Controller
                 'message' => $battleResult['message']
             ];
             
-            session()->forget('battle_data');
+            $activeBattle->endBattle($result);
+            $this->updateCharacterFromBattle($userId, $character);
             
             return response()->json([
                 'success' => true,
@@ -291,12 +314,12 @@ class BattleController extends Controller
         }
         
         // 戦闘データを更新
-        $battleData['character'] = $character;
-        $battleData['monster'] = $monster;
-        $battleData['battle_log'] = $battleLog;
-        $battleData['turn']++;
-        
-        session(['battle_data' => $battleData]);
+        $activeBattle->updateBattleData([
+            'character_data' => $character,
+            'monster_data' => $monster,
+            'battle_log' => $battleLog,
+            'turn' => $activeBattle->turn + 1,
+        ]);
         
         return response()->json([
             'success' => true,
@@ -304,14 +327,19 @@ class BattleController extends Controller
             'character' => $character,
             'monster' => $monster,
             'battle_log' => $battleLog,
-            'turn' => $battleData['turn'],
+            'turn' => $activeBattle->turn,
             'escape_rate' => $escapeResult['escape_rate'],
         ]);
     }
 
     public function endBattle(Request $request): JsonResponse
     {
-        session()->forget('battle_data');
+        $userId = Auth::id();
+        $activeBattle = ActiveBattle::getUserActiveBattle($userId);
+        
+        if ($activeBattle) {
+            $activeBattle->endBattle('abandoned');
+        }
         
         return response()->json([
             'success' => true,
@@ -321,9 +349,10 @@ class BattleController extends Controller
 
     public function useSkill(Request $request): JsonResponse
     {
-        $battleData = session('battle_data');
+        $userId = Auth::id();
+        $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
-        if (!$battleData) {
+        if (!$activeBattle) {
             return response()->json(['success' => false, 'message' => '戦闘データが見つかりません']);
         }
 
@@ -334,9 +363,9 @@ class BattleController extends Controller
             return response()->json(['success' => false, 'message' => 'スキルが見つかりません']);
         }
 
-        $character = $battleData['character'];
-        $monster = $battleData['monster'];
-        $battleLog = $battleData['battle_log'];
+        $character = $activeBattle->character_data;
+        $monster = $activeBattle->monster_data;
+        $battleLog = $activeBattle->battle_log;
 
         // MP確認
         if ($character['mp'] < $skill->mp_cost) {
@@ -386,7 +415,8 @@ class BattleController extends Controller
                 'message' => $battleResult['message']
             ];
             
-            session()->forget('battle_data');
+            $activeBattle->endBattle($result);
+            $this->updateCharacterFromBattle($userId, $character);
             
             return response()->json([
                 'success' => true,
@@ -425,7 +455,8 @@ class BattleController extends Controller
                 'message' => $battleResult['message']
             ];
             
-            session()->forget('battle_data');
+            $activeBattle->endBattle($result);
+            $this->updateCharacterFromBattle($userId, $character);
             
             return response()->json([
                 'success' => true,
@@ -439,12 +470,12 @@ class BattleController extends Controller
         }
 
         // 戦闘データを更新
-        $battleData['character'] = $character;
-        $battleData['monster'] = $monster;
-        $battleData['battle_log'] = $battleLog;
-        $battleData['turn']++;
-        
-        session(['battle_data' => $battleData]);
+        $activeBattle->updateBattleData([
+            'character_data' => $character,
+            'monster_data' => $monster,
+            'battle_log' => $battleLog,
+            'turn' => $activeBattle->turn + 1,
+        ]);
         
         return response()->json([
             'success' => true,
@@ -452,7 +483,39 @@ class BattleController extends Controller
             'character' => $character,
             'monster' => $monster,
             'battle_log' => $battleLog,
-            'turn' => $battleData['turn'],
+            'turn' => $activeBattle->turn,
+        ]);
+    }
+
+    // セッションから戦闘データをDBに移行するヘルパー（下位互換性のため）
+    private function migrateBattleSessionToDatabase(int $userId): void
+    {
+        $sessionBattleData = session('battle_data');
+        
+        if ($sessionBattleData) {
+            ActiveBattle::migrateFromSession($userId, $sessionBattleData);
+            session()->forget('battle_data');
+        }
+    }
+
+    // CharacterモデルからBattleService用の配列形式に変換（装備込み最適化）
+    private function createPlayerFromCharacter(Character $character): array
+    {
+        return $character->getBattleStats();
+    }
+
+    // 戦闘結果をCharacterモデルに反映
+    private function updateCharacterFromBattle(int $userId, array $characterData): void
+    {
+        $user = Auth::user();
+        $character = $this->getOrCreateCharacter();
+        
+        // HP, MP, SPの更新
+        $character->update([
+            'hp' => max(0, $characterData['hp'] ?? $character->hp),
+            'mp' => max(0, $characterData['mp'] ?? $character->mp),
+            'sp' => max(0, $characterData['sp'] ?? $character->sp),
+            'gold' => max(0, $characterData['gold'] ?? $character->gold),
         ]);
     }
 }

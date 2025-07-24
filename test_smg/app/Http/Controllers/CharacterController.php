@@ -3,13 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Character;
-use App\Services\DummyDataService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
 
 class CharacterController extends Controller
 {
+    use \App\Http\Controllers\Traits\HasCharacter;
     public function index(): View
     {
         $character = $this->getOrCreateCharacter();
@@ -149,13 +150,4 @@ class CharacterController extends Controller
         ]);
     }
 
-    private function getOrCreateCharacter(): Character
-    {
-        $character = Character::first();
-        if (!$character) {
-            $character = Character::createNewCharacter('冒険者');
-            $character->save();
-        }
-        return $character;
-    }
 }

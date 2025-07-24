@@ -165,9 +165,16 @@ class BattleService
                 'message' => "{$monster['name']}を倒した！"
             ];
         } elseif ($result === 'defeat') {
+            // 戦闘敗北時の処理
+            $defeatResult = self::processDefeat($character);
+            
             return [
                 'result' => 'defeat',
-                'message' => '敗北した...'
+                'message' => '敗北した...',
+                'teleport_location' => $defeatResult['teleport_location'],
+                'gold_lost' => $defeatResult['gold_lost'],
+                'remaining_gold' => $defeatResult['remaining_gold'],
+                'teleport_message' => $defeatResult['teleport_message']
             ];
         } elseif ($result === 'escaped') {
             return [
@@ -179,6 +186,50 @@ class BattleService
         return [
             'result' => 'unknown',
             'message' => '不明な結果'
+        ];
+    }
+
+    /**
+     * 戦闘敗北時の処理
+     */
+    private static function processDefeat(array $character): array
+    {
+        // 直近に入った町を取得（デフォルトはtown_a）
+        $lastTown = session('last_visited_town', 'town_a');
+        
+        // 所持金ペナルティの計算（20%-30%をランダムで失う）
+        $currentGold = $character['gold'] ?? 0;
+        $penaltyPercent = mt_rand(20, 30);
+        $goldLost = (int) round($currentGold * ($penaltyPercent / 100));
+        $remainingGold = $currentGold - $goldLost;
+        
+        // キャラクターデータを更新
+        $updatedCharacter = $character;
+        $updatedCharacter['gold'] = $remainingGold;
+        $updatedCharacter['hp'] = 1; // HPを1に回復
+        
+        // セッションを更新（町にテレポート + 所持金更新）
+        session([
+            'location_type' => 'town',
+            'location_id' => $lastTown,
+            'game_position' => 0,
+            'character_gold' => $remainingGold,
+        ]);
+        
+        // 町の名前を取得
+        $townNames = [
+            'town_a' => 'A町',
+            'town_b' => 'B町'
+        ];
+        $townName = $townNames[$lastTown] ?? '不明な町';
+        
+        return [
+            'teleport_location' => $lastTown,
+            'gold_lost' => $goldLost,
+            'remaining_gold' => $remainingGold,
+            'teleport_message' => "{$townName}にテレポートしました",
+            'penalty_percent' => $penaltyPercent,
+            'updated_character' => $updatedCharacter
         ];
     }
 

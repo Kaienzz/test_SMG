@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Character extends Model
 {
     protected $fillable = [
+        'user_id',
         'name',
         'attack',
         'defense',
@@ -24,6 +26,12 @@ class Character extends Model
         'accuracy',
         'gold',
         'level',
+        'experience',
+        'experience_to_next',
+        'location_type',
+        'location_id',
+        'game_position',
+        'last_visited_town',
         'base_attack',
         'base_defense',
         'base_agility',
@@ -35,7 +43,11 @@ class Character extends Model
         'base_accuracy',
     ];
 
+    // キャッシュ用プロパティ
+    private $_skillBonusesCache = null;
+
     protected $casts = [
+        'user_id' => 'integer',
         'attack' => 'integer',
         'defense' => 'integer',
         'agility' => 'integer',
@@ -50,6 +62,9 @@ class Character extends Model
         'accuracy' => 'integer',
         'gold' => 'integer',
         'level' => 'integer',
+        'experience' => 'integer',
+        'experience_to_next' => 'integer',
+        'game_position' => 'integer',
         'base_attack' => 'integer',
         'base_defense' => 'integer',
         'base_agility' => 'integer',
@@ -172,36 +187,141 @@ class Character extends Model
         ];
     }
 
-    public static function createNewCharacter(string $name): self
+    public static function createNewCharacter(int $userId, string $name = '冒険者'): self
     {
-        return new self([
+        return self::create([
+            'user_id' => $userId,
             'name' => $name,
             'level' => 1,
-            'attack' => 10,
-            'magic_attack' => 8,
-            'defense' => 8,
-            'agility' => 12,
-            'evasion' => 15,
-            'hp' => 100,
-            'max_hp' => 100,
-            'sp' => 50,
-            'max_sp' => 50,
-            'mp' => 30,
-            'max_mp' => 30,
-            'accuracy' => 85,
-            'gold' => 1000,
-            'base_attack' => 10,
-            'base_magic_attack' => 8,
-            'base_defense' => 8,
-            'base_agility' => 12,
-            'base_evasion' => 15,
-            'base_max_hp' => 100,
-            'base_max_sp' => 50,
-            'base_max_mp' => 30,
-            'base_accuracy' => 85,
+            'experience' => 0,
+            'experience_to_next' => 100,
+            'attack' => 15,
+            'magic_attack' => 12,
+            'defense' => 12,
+            'agility' => 18,
+            'evasion' => 22,
+            'hp' => 85,
+            'max_hp' => 120,
+            'sp' => 30,
+            'max_sp' => 60,
+            'mp' => 45,
+            'max_mp' => 80,
+            'accuracy' => 90,
+            'gold' => 500,
+            'location_type' => 'town',
+            'location_id' => 'town_a',
+            'game_position' => 0,
+            'last_visited_town' => 'town_a',
         ]);
     }
 
+    // ユーザーのキャラクターを取得または作成
+    public static function getOrCreateForUser(int $userId): self
+    {
+        return self::firstOrCreate(
+            ['user_id' => $userId],
+            [
+                'name' => '冒険者',
+                'level' => 1,
+                'experience' => 0,
+                'experience_to_next' => 100,
+                'attack' => 15,
+                'magic_attack' => 12,
+                'defense' => 12,
+                'agility' => 18,
+                'evasion' => 22,
+                'hp' => 85,
+                'max_hp' => 120,
+                'sp' => 30,
+                'max_sp' => 60,
+                'mp' => 45,
+                'max_mp' => 80,
+                'accuracy' => 90,
+                'gold' => 500,
+                'location_type' => 'town',
+                'location_id' => 'town_a',
+                'game_position' => 0,
+                'last_visited_town' => 'town_a',
+            ]
+        );
+    }
+
+    // ゲーム進行状況の更新
+    public function updateLocation(string $locationType, string $locationId, int $gamePosition = 0): void
+    {
+        $this->update([
+            'location_type' => $locationType,
+            'location_id' => $locationId,
+            'game_position' => $gamePosition,
+        ]);
+
+        // 町に入った場合は履歴を更新
+        if ($locationType === 'town') {
+            $this->update(['last_visited_town' => $locationId]);
+        }
+    }
+
+    // 経験値獲得とレベルアップ
+    public function gainExperience(int $experience): array
+    {
+        $this->experience += $experience;
+        $leveledUp = false;
+        $newLevel = $this->level;
+
+        while ($this->experience >= $this->experience_to_next) {
+            $this->experience -= $this->experience_to_next;
+            $newLevel++;
+            $leveledUp = true;
+            
+            // 次のレベルまでの経験値を設定（レベル * 100）
+            $this->experience_to_next = $newLevel * 100;
+            
+            // レベルアップ時のステータス上昇
+            $this->levelUpStats();
+        }
+
+        if ($leveledUp) {
+            $this->level = $newLevel;
+            $this->save();
+        } else {
+            $this->save();
+        }
+
+        return [
+            'leveled_up' => $leveledUp,
+            'new_level' => $newLevel,
+            'experience_gained' => $experience,
+        ];
+    }
+
+    // レベルアップ時のステータス上昇
+    private function levelUpStats(): void
+    {
+        $this->max_hp += rand(8, 12);
+        $this->max_mp += rand(3, 7);
+        $this->max_sp += rand(2, 5);
+        $this->attack += rand(1, 3);
+        $this->magic_attack += rand(1, 2);
+        $this->defense += rand(1, 2);
+        $this->agility += rand(1, 2);
+        
+        // HP/MP/SPを最大値まで回復
+        $this->hp = $this->max_hp;
+        $this->mp = $this->max_mp;
+        $this->sp = $this->max_sp;
+    }
+
+
+    // リレーション
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function battleLogs(): HasMany
+    {
+        return $this->hasMany(BattleLog::class, 'user_id', 'user_id');
+    }
 
     public function inventory(): HasOne
     {
@@ -213,10 +333,9 @@ class Character extends Model
         return $this->hasOne(Equipment::class);
     }
 
-    // スキルシステムが削除されたため、空のクエリビルダーを返す
-    public function skills()
+    public function skills(): HasMany
     {
-        return $this->newQuery()->whereRaw('1 = 0'); // 常に空を返す
+        return $this->hasMany(Skill::class);
     }
 
     public function activeEffects(): HasMany
@@ -267,26 +386,93 @@ class Character extends Model
 
     public function useSkill(string $skillName): array
     {
-        // スキルシステムが削除されたため、このメソッドは無効化
-        return ['success' => false, 'message' => "スキルシステムは現在利用できません。"];
+        $skill = $this->getSkill($skillName);
+        
+        if (!$skill) {
+            return ['success' => false, 'message' => "スキル「{$skillName}」を習得していません。"];
+        }
+        
+        if (!$skill->is_active) {
+            return ['success' => false, 'message' => "スキル「{$skillName}」は無効化されています。"];
+        }
+        
+        $spCost = $skill->getSkillSpCost();
+        if (!$this->consumeSP($spCost)) {
+            return ['success' => false, 'message' => "SPが足りません。必要SP: {$spCost}"];
+        }
+        
+        // スキル効果を適用
+        $result = $skill->applySkillEffect($this->id);
+        
+        if ($result['success']) {
+            // スキル経験値を獲得
+            $expGain = $skill->calculateExperienceGain();
+            $leveledUp = $skill->gainExperience($expGain);
+            
+            $result['experience_gained'] = $expGain;
+            $result['skill_leveled_up'] = $leveledUp;
+            
+            $this->save(); // SP消費を保存
+        }
+        
+        return $result;
     }
 
     public function getSkill(string $skillName): ?Skill
     {
-        // スキルシステムが削除されたため、このメソッドは無効化
-        return null;
+        return $this->skills()->where('skill_name', $skillName)->first();
     }
 
     public function hasSkill(string $skillName): bool
     {
-        // スキルシステムが削除されたため、このメソッドは無効化
-        return false;
+        return $this->skills()->where('skill_name', $skillName)->exists();
     }
 
     public function getActiveSkills(): array
     {
-        // スキルシステムが削除されたため、このメソッドは無効化
-        return [];
+        return $this->skills()->where('is_active', true)->get()->toArray();
+    }
+
+    // スキル学習メソッド
+    public function learnSkill(string $skillType, string $skillName, array $effects = [], int $spCost = 10, int $duration = 5): Skill
+    {
+        // 既に習得している場合はそのスキルを返す
+        $existingSkill = $this->getSkill($skillName);
+        if ($existingSkill) {
+            return $existingSkill;
+        }
+
+        // 新しいスキルを作成
+        $skill = Skill::createForCharacter($this->id, $skillType, $skillName, $effects, $spCost, $duration);
+        
+        // スキル追加後にキャラクターレベルを更新
+        $this->updateCharacterLevel();
+        
+        return $skill;
+    }
+
+    // スキル一覧を取得
+    public function getSkillList(): array
+    {
+        return $this->skills()->get()->map(function($skill) {
+            return [
+                'id' => $skill->id,
+                'skill_name' => $skill->skill_name,
+                'skill_type' => $skill->skill_type,
+                'level' => $skill->level,
+                'experience' => $skill->experience,
+                'required_exp' => $skill->getRequiredExperienceForNextLevel(),
+                'sp_cost' => $skill->getSkillSpCost(),
+                'is_active' => $skill->is_active,
+                'effects' => $skill->effects,
+            ];
+        })->toArray();
+    }
+
+    // 総スキルレベルを取得
+    public function getTotalSkillLevel(): int
+    {
+        return $this->skills()->sum('level');
     }
 
     public function spendGold(int $amount): bool
@@ -310,8 +496,16 @@ class Character extends Model
 
     public function calculateCharacterLevel(): int
     {
-        // スキルシステムが削除されたため、デフォルトレベルを返す
-        return $this->level ?? 1;
+        // スキルレベルの合計からキャラクターレベルを計算
+        $totalSkillLevel = $this->skills()->sum('level');
+        
+        // スキルレベル合計を基にキャラクターレベルを計算
+        // 例: スキルレベル合計10でキャラクターレベル2、20で3、など
+        if ($totalSkillLevel == 0) {
+            return 1; // 初期レベル
+        }
+        
+        return max(1, floor($totalSkillLevel / 10) + 1);
     }
 
     public function updateCharacterLevel(): bool
@@ -380,6 +574,12 @@ class Character extends Model
 
     private function calculateSkillBonuses(): array
     {
+        // キャッシュがある場合はそれを使用
+        $cacheKey = 'skill_bonuses_' . $this->id;
+        if (isset($this->_skillBonusesCache)) {
+            return $this->_skillBonusesCache;
+        }
+
         $bonuses = [
             'attack' => 0,
             'defense' => 0,
@@ -392,8 +592,10 @@ class Character extends Model
             'accuracy' => 0,
         ];
 
-        // スキルシステムが削除されたため、空のコレクションを使用
-        $skills = collect();
+        // スキルデータを取得（既にeager loadされていればそれを使用）
+        $skills = $this->relationLoaded('skills') 
+            ? $this->skills->where('is_active', true)
+            : $this->skills()->where('is_active', true)->get();
         
         foreach ($skills as $skill) {
             $skillLevel = $skill->level;
@@ -434,14 +636,23 @@ class Character extends Model
             }
         }
         
+        // キャッシュに保存
+        $this->_skillBonusesCache = $bonuses;
+        
         return $bonuses;
+    }
+
+    // スキルボーナスキャッシュを無効化
+    public function clearSkillBonusesCache(): void
+    {
+        $this->_skillBonusesCache = null;
     }
 
     public function getDetailedStatsWithLevel(): array
     {
         $baseStats = $this->getDetailedStats();
         $skillBonuses = $this->calculateSkillBonuses();
-        $totalSkillLevel = 0; // スキルシステムが削除されたため、0を返す
+        $totalSkillLevel = $this->getTotalSkillLevel();
         
         return array_merge($baseStats, [
             'character_level' => $this->level ?? 1,
@@ -449,5 +660,63 @@ class Character extends Model
             'skill_bonuses' => $skillBonuses,
             'base_stats' => $this->getBaseStats(),
         ]);
+    }
+
+    // Equipment関連
+    public function getOrCreateEquipment(): Equipment
+    {
+        return $this->equipment ?: Equipment::createForCharacter($this->id);
+    }
+
+    // 装備を含む総合ステータス取得
+    public function getTotalStatsWithEquipment(): array
+    {
+        $baseStats = $this->getDetailedStats();
+        $equipment = $this->getOrCreateEquipment();
+        $equipmentStats = $equipment->getTotalStats();
+        
+        // 基本ステータスと装備ステータスを合計
+        return [
+            'attack' => ($baseStats['attack'] ?? 0) + ($equipmentStats['attack'] ?? 0),
+            'defense' => ($baseStats['defense'] ?? 0) + ($equipmentStats['defense'] ?? 0),
+            'agility' => ($baseStats['agility'] ?? 0) + ($equipmentStats['agility'] ?? 0),
+            'evasion' => ($baseStats['evasion'] ?? 0) + ($equipmentStats['evasion'] ?? 0),
+            'hp' => $baseStats['hp'] ?? 0,
+            'max_hp' => ($baseStats['max_hp'] ?? 0) + ($equipmentStats['hp'] ?? 0),
+            'mp' => $baseStats['mp'] ?? 0,
+            'max_mp' => ($baseStats['max_mp'] ?? 0) + ($equipmentStats['mp'] ?? 0),
+            'accuracy' => ($baseStats['accuracy'] ?? 0) + ($equipmentStats['accuracy'] ?? 0),
+            'equipment_effects' => $equipmentStats['effects'] ?? [],
+        ];
+    }
+
+    // 戦闘用の最適化されたステータス取得
+    public function getBattleStats(): array
+    {
+        // スキルをeager loadして効率化
+        if (!$this->relationLoaded('skills')) {
+            $this->load('skills');
+        }
+        
+        $totalStats = $this->getTotalStatsWithEquipment();
+        $skillBonuses = $this->calculateSkillBonuses();
+        
+        return [
+            'id' => $this->id,
+            'name' => $this->name ?? 'プレイヤー',
+            'level' => $this->level ?? 1,
+            'hp' => $this->hp ?? 100,
+            'max_hp' => $totalStats['max_hp'],
+            'mp' => $this->mp ?? 50,
+            'max_mp' => $totalStats['max_mp'],
+            'sp' => $this->sp ?? 100,
+            'max_sp' => $this->max_sp ?? 100,
+            'attack' => $totalStats['attack'] + ($skillBonuses['attack'] ?? 0),
+            'defense' => $totalStats['defense'] + ($skillBonuses['defense'] ?? 0),
+            'agility' => $totalStats['agility'] + ($skillBonuses['agility'] ?? 0),
+            'evasion' => $totalStats['evasion'] + ($skillBonuses['evasion'] ?? 0),
+            'accuracy' => $totalStats['accuracy'] + ($skillBonuses['accuracy'] ?? 0),
+            'gold' => $this->gold ?? 500,
+        ];
     }
 }

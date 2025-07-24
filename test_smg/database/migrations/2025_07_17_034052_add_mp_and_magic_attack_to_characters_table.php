@@ -12,9 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('characters', function (Blueprint $table) {
-            $table->integer('mp')->default(20)->after('max_sp');
-            $table->integer('max_mp')->default(20)->after('mp');
-            $table->integer('magic_attack')->default(8)->after('accuracy');
+            // Check if columns don't already exist before adding them
+            if (!Schema::hasColumn('characters', 'mp')) {
+                $table->integer('mp')->default(20)->after('max_sp');
+            }
+            if (!Schema::hasColumn('characters', 'max_mp')) {
+                $table->integer('max_mp')->default(20)->after('mp');
+            }
+            if (!Schema::hasColumn('characters', 'magic_attack')) {
+                $table->integer('magic_attack')->default(8)->after('accuracy');
+            }
         });
     }
 

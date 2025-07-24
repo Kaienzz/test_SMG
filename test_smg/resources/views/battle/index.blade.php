@@ -5,336 +5,117 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>戦闘 - ブラウザゲーム</title>
-    <style>
-        .battle-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-            font-family: Arial, sans-serif;
-        }
-        .battle-area {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
-        }
-        .character-info, .monster-info {
-            background: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-        }
-        .character-info {
-            border-color: #007bff;
-        }
-        .monster-info {
-            border-color: #dc3545;
-        }
-        .monster-emoji {
-            font-size: 80px;
-            margin: 20px 0;
-        }
-        .character-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: #007bff;
-            margin-bottom: 10px;
-        }
-        .monster-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: #dc3545;
-            margin-bottom: 10px;
-        }
-        .hp-bar {
-            width: 100%;
-            height: 25px;
-            background: #e9ecef;
-            border-radius: 12px;
-            position: relative;
-            margin: 15px 0;
-        }
-        .hp-fill {
-            height: 100%;
-            border-radius: 12px;
-            transition: width 0.3s ease;
-        }
-        .character-hp {
-            background: linear-gradient(90deg, #28a745, #20c997);
-        }
-        .monster-hp {
-            background: linear-gradient(90deg, #dc3545, #e74c3c);
-        }
-        .hp-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-top: 15px;
-            font-size: 14px;
-        }
-        .stat {
-            background: #e9ecef;
-            padding: 8px;
-            border-radius: 5px;
-            text-align: center;
-        }
-        .battle-actions {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        .action-btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .action-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .attack-btn {
-            background: #dc3545;
-            color: white;
-        }
-        .defend-btn {
-            background: #007bff;
-            color: white;
-        }
-        .escape-btn {
-            background: #ffc107;
-            color: black;
-        }
-        .skill-btn {
-            background: #6f42c1;
-            color: white;
-        }
-        .continue-btn {
-            background: #28a745;
-            color: white;
-        }
-        .mp-bar {
-            width: 100%;
-            height: 20px;
-            background: #e9ecef;
-            border-radius: 10px;
-            position: relative;
-            margin: 10px 0;
-        }
-        .mp-fill {
-            height: 100%;
-            border-radius: 10px;
-            background: linear-gradient(90deg, #6f42c1, #8b5cf6);
-            transition: width 0.3s ease;
-        }
-        .mp-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
-            font-size: 12px;
-        }
-        .skill-menu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: white;
-            border: 2px solid #6f42c1;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            z-index: 100;
-            min-width: 200px;
-        }
-        .skill-item {
-            padding: 10px 15px;
-            cursor: pointer;
-            border-bottom: 1px solid #dee2e6;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .skill-item:last-child {
-            border-bottom: none;
-        }
-        .skill-item:hover {
-            background: #f8f9fa;
-        }
-        .skill-item.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .skill-cost {
-            font-size: 12px;
-            color: #6f42c1;
-            font-weight: bold;
-        }
-        .skill-button-container {
-            position: relative;
-            display: inline-block;
-        }
-        .battle-log {
-            background: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 10px;
-            padding: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .battle-log h3 {
-            margin-top: 0;
-            color: #495057;
-        }
-        .log-entry {
-            margin: 10px 0;
-            padding: 8px;
-            background: white;
-            border-radius: 5px;
-            border-left: 4px solid #dee2e6;
-        }
-        .log-entry.player-action {
-            border-left-color: #007bff;
-        }
-        .log-entry.monster-action {
-            border-left-color: #dc3545;
-        }
-        .log-entry.battle-end {
-            border-left-color: #28a745;
-            font-weight: bold;
-        }
-        .battle-result {
-            text-align: center;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .victory {
-            background: #d4edda;
-            border: 2px solid #c3e6cb;
-            color: #155724;
-        }
-        .defeat {
-            background: #f8d7da;
-            border: 2px solid #f5c6cb;
-            color: #721c24;
-        }
-        .escaped {
-            background: #fff3cd;
-            border: 2px solid #ffeaa7;
-            color: #856404;
-        }
-        .turn-indicator {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #495057;
-        }
-        .escape-rate {
-            font-size: 12px;
-            color: #6c757d;
-            margin-top: 5px;
-        }
-        .hidden {
-            display: none;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('css/game-design-system.css') }}">
 </head>
 <body>
-    <div class="battle-container">
-        <h1>戦闘</h1>
-        
-        <div class="turn-indicator" id="turn-indicator">
-            ターン 1
+    <div class="game-container">
+        <div class="game-card battle-card">
+            <h1 class="game-card-title">戦闘</h1>
+            
+            <div class="game-status" id="turn-indicator">
+                ターン 1
+            </div>
         </div>
         
         <div class="battle-area">
             <div class="character-info">
                 <div class="character-name">{{ $character['name'] }}</div>
-                <div class="hp-bar">
-                    <div class="hp-fill character-hp" id="character-hp" style="width: {{ ($character['hp'] / $character['max_hp']) * 100 }}%"></div>
-                    <div class="hp-text" id="character-hp-text">{{ $character['hp'] }}/{{ $character['max_hp'] }}</div>
+                <div class="progress">
+                    <div class="progress-fill hp" id="character-hp" style="width: {{ ($character['hp'] / $character['max_hp']) * 100 }}%"></div>
+                    <div class="progress-text" id="character-hp-text">{{ $character['hp'] }}/{{ $character['max_hp'] }}</div>
                 </div>
-                <div class="mp-bar">
-                    <div class="mp-fill" id="character-mp" style="width: {{ ($character['mp'] / $character['max_mp']) * 100 }}%"></div>
-                    <div class="mp-text" id="character-mp-text">{{ $character['mp'] }}/{{ $character['max_mp'] }}</div>
+                <div class="progress">
+                    <div class="progress-fill mp" id="character-mp" style="width: {{ ($character['mp'] / $character['max_mp']) * 100 }}%"></div>
+                    <div class="progress-text" id="character-mp-text">{{ $character['mp'] }}/{{ $character['max_mp'] }}</div>
                 </div>
-                <div class="stats">
-                    <div class="stat">攻撃力: {{ $character['attack'] }}</div>
-                    <div class="stat">魔法攻撃力: {{ $character['magic_attack'] }}</div>
-                    <div class="stat">防御力: {{ $character['defense'] }}</div>
-                    <div class="stat">素早さ: {{ $character['agility'] }}</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">攻撃力</div>
+                        <div class="stat-value">{{ $character['attack'] }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">魔法攻撃力</div>
+                        <div class="stat-value">{{ $character['magic_attack'] }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">防御力</div>
+                        <div class="stat-value">{{ $character['defense'] }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">素早さ</div>
+                        <div class="stat-value">{{ $character['agility'] }}</div>
+                    </div>
                 </div>
             </div>
             
             <div class="monster-info">
                 <div class="monster-name">{{ $monster['name'] }}</div>
                 <div class="monster-emoji">{{ $monster['emoji'] }}</div>
-                <div class="hp-bar">
-                    <div class="hp-fill monster-hp" id="monster-hp" style="width: {{ ($monster['hp'] / $monster['max_hp']) * 100 }}%"></div>
-                    <div class="hp-text" id="monster-hp-text">{{ $monster['hp'] }}/{{ $monster['max_hp'] }}</div>
+                <div class="progress">
+                    <div class="progress-fill" id="monster-hp" style="width: {{ ($monster['hp'] / $monster['max_hp']) * 100 }}%; background: linear-gradient(90deg, var(--error), #ef4444);"></div>
+                    <div class="progress-text" id="monster-hp-text">{{ $monster['hp'] }}/{{ $monster['max_hp'] }}</div>
                 </div>
-                <div class="stats">
-                    <div class="stat">攻撃力: {{ $monster['attack'] }}</div>
-                    <div class="stat">防御力: {{ $monster['defense'] }}</div>
-                    <div class="stat">素早さ: {{ $monster['agility'] }}</div>
-                    <div class="stat">回避率: {{ $monster['evasion'] }}</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">攻撃力</div>
+                        <div class="stat-value">{{ $monster['attack'] }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">防御力</div>
+                        <div class="stat-value">{{ $monster['defense'] }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">素早さ</div>
+                        <div class="stat-value">{{ $monster['agility'] }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">回避率</div>
+                        <div class="stat-value">{{ $monster['evasion'] }}</div>
+                    </div>
                 </div>
-                <div style="margin-top: 10px; font-size: 14px; color: #6c757d;">
+                <div style="margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-secondary);">
                     {{ $monster['description'] }}
                 </div>
             </div>
         </div>
         
-        <div class="battle-result hidden" id="battle-result">
-            <h2 id="result-title"></h2>
-            <p id="result-message"></p>
+        <div class="game-card hidden" id="battle-result">
+            <h2 class="game-card-title" id="result-title"></h2>
+            <div class="game-card-content">
+                <p id="result-message"></p>
+                <div class="hidden" id="experience-gained">
+                    <p>経験値を <span id="exp-amount">0</span> 獲得しました！</p>
+                </div>
+                <div class="hidden" id="defeat-penalty">
+                    <p id="teleport-message"></p>
+                    <p id="gold-penalty-message"></p>
+                </div>
+            </div>
         </div>
         
-        <div class="battle-actions" id="battle-actions">
-            <button class="action-btn attack-btn" onclick="performAction('attack')" id="attack-button">攻撃</button>
-            <button class="action-btn defend-btn" onclick="performAction('defend')">防御</button>
+        <div class="button-group" id="battle-actions">
+            <button class="btn btn-error" onclick="performAction('attack')" id="attack-button">攻撃</button>
+            <button class="btn btn-primary" onclick="performAction('defend')">防御</button>
             <div class="skill-button-container">
-                <button class="action-btn skill-btn" onclick="toggleSkillMenu()" id="skill-button">特技</button>
+                <button class="btn" onclick="toggleSkillMenu()" id="skill-button" 
+                        style="background: var(--secondary-500); color: white;">特技</button>
                 <div class="skill-menu" id="skill-menu">
                     <!-- 特技一覧がここに表示される -->
                 </div>
             </div>
-            <button class="action-btn escape-btn" onclick="performAction('escape')">
+            <button class="btn btn-warning" onclick="performAction('escape')">
                 逃げる
-                <div class="escape-rate" id="escape-rate"></div>
+                <div style="font-size: var(--text-xs); color: var(--text-secondary); margin-top: var(--space-1);" id="escape-rate"></div>
             </button>
         </div>
         
-        <div class="battle-actions hidden" id="continue-actions">
-            <button class="action-btn continue-btn" onclick="returnToGame()">ゲームに戻る</button>
+        <div class="button-group hidden" id="continue-actions">
+            <button class="btn btn-success btn-large" onclick="returnToGame()" type="button" id="return-to-game-btn">ゲームに戻る</button>
         </div>
         
-        <div class="battle-log">
-            <h3>戦闘ログ</h3>
-            <div id="log-container">
+        <div class="game-card">
+            <h3 class="game-card-title">戦闘ログ</h3>
+            <div class="game-card-content" id="log-container" style="max-height: 300px; overflow-y: auto;">
                 <div class="log-entry">{{ $monster['name'] }}が現れた！</div>
             </div>
         </div>
@@ -469,17 +250,56 @@
                 resultDiv.className = 'battle-result defeat';
                 resultTitle.textContent = '敗北...';
                 resultMessage.textContent = '戦闘に敗れました。';
+                
+                // 敗北ペナルティ情報を表示
+                if (data.teleport_message || data.gold_lost !== undefined) {
+                    const defeatPenaltyDiv = document.getElementById('defeat-penalty');
+                    const teleportMsg = document.getElementById('teleport-message');
+                    const goldPenaltyMsg = document.getElementById('gold-penalty-message');
+                    
+                    if (data.teleport_message) {
+                        teleportMsg.textContent = data.teleport_message;
+                    }
+                    
+                    if (data.gold_lost !== undefined) {
+                        goldPenaltyMsg.textContent = `所持金を ${data.gold_lost}G 失いました（残り: ${data.remaining_gold}G）`;
+                    }
+                    
+                    defeatPenaltyDiv.classList.remove('hidden');
+                }
             } else if (data.result === 'escaped') {
                 resultDiv.className = 'battle-result escaped';
                 resultTitle.textContent = '逃走';
                 resultMessage.textContent = '戦闘から逃げ出しました。';
             }
             
-            // 続行ボタンを表示
-            document.getElementById('continue-actions').classList.remove('hidden');
+            // 続行ボタンを表示（すべてのケースで）
+            const continueActions = document.getElementById('continue-actions');
+            const returnBtn = document.getElementById('return-to-game-btn');
+            
+            continueActions.classList.remove('hidden');
+            
+            // ボタンを確実に有効化
+            if (returnBtn) {
+                returnBtn.disabled = false;
+                returnBtn.style.pointerEvents = 'auto';
+                returnBtn.style.cursor = 'pointer';
+            }
+            
+            console.log('Battle ended, continue button should be visible and clickable');
         }
         
         function returnToGame() {
+            console.log('returnToGame function called');
+            
+            // ボタンを無効化して二重クリックを防ぐ
+            const continueBtn = document.getElementById('return-to-game-btn');
+            if (continueBtn) {
+                continueBtn.disabled = true;
+                continueBtn.textContent = '戻り中...';
+                continueBtn.style.cursor = 'not-allowed';
+            }
+            
             // 戦闘終了API呼び出し
             fetch('/battle/end', {
                 method: 'POST',
@@ -488,12 +308,27 @@
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 }
             })
-            .then(() => {
-                // ゲーム画面に戻る
-                window.location.href = '/game';
+            .then(response => {
+                console.log('Received response:', response.status);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Battle end response:', data);
+                if (data.success) {
+                    // ゲーム画面に戻る
+                    console.log('Redirecting to /game');
+                    window.location.href = '/game';
+                } else {
+                    throw new Error(data.message || '戦闘終了処理に失敗しました');
+                }
             })
             .catch(error => {
                 console.error('End battle error:', error);
+                // エラーが発生してもゲーム画面に戻る
+                console.log('Error occurred, redirecting to /game anyway');
                 window.location.href = '/game';
             });
         }

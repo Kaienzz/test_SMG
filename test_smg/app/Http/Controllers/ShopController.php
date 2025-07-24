@@ -6,20 +6,20 @@ use App\Models\Shop;
 use App\Models\ShopItem;
 use App\Models\Character;
 use App\Models\Item;
-use App\Services\DummyDataService;
 use App\Services\ItemService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
 
 class ShopController extends Controller
 {
     public function index(Request $request): View|JsonResponse
     {
-        $player = DummyDataService::getPlayer();
-        $currentLocation = DummyDataService::getCurrentLocation();
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         
-        if ($currentLocation['type'] !== 'town') {
+        if ($character->location_type !== 'town') {
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
@@ -30,7 +30,7 @@ class ShopController extends Controller
             return redirect('/game')->with('error', '道具屋は町にのみ存在します。');
         }
 
-        $shop = Shop::findByLocation($player['current_location_id'], $player['current_location_type']);
+        $shop = Shop::findByLocation($character->location_id, $character->location_type);
         
         if (!$shop) {
             if ($request->wantsJson()) {
@@ -43,14 +43,16 @@ class ShopController extends Controller
             return redirect('/game')->with('error', 'この町には道具屋がありません。');
         }
 
-        $character = DummyDataService::getCharacter();
         $shopItems = $shop->availableItems()->with('item')->get();
 
         return view('shop.index', [
             'shop' => $shop,
             'shopItems' => $shopItems,
-            'character' => (object) $character,
-            'currentLocation' => $currentLocation,
+            'character' => $character,
+            'currentLocation' => [
+                'type' => $character->location_type,
+                'id' => $character->location_id,
+            ],
         ]);
     }
 
@@ -79,14 +81,8 @@ class ShopController extends Controller
         }
 
         $totalPrice = $shopItem->price * $quantity;
-        $character = Character::find(1); // Dummy character
-
-        if (!$character) {
-            return response()->json([
-                'success' => false,
-                'message' => 'キャラクターが見つかりません。'
-            ], 400);
-        }
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
 
         if (!$character->hasGold($totalPrice)) {
             return response()->json([

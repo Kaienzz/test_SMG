@@ -5,22 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\Character;
 use App\Models\Skill;
 use App\Models\ActiveEffect;
-use App\Services\DummyDataService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
 
 class SkillController extends Controller
 {
     public function index(Request $request): View
     {
-        $characterId = $request->query('character_id', 1);
-        $character = (object) DummyDataService::getCharacter($characterId);
-        $skills = DummyDataService::getSkills($characterId);
-        $activeEffects = collect(DummyDataService::getActiveEffects($characterId))->map(function($effect) {
-            return (object) $effect;
-        });
-        $sampleSkills = DummyDataService::getSampleSkills();
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
+        $skills = $character->getActiveSkills();
+        $activeEffects = $character->activeEffects()
+                                  ->where('is_active', true)
+                                  ->where('remaining_duration', '>', 0)
+                                  ->get();
+        $sampleSkills = Skill::getSampleSkills();
         
         return view('skills.index', compact(
             'character',
@@ -33,64 +34,53 @@ class SkillController extends Controller
     public function useSkill(Request $request): JsonResponse
     {
         $request->validate([
-            'character_id' => 'required|integer',
             'skill_name' => 'required|string',
         ]);
 
-        $characterId = $request->character_id;
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         $skillName = $request->skill_name;
         
-        $character = DummyDataService::getCharacter($characterId);
-        $currentSp = session('character_sp', $character['sp']);
-        
-        // ダミースキル使用処理
-        if ($skillName === '飛脚術') {
-            $spCost = 10;
-            if ($currentSp >= $spCost) {
-                $newSp = $currentSp - $spCost;
-                session(['character_sp' => $newSp]);
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => "スキル「{$skillName}」を使用しました。",
-                    'character_sp' => $newSp,
-                    'sp_consumed' => $spCost,
-                    'experience_gained' => 21,
-                    'leveled_up' => false,
-                    'skill_level' => 3,
-                    'effect_applied' => [
-                        'success' => true,
-                        'message' => '飛脚術効果が発動しました。',
-                        'effects' => ['dice_bonus' => 3, 'extra_dice' => 1],
-                        'duration' => 5
-                    ],
-                    'updated_skills' => DummyDataService::getSkills($characterId),
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => "SPが足りません。必要SP: {$spCost}",
-                ], 400);
-            }
+        // キャラクターがスキルを持っているか確認
+        if (!$character->hasSkill($skillName)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'そのスキルを習得していません。',
+            ], 400);
         }
-
-        return response()->json([
-            'success' => false,
-            'message' => 'そのスキルは実装されていません。',
-        ], 400);
+        
+        // スキル使用処理
+        $result = $character->useSkill($skillName);
+        
+        if ($result['success']) {
+            return response()->json([
+                'success' => true,
+                'message' => $result['message'],
+                'character_sp' => $character->sp,
+                'sp_consumed' => $result['sp_consumed'],
+                'experience_gained' => $result['experience_gained'] ?? 0,
+                'leveled_up' => $result['leveled_up'] ?? false,
+                'skill_level' => $result['skill_level'] ?? 1,
+                'effect_applied' => $result['effect_applied'] ?? null,
+                'updated_skills' => $character->getActiveSkills(),
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
+            ], 400);
+        }
     }
 
     public function addSampleSkill(Request $request): JsonResponse
     {
         $request->validate([
-            'character_id' => 'required|integer',
             'skill_name' => 'required|string',
         ]);
 
-        $characterId = $request->character_id;
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         $skillName = $request->skill_name;
-        
-        $character = Character::findOrFail($characterId);
         
         if ($character->hasSkill($skillName)) {
             return response()->json([
@@ -110,7 +100,7 @@ class SkillController extends Controller
         }
 
         $skill = Skill::createForCharacter(
-            $characterId,
+            $character->id,
             $skillData['skill_type'],
             $skillData['skill_name'],
             $skillData['effects'],
@@ -134,8 +124,8 @@ class SkillController extends Controller
 
     public function getActiveEffects(Request $request): JsonResponse
     {
-        $characterId = $request->query('character_id', 1);
-        $character = Character::findOrFail($characterId);
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         
         $activeEffects = $character->activeEffects()
                                   ->where('is_active', true)
@@ -159,12 +149,8 @@ class SkillController extends Controller
 
     public function decreaseEffectDurations(Request $request): JsonResponse
     {
-        $request->validate([
-            'character_id' => 'required|integer',
-        ]);
-
-        $characterId = $request->character_id;
-        $character = Character::findOrFail($characterId);
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         
         $activeEffects = $character->activeEffects()
                                   ->where('is_active', true)

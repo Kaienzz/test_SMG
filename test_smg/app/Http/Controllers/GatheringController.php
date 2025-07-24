@@ -2,45 +2,42 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\DummyDataService;
 use App\Models\GatheringTable;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 
 class GatheringController extends Controller
 {
     public function gather(Request $request): JsonResponse
     {
-        // セッションベースでプレイヤー情報を取得
-        $playerData = DummyDataService::getPlayer();
-        $characterData = DummyDataService::getCharacter();
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         
         // 道にいるかチェック
-        if ($playerData['current_location_type'] !== 'road') {
+        if ($character->location_type !== 'road') {
             return response()->json(['error' => '道にいる時のみ採集できます。'], 400);
         }
 
-        // スキル情報を取得
-        $skills = DummyDataService::getSkills();
-        $gatheringSkill = collect($skills)->firstWhere('name', '採集');
-        
-        if (!$gatheringSkill) {
+        // 採集スキルをチェック
+        if (!$character->hasSkill('採集')) {
             return response()->json(['error' => '採集スキルがありません。'], 400);
         }
-
+        
+        $gatheringSkill = $character->getSkill('採集');
+        
         // SP消費チェック
-        $spCost = $gatheringSkill['sp_cost'];
-        if ($characterData['sp'] < $spCost) {
+        $spCost = $gatheringSkill->getSkillSpCost();
+        if ($character->sp < $spCost) {
             return response()->json(['error' => "SPが足りません。必要SP: {$spCost}"], 400);
         }
 
         // SP消費を反映
-        $newSp = $characterData['sp'] - $spCost;
-        DummyDataService::updateCharacterSp(1, $newSp);
+        $character->update(['sp' => $character->sp - $spCost]);
 
         // 実装済みのGatheringTableを使用して採集処理
-        $roadId = $playerData['current_location_id'];
-        $gatheringTable = GatheringTable::getAvailableItems($roadId, $gatheringSkill['level']);
+        $roadId = $character->location_id;
+        $gatheringTable = GatheringTable::getAvailableItems($roadId, $gatheringSkill->level);
         
         if (empty($gatheringTable)) {
             $experienceGained = rand(5, 10);
@@ -93,19 +90,16 @@ class GatheringController extends Controller
 
     public function getGatheringInfo(Request $request): JsonResponse
     {
-        // セッションベースでプレイヤー情報を取得
-        $playerData = DummyDataService::getPlayer();
-        $characterData = DummyDataService::getCharacter();
-        $currentLocation = DummyDataService::getCurrentLocation();
+        $user = Auth::user();
+        $character = $user->getOrCreateCharacter();
         
         // 道にいるかチェック
-        if ($playerData['current_location_type'] !== 'road') {
+        if ($character->location_type !== 'road') {
             return response()->json(['error' => '道にいる時のみ採集情報を確認できます。'], 400);
         }
 
         // スキル情報を取得
-        $skills = DummyDataService::getSkills();
-        $gatheringSkill = collect($skills)->firstWhere('name', '採集');
+        $gatheringSkill = $character->skills()->where('skill_type', 'gathering')->where('name', '採集')->first();
         
         if (!$gatheringSkill) {
             return response()->json(['error' => '採集スキルがありません。'], 400);

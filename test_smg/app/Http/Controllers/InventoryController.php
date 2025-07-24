@@ -6,17 +6,22 @@ use App\Models\Character;
 use App\Models\Inventory;
 use App\Models\Item;
 use App\Enums\ItemCategory;
-use App\Services\DummyDataService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
 
 class InventoryController extends Controller
 {
     public function index(): View
     {
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
+        // Database-First: 認証ユーザーのキャラクターとインベントリを取得
+        $character = Auth::user()->getOrCreateCharacter();
+        $inventory = Inventory::createForCharacter($character->id);
+        
+        // セッション→DB移行: 既存セッションデータがあればDBに反映
+        $this->migrateInventorySessionToDatabase($inventory, $character->id);
+        
         $inventoryData = $inventory->getInventoryData();
         
         // ダミーサンプルアイテム（カテゴリは文字列として扱う）
@@ -48,8 +53,8 @@ class InventoryController extends Controller
 
     public function show(): JsonResponse
     {
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
+        $character = Auth::user()->getOrCreateCharacter();
+        $inventory = Inventory::createForCharacter($character->id);
         
         return response()->json([
             'inventory' => $inventory->getInventoryData(),
@@ -65,8 +70,8 @@ class InventoryController extends Controller
                 'quantity' => 'integer|min:1|max:999',
             ]);
 
-            $character = $this->getOrCreateCharacter();
-            $inventory = $this->getOrCreateInventory($character);
+            $character = Auth::user()->getOrCreateCharacter();
+            $inventory = Inventory::createForCharacter($character->id);
             
             $item = Item::findSampleItem($request->input('item_name'));
             
@@ -80,9 +85,9 @@ class InventoryController extends Controller
             $quantity = $request->input('quantity', 1);
             $result = $inventory->addItem($item, $quantity);
             
-            // Save inventory state to session after modification
+            // Save inventory state to database after modification
             if ($result['success']) {
-                $this->saveInventoryToSession($inventory, $character->id ?? 1);
+                $inventory->save();
             }
 
             return response()->json([
@@ -109,17 +114,17 @@ class InventoryController extends Controller
             'quantity' => 'integer|min:1|max:999',
         ]);
 
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
+        $character = Auth::user()->getOrCreateCharacter();
+        $inventory = Inventory::createForCharacter($character->id);
         
         $slotIndex = $request->input('slot_index');
         $quantity = $request->input('quantity', 1);
         
         $result = $inventory->removeItem($slotIndex, $quantity);
         
-        // Save inventory state to session after modification
+        // Save inventory state to database after modification
         if ($result['success']) {
-            $this->saveInventoryToSession($inventory, $character->id ?? 1);
+            $inventory->save();
         }
 
         return response()->json([
@@ -136,15 +141,15 @@ class InventoryController extends Controller
             'slot_index' => 'required|integer|min:0',
         ]);
 
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
+        $character = Auth::user()->getOrCreateCharacter();
+        $inventory = Inventory::createForCharacter($character->id);
         
         $slotIndex = $request->input('slot_index');
         $result = $inventory->useItem($slotIndex, $character);
         
-        // Save inventory state to session after modification
+        // Save inventory state to database after modification
         if ($result['success']) {
-            $this->saveInventoryToSession($inventory, $character->id ?? 1);
+            $inventory->save();
         }
 
         return response()->json([
@@ -297,47 +302,55 @@ class InventoryController extends Controller
         ]);
     }
 
-    private function getOrCreateCharacter(): Character
+    /**
+     * セッションインベントリデータをデータベースに移行する安全なブリッジメソッド
+     */
+    private function migrateInventorySessionToDatabase(Inventory $inventory, int $characterId): void
     {
-        return Character::createNewCharacter('冒険者');
-    }
-
-    private function getOrCreateInventory(Character $character): Inventory
-    {
-        $inventory = Inventory::createForCharacter($character->id ?? 1);
+        $sessionKey = 'inventory_data_' . $characterId;
         
-        // Check if we have inventory data in session
-        $sessionKey = 'inventory_data_' . ($character->id ?? 1);
-        $sessionSlotData = session($sessionKey);
-        
-        if ($sessionSlotData) {
-            // Use existing session data
-            $inventory->setSlotData($sessionSlotData);
-        } else {
-            // Initialize with dummy data only if no session data exists
-            $dummyInventoryData = DummyDataService::getInventory($character->id ?? 1);
+        // セッションにインベントリデータがある場合はDBに移行
+        if (session()->has($sessionKey)) {
+            $sessionSlotData = session($sessionKey);
             
-            // Convert the dummy data format to the format expected by the Inventory model
+            // DBのslot_dataが空の場合のみセッションデータで更新
+            if (empty($inventory->getSlotData()) && !empty($sessionSlotData)) {
+                $inventory->setSlotData($sessionSlotData);
+                $inventory->save();
+                
+                // セッションデータを削除（移行完了）
+                session()->forget($sessionKey);
+            }
+        }
+        
+        // Database-First: 初期インベントリデータ設定（空の場合のみ）
+        if (empty($inventory->getSlotData())) {
+            // 基本的な初期アイテムを設定
+            $initialItems = [
+                ['slot' => 1, 'name' => '薬草', 'quantity' => 3, 'type' => 'consumable'],
+                ['slot' => 2, 'name' => '毒消し草', 'quantity' => 2, 'type' => 'consumable'],
+            ];
+            
+            // Convert to the format expected by the Inventory model
             $slotData = [];
-            foreach ($dummyInventoryData['items'] as $item) {
+            foreach ($initialItems as $item) {
                 $slotData[$item['slot']] = [
-                    'item_name' => $item['item']['name'],
+                    'item_name' => $item['name'],
                     'quantity' => $item['quantity'],
-                    'item_info' => $item['item'],
+                    'item_info' => [
+                        'name' => $item['name'],
+                        'type' => $item['type'],
+                        'description' => $item['name'] === '薬草' ? 'HPを回復する' : '毒を治す',
+                        'effect' => $item['name'] === '薬草' ? 'heal' : 'cure_poison',
+                        'value' => $item['name'] === '薬草' ? 30 : 0,
+                    ],
                 ];
             }
             
-            $inventory->setSlotData($slotData);
-            // Save to session
-            session([$sessionKey => $slotData]);
+            if (!empty($slotData)) {
+                $inventory->setSlotData($slotData);
+                $inventory->save();
+            }
         }
-        
-        return $inventory;
-    }
-    
-    private function saveInventoryToSession(Inventory $inventory, int $characterId): void
-    {
-        $sessionKey = 'inventory_data_' . $characterId;
-        session([$sessionKey => $inventory->getSlotData()]);
     }
 }
