@@ -159,3 +159,170 @@ Laravel Breezeベースの認証機能（登録・ログイン）とModern Light
 
 ### 🚀 運用準備完了
 すべての認証機能が実装され、テストも完了。本格運用に向けて準備完了状態です。
+
+---
+
+## 🐛 バグ修正記録 - 2025年7月24日
+
+### Issue: サイコロ機能が反応しない問題
+
+**発生日時**: 2025年7月24日  
+**報告者**: ユーザー  
+**症状**: ゲームページでサイコロボタンをクリックしても反応がない
+
+#### 🔍 問題分析
+
+**調査実行内容**:
+1. ルーティング確認: `php artisan route:list | grep -i dice`
+2. コントローラー実装確認: `GameController.php:140-167`
+3. フロントエンドJavaScript確認: `public/js/game.js:67-90`
+4. HTTPメソッド不一致問題を特定
+
+**根本原因**:
+- **ルーティング設定**: `routes/web.php:28` で `GET` メソッド定義
+  ```php
+  Route::get('/game/roll-dice', [GameController::class, 'rollDice'])->name('game.rollDice');
+  ```
+- **JavaScript実装**: `public/js/game.js:71` で `POST` メソッド送信
+  ```javascript
+  fetch('/game/roll-dice', {
+      method: 'POST',  // ← POSTでリクエスト送信
+  ```
+- **結果**: HTTP 405 Method Not Allowed エラー（ブラウザコンソールで確認）
+
+#### 🔧 修正内容
+
+**修正ファイル**: `routes/web.php`  
+**修正箇所**: 28行目  
+**修正前**:
+```php
+Route::get('/game/roll-dice', [GameController::class, 'rollDice'])->name('game.rollDice');
+```
+**修正後**:
+```php
+Route::post('/game/roll-dice', [GameController::class, 'rollDice'])->name('game.rollDice');
+```
+
+#### ✅ 修正結果
+
+**テスト内容**:
+- ゲームページでサイコロボタンクリック
+- ブラウザコンソールでエラー確認
+- サイコロ結果の正常表示確認
+
+**修正効果**:
+- ✅ サイコロボタンが正常に反応
+- ✅ Ajax通信が成功（200 OK）
+- ✅ サイコロ結果がUI上に表示
+- ✅ 移動距離計算が正常動作
+- ✅ ルーティング確認: `POST game/roll-dice` で正常登録確認済み
+
+**関連ファイル**:
+- `routes/web.php` - ルーティング定義
+- `app/Http/Controllers/GameController.php` - サイコロロジック実装済み
+- `public/js/game.js` - フロントエンド実装済み
+- `resources/views/game/partials/dice_container.blade.php` - UI実装済み
+
+**今後の注意点**:
+- 新しいAjaxエンドポイント作成時はHTTPメソッドの一致を確認
+- フロントエンド・バックエンド間のAPI仕様統一
+
+---
+
+### Issue: 移動進捗バーが表示されない問題
+
+**発生日時**: 2025年7月24日  
+**報告者**: ユーザー  
+**症状**: ゲーム画面上部に移動進捗バーが表示されない
+
+#### 🔍 問題分析
+
+**調査実行内容**:
+1. 進捗バーBladeテンプレート確認: `resources/views/game/partials/location_info.blade.php:37-40`
+2. CSS実装確認: `public/css/game.css:44-58` (正常実装済み)
+3. JavaScript実装確認: `public/js/game.js:291-330` (正常実装済み)
+4. GameControllerのデータ渡し確認: プレイヤーオブジェクトに`position`プロパティ不足を特定
+
+**根本原因**:
+- **Bladeテンプレート**: `$player->position` を参照（38-39行目）
+  ```php
+  <div class="progress-fill" id="progress-fill" style="width: {{ $player->position }}%"></div>
+  <div class="progress-text" id="progress-text">{{ $player->position }}/100</div>
+  ```
+- **GameController問題**: プレイヤーオブジェクトに`position`プロパティが設定されていない
+  - `$playerData`に`position`は含まれているが、`$player`オブジェクトに直接`position`プロパティがない
+  - `game_position`はあるが、Bladeは`position`を期待している
+
+#### 🔧 修正内容
+
+**修正ファイル**: `app/Http/Controllers/GameController.php`
+
+**修正箇所1**: 39-50行目 - メインの`$player`オブジェクト作成
+**修正前**:
+```php
+$player = (object) array_merge($playerData, [
+    'isInTown' => function() use ($playerData) {
+        return $playerData['current_location_type'] === 'town';
+    },
+    // ... その他のメソッド
+]);
+```
+**修正後**:
+```php
+$player = (object) array_merge($playerData, [
+    'position' => $character->game_position ?? 0,  // 追加: position プロパティ
+    'isInTown' => function() use ($playerData) {
+        return $playerData['current_location_type'] === 'town';
+    },
+    // ... その他のメソッド
+]);
+```
+
+**修正箇所2**: 123-140行目 - `createPlayerFromCharacter`メソッド
+**修正前**:
+```php
+return (object) [
+    'current_location_type' => $character->location_type,
+    'current_location_id' => $character->location_id,
+    'game_position' => $character->game_position,
+    // ... その他のプロパティ
+];
+```
+**修正後**:
+```php
+return (object) [
+    'current_location_type' => $character->location_type,
+    'current_location_id' => $character->location_id,
+    'game_position' => $character->game_position,
+    'position' => $character->game_position ?? 0,  // 追加: position プロパティ
+    // ... その他のプロパティ
+];
+```
+
+#### ✅ 修正結果
+
+**テスト内容**:
+- 道路でゲーム画面アクセス時の進捗バー表示確認
+- 町でゲーム画面アクセス時の進捗バー非表示確認
+- サイコロ振って移動後の進捗バー更新確認
+
+**修正効果**:
+- ✅ 道路にいる時に移動進捗バーが正常表示
+- ✅ 現在位置に応じた進捗バーの幅と数値が正確に表示
+- ✅ JavaScript による動的な進捗バー更新も正常動作
+- ✅ 町にいる時は進捗バーが非表示（条件分岐正常）
+
+**関連ファイル**:
+- `app/Http/Controllers/GameController.php` - プレイヤーオブジェクト作成ロジック修正
+- `resources/views/game/partials/location_info.blade.php` - 進捗バー表示テンプレート（修正不要）
+- `public/css/game.css` - 進捗バースタイル定義（修正不要）
+- `public/js/game.js` - 進捗バー動的更新ロジック（修正不要）
+
+**技術的詳細**:
+- データベース: `characters.game_position` (0-100の整数値)
+- 表示ロジック: `$player->position` = `$character->game_position`
+- UI更新: JavaScript `updateGameDisplay()` で動的更新
+
+**今後の注意点**:
+- Bladeテンプレートで使用するプロパティ名とコントローラーで設定するプロパティ名の一致確認
+- プレイヤーオブジェクト作成時の必要プロパティの網羅的設定

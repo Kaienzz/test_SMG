@@ -37,6 +37,7 @@ class GameController extends Controller
         
         // プレイヤーオブジェクトにメソッドを追加
         $player = (object) array_merge($playerData, [
+            'position' => $character->game_position ?? 0,  // 追加: position プロパティ
             'isInTown' => function() use ($playerData) {
                 return $playerData['current_location_type'] === 'town';
             },
@@ -125,6 +126,7 @@ class GameController extends Controller
             'current_location_type' => $character->location_type,
             'current_location_id' => $character->location_id,
             'game_position' => $character->game_position,
+            'position' => $character->game_position ?? 0,  // 追加: position プロパティ
             'isInTown' => function() use ($character) {
                 return $character->location_type === 'town';
             },

@@ -25,7 +25,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/game/move', [GameController::class, 'move'])->name('game.move');
     Route::post('/game/move-to-next', [GameController::class, 'moveToNext'])->name('game.moveToNext');
     Route::post('/game/reset', [GameController::class, 'reset'])->name('game.reset');
-    Route::get('/game/roll-dice', [GameController::class, 'rollDice'])->name('game.rollDice');
+    Route::post('/game/roll-dice', [GameController::class, 'rollDice'])->name('game.rollDice');
     
     // 戦闘関連のルート
     Route::get('/battle', [BattleController::class, 'index'])->name('battle.index');
