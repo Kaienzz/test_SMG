@@ -38,10 +38,10 @@ class GameController extends Controller
         // セッション→DB移行: 既存セッションデータがあればDBに反映
         $this->migrateSessionToDatabase($character);
         
-        // GameDisplayService で View用データを統一準備
-        $gameViewData = $this->gameDisplayService->prepareGameView($character);
+        // GameDisplayService で View用データを統一準備（DTO使用）
+        $gameViewDto = $this->gameDisplayService->prepareGameView($character);
         
-        return view('game.index', $gameViewData);
+        return view('game.index', $gameViewDto->toArray());
     }
     
     /**

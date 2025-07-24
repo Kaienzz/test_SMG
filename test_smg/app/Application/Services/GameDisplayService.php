@@ -4,12 +4,16 @@ namespace App\Application\Services;
 
 use App\Models\Character;
 use App\Domain\Location\LocationService;
+use App\Application\DTOs\GameViewData;
+use App\Application\DTOs\LocationData;
+use App\Application\DTOs\BattleData;
 
 /**
  * ゲーム表示用データ変換サービス
  * 
  * Character からView用データへの変換を統一管理
  * GameController の Player オブジェクト生成ロジックを統合
+ * Phase 2: DTO統合により型安全性を向上
  */
 class GameDisplayService
 {
@@ -21,44 +25,35 @@ class GameDisplayService
      * ゲーム画面用のView用データを準備
      *
      * @param Character $character
-     * @return array
+     * @return GameViewData
      */
-    public function prepareGameView(Character $character): array
+    public function prepareGameView(Character $character): GameViewData
     {
         $currentLocation = $this->locationService->getCurrentLocation($character);
         $nextLocation = $this->locationService->getNextLocation($character);
         $locationStatus = $this->locationService->getLocationStatus($character);
         
-        // View用のプレイヤーデータ作成（Playerオブジェクトの代替）
-        $playerData = $this->createPlayerData($character, $locationStatus);
+        // LocationData DTOを作成
+        $currentLocationDto = LocationData::fromArray($currentLocation);
+        $nextLocationDto = $nextLocation ? LocationData::fromArray($nextLocation) : null;
         
-        // 移動情報の準備
-        $movementInfo = $this->getMovementInfo($character);
-        
-        return [
-            'character' => $character,
-            'player' => $playerData, // 既存のBladeテンプレート互換性のため保持
-            'currentLocation' => (object) $currentLocation,
-            'nextLocation' => $nextLocation,
-            'movementInfo' => $movementInfo,
-            'locationStatus' => $locationStatus,
-        ];
+        return GameViewData::create(
+            character: $character,
+            currentLocation: $currentLocationDto,
+            nextLocation: $nextLocationDto,
+            locationStatus: $locationStatus
+        );
     }
 
     /**
      * 戦闘画面用のView用データを準備
      *
      * @param Character $character
-     * @return array
+     * @return BattleData
      */
-    public function prepareBattleView(Character $character): array
+    public function prepareBattleView(Character $character): BattleData
     {
-        return [
-            'character' => $character,
-            'stats' => $character->getBattleStats(),
-            'status' => $character->getStatusSummary(),
-            'skills' => $character->getSkillList(),
-        ];
+        return BattleData::forBattleView($character);
     }
 
     /**
@@ -98,7 +93,8 @@ class GameDisplayService
 
     /**
      * View用プレイヤーデータオブジェクトを作成（Playerクラスの代替）
-     *
+     * 
+     * @deprecated Phase 2: DTOに移行済み、下位互換性のため残存
      * @param Character $character
      * @param array $locationStatus
      * @return object
@@ -127,7 +123,8 @@ class GameDisplayService
 
     /**
      * 移動情報を取得（現在はダミーデータ）
-     *
+     * 
+     * @deprecated Phase 2: MovementInfo DTOに移行済み、下位互換性のため残存
      * @param Character $character
      * @return array
      */
