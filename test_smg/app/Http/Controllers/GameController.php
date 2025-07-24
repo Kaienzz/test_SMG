@@ -8,6 +8,8 @@ use App\Models\ActiveEffect;
 use App\Models\Monster;
 use App\Services\MovementService;
 use App\Services\BattleService;
+use App\Domain\Location\LocationService;
+use App\Application\Services\GameDisplayService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
@@ -16,6 +18,18 @@ use Illuminate\Support\Facades\Auth;
 class GameController extends Controller
 {
     use \App\Http\Controllers\Traits\HasCharacter;
+    
+    protected LocationService $locationService;
+    protected GameDisplayService $gameDisplayService;
+    
+    public function __construct(
+        LocationService $locationService,
+        GameDisplayService $gameDisplayService
+    ) {
+        $this->locationService = $locationService;
+        $this->gameDisplayService = $gameDisplayService;
+    }
+    
     public function index(): View
     {
         // Database-First: 認証ユーザーのキャラクターを取得または作成
@@ -24,50 +38,10 @@ class GameController extends Controller
         // セッション→DB移行: 既存セッションデータがあればDBに反映
         $this->migrateSessionToDatabase($character);
         
-        // Database-First: Characterモデルから位置情報を取得
-        $playerData = [
-            'name' => $character->name ?? 'プレイヤー',
-            'current_location_type' => $character->location_type ?? 'town',
-            'current_location_id' => $character->location_id ?? 'town_a',
-            'position' => $character->game_position ?? 0,
-        ];
+        // GameDisplayService で View用データを統一準備
+        $gameViewData = $this->gameDisplayService->prepareGameView($character);
         
-        $currentLocation = $this->getCurrentLocationFromCharacter($character);
-        $nextLocation = $this->getNextLocationFromCharacter($character);
-        
-        // プレイヤーオブジェクトにメソッドを追加
-        $player = (object) array_merge($playerData, [
-            'position' => $character->game_position ?? 0,  // 追加: position プロパティ
-            'isInTown' => function() use ($playerData) {
-                return $playerData['current_location_type'] === 'town';
-            },
-            'isOnRoad' => function() use ($playerData) {
-                return $playerData['current_location_type'] === 'road';
-            },
-            'getCharacter' => function() use ($character) {
-                return (object) $character;
-            }
-        ]);
-        
-        // ダミー移動情報
-        $movementInfo = [
-            'base_dice_count' => 2,
-            'extra_dice' => 1,
-            'total_dice_count' => 3,
-            'dice_bonus' => 3,
-            'movement_multiplier' => 1.0,
-            'special_effects' => [],
-            'min_possible_movement' => 6,
-            'max_possible_movement' => 21,
-        ];
-        
-        return view('game.index', [
-            'character' => $character,
-            'player' => $this->createPlayerFromCharacter($character),
-            'currentLocation' => (object) $currentLocation,
-            'nextLocation' => $nextLocation,
-            'movementInfo' => $movementInfo,
-        ]);
+        return view('game.index', $gameViewData);
     }
     
     /**
@@ -117,27 +91,6 @@ class GameController extends Controller
         }
     }
     
-    /**
-     * CharacterモデルからPlayer風オブジェクトを作成
-     */
-    private function createPlayerFromCharacter(Character $character): object
-    {
-        return (object) [
-            'current_location_type' => $character->location_type,
-            'current_location_id' => $character->location_id,
-            'game_position' => $character->game_position,
-            'position' => $character->game_position ?? 0,  // 追加: position プロパティ
-            'isInTown' => function() use ($character) {
-                return $character->location_type === 'town';
-            },
-            'isOnRoad' => function() use ($character) {
-                return $character->location_type === 'road';
-            },
-            'getCharacter' => function() use ($character) {
-                return $character;
-            }
-        ];
-    }
     
     public function rollDice(Request $request): JsonResponse
     {
@@ -178,15 +131,8 @@ class GameController extends Controller
         $direction = $request->input('direction');
         $steps = $request->input('steps');
         
-        $currentPosition = session('game_position', 50);
-        $currentLocation = session('location_type', 'road');
-        
-        if ($currentLocation !== 'road') {
-            return response()->json([
-                'success' => false,
-                'message' => 'プレイヤーは道路上にいません'
-            ], 400);
-        }
+        // Database-First: Characterから現在状態を取得
+        $character = $this->getOrCreateCharacter();
         
         // 左右の移動を前後の移動に変換
         if ($direction === 'left') {
@@ -195,15 +141,21 @@ class GameController extends Controller
             $direction = 'forward';
         }
         
-        $moveAmount = $direction === 'forward' ? $steps : -$steps;
-        $newPosition = max(0, min(100, $currentPosition + $moveAmount));
+        // LocationService で移動計算
+        $moveResult = $this->locationService->calculateMovement($character, $steps, $direction);
+        
+        if (!$moveResult['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $moveResult['error']
+            ], 400);
+        }
         
         // Database-First: Characterに保存
-        $character = $this->getOrCreateCharacter();
-        $character->update(['game_position' => $newPosition]);
+        $character->update(['game_position' => $moveResult['newPosition']]);
         
-        $currentLocation = $this->getCurrentLocationFromCharacter($character);
-        $nextLocation = $this->getNextLocationFromCharacter($character);
+        $currentLocation = $this->locationService->getCurrentLocation($character);
+        $nextLocation = $this->locationService->getNextLocation($character);
         
         // エンカウント判定
         $currentLocationId = session('location_id', 'road_1');
@@ -215,12 +167,12 @@ class GameController extends Controller
         
         $response = [
             'success' => true,
-            'position' => $newPosition,
-            'steps_moved' => abs($newPosition - $currentPosition),
+            'position' => $moveResult['newPosition'],
+            'steps_moved' => $moveResult['stepsMoved'],
             'currentLocation' => $currentLocation,
             'nextLocation' => $nextLocation,
-            'canMoveToNext' => $newPosition >= 100,
-            'canMoveToPrevious' => $newPosition <= 0,
+            'canMoveToNext' => $moveResult['canMoveToNext'],
+            'canMoveToPrevious' => $moveResult['canMoveToPrevious'],
         ];
         
         if ($encounteredMonster) {
@@ -234,7 +186,7 @@ class GameController extends Controller
     public function moveToNext(Request $request): JsonResponse
     {
         $character = $this->getOrCreateCharacter();
-        $nextLocation = $this->getNextLocationFromCharacter($character);
+        $nextLocation = $this->locationService->getNextLocation($character);
         
         if ($nextLocation) {
             $newPosition = $nextLocation['type'] === 'road' ? 50 : 0;
@@ -253,8 +205,8 @@ class GameController extends Controller
         
         // 最新のキャラクター情報を取得
         $character->refresh();
-        $currentLocation = $this->getCurrentLocationFromCharacter($character);
-        $newNextLocation = $this->getNextLocationFromCharacter($character);
+        $currentLocation = $this->locationService->getCurrentLocation($character);
+        $newNextLocation = $this->locationService->getNextLocation($character);
         $position = $character->game_position ?? 0;
         $locationType = $character->location_type ?? 'town';
         
@@ -276,8 +228,8 @@ class GameController extends Controller
             'game_position' => 0,
         ]);
         
-        $currentLocation = $this->getCurrentLocationFromCharacter($character);
-        $nextLocation = $this->getNextLocationFromCharacter($character);
+        $currentLocation = $this->locationService->getCurrentLocation($character);
+        $nextLocation = $this->locationService->getNextLocation($character);
         
         return response()->json([
             'success' => true,
@@ -323,67 +275,4 @@ class GameController extends Controller
         }
     }
 
-    // Database-First: Characterから現在位置情報を取得
-    private function getCurrentLocationFromCharacter(Character $character): array
-    {
-        $locationType = $character->location_type ?? 'town';
-        $locationId = $character->location_id ?? 'town_a';
-        
-        return [
-            'type' => $locationType,
-            'id' => $locationId,
-            'name' => $this->getLocationName($locationType, $locationId),
-        ];
-    }
-
-    // Database-First: Characterから次の位置情報を取得
-    private function getNextLocationFromCharacter(Character $character): ?array
-    {
-        $locationType = $character->location_type ?? 'town';
-        $locationId = $character->location_id ?? 'town_a';
-        $position = $character->game_position ?? 0;
-        
-        if ($locationType === 'town') {
-            if ($locationId === 'town_a') {
-                return ['type' => 'road', 'id' => 'road_1', 'name' => '道路1'];
-            } elseif ($locationId === 'town_b') {
-                return ['type' => 'road', 'id' => 'road_3', 'name' => '道路3'];
-            }
-        } elseif ($locationType === 'road') {
-            $roadNumber = (int) str_replace('road_', '', $locationId);
-            
-            if ($position <= 0) {
-                if ($roadNumber === 1) {
-                    return ['type' => 'town', 'id' => 'town_a', 'name' => 'A町'];
-                } else {
-                    return ['type' => 'road', 'id' => 'road_' . ($roadNumber - 1), 'name' => '道路' . ($roadNumber - 1)];
-                }
-            } elseif ($position >= 100) {
-                if ($roadNumber === 3) {
-                    return ['type' => 'town', 'id' => 'town_b', 'name' => 'B町'];
-                } else {
-                    return ['type' => 'road', 'id' => 'road_' . ($roadNumber + 1), 'name' => '道路' . ($roadNumber + 1)];
-                }
-            }
-        }
-        
-        return null;
-    }
-
-    // 位置名を取得
-    private function getLocationName(string $type, string $id): string
-    {
-        if ($type === 'town') {
-            return match($id) {
-                'town_a' => 'A町',
-                'town_b' => 'B町',
-                default => '未知の町',
-            };
-        } elseif ($type === 'road') {
-            $roadNumber = str_replace('road_', '', $id);
-            return '道路' . $roadNumber;
-        }
-        
-        return '未知の場所';
-    }
 }

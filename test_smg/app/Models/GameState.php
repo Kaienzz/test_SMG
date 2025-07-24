@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Services\MovementService;
+use App\Domain\Location\LocationService;
 
 class GameState extends Model
 {
@@ -93,33 +94,15 @@ class GameState extends Model
     
     public function getNextLocation(): ?array
     {
-        $player = $this->getPlayer();
+        // LocationService を使用して統一された位置計算を行う
+        $locationService = app(LocationService::class);
+        $character = $this->character;
         
-        if ($player->isInTown()) {
-            if ($player->current_location_id === 'town_a') {
-                return ['type' => 'road', 'id' => 'road_1', 'name' => '道路1'];
-            } elseif ($player->current_location_id === 'town_b') {
-                return ['type' => 'road', 'id' => 'road_3', 'name' => '道路3'];
-            }
-        } elseif ($player->isOnRoad()) {
-            $roadNumber = (int) str_replace('road_', '', $player->current_location_id);
-            
-            if ($player->position <= 0) {
-                if ($roadNumber === 1) {
-                    return ['type' => 'town', 'id' => 'town_a', 'name' => 'A町'];
-                } else {
-                    return ['type' => 'road', 'id' => 'road_' . ($roadNumber - 1), 'name' => '道路' . ($roadNumber - 1)];
-                }
-            } elseif ($player->position >= 100) {
-                if ($roadNumber === 3) {
-                    return ['type' => 'town', 'id' => 'town_b', 'name' => 'B町'];
-                } else {
-                    return ['type' => 'road', 'id' => 'road_' . ($roadNumber + 1), 'name' => '道路' . ($roadNumber + 1)];
-                }
-            }
+        if (!$character) {
+            return null;
         }
         
-        return null;
+        return $locationService->getNextLocation($character);
     }
     
     public function moveToNextLocation(): void
