@@ -39,9 +39,9 @@ class GameController extends Controller
     public function rollDice(Request $request): JsonResponse
     {
         $character = $this->getOrCreateCharacter();
-        $result = $this->gameStateManager->rollDice($character);
+        $diceResult = $this->gameStateManager->rollDice($character);
         
-        return response()->json($result);
+        return response()->json($diceResult->toArray());
     }
     
     public function move(Request $request): JsonResponse

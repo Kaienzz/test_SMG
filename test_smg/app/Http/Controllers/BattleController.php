@@ -39,48 +39,48 @@ class BattleController extends Controller
         $monster = $request->input('monster');
         $character = $this->getOrCreateCharacter();
         
-        $result = $this->battleStateManager->startBattle($character, $monster);
+        $battleResult = $this->battleStateManager->startBattle($character, $monster);
         
-        return response()->json($result);
+        return response()->json($battleResult->toArray());
     }
 
     public function attack(Request $request): JsonResponse
     {
         $userId = Auth::id();
-        $result = $this->battleStateManager->processAttack($userId);
+        $battleResult = $this->battleStateManager->processAttack($userId);
         
-        return response()->json($result);
+        return response()->json($battleResult->toArray());
     }
 
     public function defend(Request $request): JsonResponse
     {
         $userId = Auth::id();
-        $result = $this->battleStateManager->processDefense($userId);
+        $battleResult = $this->battleStateManager->processDefense($userId);
         
-        return response()->json($result);
+        return response()->json($battleResult->toArray());
     }
 
     public function escape(Request $request): JsonResponse
     {
         $userId = Auth::id();
-        $result = $this->battleStateManager->processEscape($userId);
+        $battleResult = $this->battleStateManager->processEscape($userId);
         
-        return response()->json($result);
+        return response()->json($battleResult->toArray());
     }
     
     public function useSkill(Request $request): JsonResponse
     {
         $userId = Auth::id();
-        $result = $this->battleStateManager->processSkillUse($userId, $request);
+        $battleResult = $this->battleStateManager->processSkillUse($userId, $request);
         
-        return response()->json($result);
+        return response()->json($battleResult->toArray());
     }
     
     public function endBattle(Request $request): JsonResponse
     {
         $userId = Auth::id();
-        $result = $this->battleStateManager->endBattle($userId);
+        $battleResult = $this->battleStateManager->endBattle($userId);
         
-        return response()->json($result);
+        return response()->json($battleResult->toArray());
     }
 }

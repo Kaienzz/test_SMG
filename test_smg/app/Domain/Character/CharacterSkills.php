@@ -245,7 +245,7 @@ trait CharacterSkills
      *
      * @return array
      */
-    protected function getSkillBonusesForStats(): array
+    public function getSkillBonusesForStats(): array
     {
         return $this->calculateSkillBonuses();
     }

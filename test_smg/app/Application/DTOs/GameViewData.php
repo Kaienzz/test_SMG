@@ -141,40 +141,6 @@ class GameViewData
     }
 }
 
-/**
- * 位置情報DTO
- */
-class LocationData
-{
-    public function __construct(
-        public readonly string $type,
-        public readonly string $id,
-        public readonly string $name
-    ) {}
-
-    public static function fromArray(array $data): self
-    {
-        return new self(
-            type: $data['type'],
-            id: $data['id'],
-            name: $data['name']
-        );
-    }
-
-    public function toArray(): array
-    {
-        return [
-            'type' => $this->type,
-            'id' => $this->id,
-            'name' => $this->name,
-        ];
-    }
-
-    public function toObject(): object
-    {
-        return (object) $this->toArray();
-    }
-}
 
 /**
  * プレイヤーデータDTO（既存テンプレート互換性）

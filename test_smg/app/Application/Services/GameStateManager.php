@@ -5,6 +5,7 @@ namespace App\Application\Services;
 use App\Models\Character;
 use App\Domain\Location\LocationService;
 use App\Application\DTOs\MoveResult;
+use App\Application\DTOs\DiceResult;
 use App\Services\BattleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,9 +26,9 @@ class GameStateManager
      * サイコロを振る
      *
      * @param Character $character
-     * @return array
+     * @return DiceResult
      */
-    public function rollDice(Character $character): array
+    public function rollDice(Character $character): DiceResult
     {
         // TODO: 将来的にはCharacterのスキル・装備による動的計算
         $dice1 = rand(1, 6);
@@ -35,26 +36,14 @@ class GameStateManager
         $dice3 = rand(1, 6); // 追加サイコロ
         
         $diceRolls = [$dice1, $dice2, $dice3];
-        $baseTotal = $dice1 + $dice2 + $dice3;
         $bonus = 3; // 飛脚術効果
-        $total = $baseTotal + $bonus;
-        
-        return [
-            'dice_rolls' => $diceRolls,
-            'dice_count' => 3,
-            'dice1' => $dice1,
-            'dice2' => $dice2,
-            'base_total' => $baseTotal,
-            'bonus' => $bonus,
-            'total' => $total,
-            'final_movement' => $total,
-            'movement_effects' => [
-                'dice_bonus' => 3,
-                'extra_dice' => 1,
-                'movement_multiplier' => 1.0,
-            ],
-            'rolled_at' => now()->toISOString()
+        $movementEffects = [
+            'dice_bonus' => 3,
+            'extra_dice' => 1,
+            'movement_multiplier' => 1.0,
         ];
+        
+        return DiceResult::create($diceRolls, $bonus, $movementEffects);
     }
 
     /**

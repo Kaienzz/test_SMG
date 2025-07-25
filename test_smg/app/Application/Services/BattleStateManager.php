@@ -6,6 +6,7 @@ use App\Models\Character;
 use App\Models\ActiveBattle;
 use App\Services\BattleService;
 use App\Application\DTOs\BattleData;
+use App\Application\DTOs\BattleResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -49,9 +50,9 @@ class BattleStateManager
      *
      * @param Character $character
      * @param array $monster
-     * @return array
+     * @return BattleResult
      */
-    public function startBattle(Character $character, array $monster): array
+    public function startBattle(Character $character, array $monster): BattleResult
     {
         $user = Auth::user();
         
@@ -68,27 +69,26 @@ class BattleStateManager
             $character->location_type
         );
         
-        return [
-            'success' => true,
-            'battle_id' => $activeBattle->battle_id,
-            'character' => $battleData['character'],
-            'monster' => $battleData['monster'],
-            'message' => "{$monster['name']}が現れた！"
-        ];
+        return BattleResult::battleStart(
+            $activeBattle->battle_id,
+            $battleData['character'],
+            $battleData['monster'],
+            "{$monster['name']}が現れた！"
+        );
     }
 
     /**
      * 攻撃処理
      *
      * @param int $userId
-     * @return array
+     * @return BattleResult
      */
-    public function processAttack(int $userId): array
+    public function processAttack(int $userId): BattleResult
     {
         $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
         if (!$activeBattle) {
-            return ['success' => false, 'message' => '戦闘データが見つかりません'];
+            return BattleResult::failure('戦闘データが見つかりません');
         }
         
         $character = $activeBattle->character_data;
@@ -130,28 +130,26 @@ class BattleStateManager
         // 戦闘データをDB更新
         $activeBattle->updateBattleData($character, $monster, $battleLog);
         
-        return [
-            'success' => true,
-            'battle_end' => false,
-            'character' => $character,
-            'monster' => $monster,
-            'battle_log' => $battleLog,
-            'turn' => $activeBattle->turn + 1,
-        ];
+        return BattleResult::success(
+            $character,
+            $monster,
+            $battleLog,
+            $activeBattle->turn + 1
+        );
     }
 
     /**
      * 防御処理
      *
      * @param int $userId
-     * @return array
+     * @return BattleResult
      */
-    public function processDefense(int $userId): array
+    public function processDefense(int $userId): BattleResult
     {
         $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
         if (!$activeBattle) {
-            return ['success' => false, 'message' => '戦闘データが見つかりません'];
+            return BattleResult::failure('戦闘データが見つかりません');
         }
         
         $character = $activeBattle->character_data;
@@ -186,28 +184,26 @@ class BattleStateManager
         // 戦闘データをDB更新
         $activeBattle->updateBattleData($character, $monster, $battleLog);
         
-        return [
-            'success' => true,
-            'battle_end' => false,
-            'character' => $character,
-            'monster' => $monster,
-            'battle_log' => $battleLog,
-            'turn' => $activeBattle->turn + 1,
-        ];
+        return BattleResult::success(
+            $character,
+            $monster,
+            $battleLog,
+            $activeBattle->turn + 1
+        );
     }
 
     /**
      * 逃走処理
      *
      * @param int $userId
-     * @return array
+     * @return BattleResult
      */
-    public function processEscape(int $userId): array
+    public function processEscape(int $userId): BattleResult
     {
         $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
         if (!$activeBattle) {
-            return ['success' => false, 'message' => '戦闘データが見つかりません'];
+            return BattleResult::failure('戦闘データが見つかりません');
         }
         
         $character = $activeBattle->character_data;
@@ -226,15 +222,15 @@ class BattleStateManager
             $activeBattle->endBattle('escape');
             $this->updateCharacterFromBattle($userId, $character);
             
-            return [
-                'success' => true,
-                'battle_end' => true,
-                'result' => 'escape',
-                'character' => $character,
-                'monster' => $monster,
-                'battle_log' => $battleLog,
-                'message' => $escapeResult['message']
-            ];
+            return BattleResult::success(
+                $character,
+                $monster,
+                $battleLog,
+                1,
+                true,
+                $escapeResult['message'],
+                'escape'
+            );
         }
         
         $battleLog[] = [
@@ -256,14 +252,12 @@ class BattleStateManager
         // 戦闘データをDB更新
         $activeBattle->updateBattleData($character, $monster, $battleLog);
         
-        return [
-            'success' => true,
-            'battle_end' => false,
-            'character' => $character,
-            'monster' => $monster,
-            'battle_log' => $battleLog,
-            'turn' => $activeBattle->turn + 1,
-        ];
+        return BattleResult::success(
+            $character,
+            $monster,
+            $battleLog,
+            $activeBattle->turn + 1
+        );
     }
 
     /**
@@ -271,14 +265,14 @@ class BattleStateManager
      *
      * @param int $userId
      * @param Request $request
-     * @return array
+     * @return BattleResult
      */
-    public function processSkillUse(int $userId, Request $request): array
+    public function processSkillUse(int $userId, Request $request): BattleResult
     {
         $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
         if (!$activeBattle) {
-            return ['success' => false, 'message' => '戦闘データが見つかりません'];
+            return BattleResult::failure('戦闘データが見つかりません');
         }
         
         $skillId = $request->input('skill_id');
@@ -290,10 +284,7 @@ class BattleStateManager
         $skillResult = BattleService::useSkill($character, $monster, $skillId);
         
         if (!$skillResult['success']) {
-            return [
-                'success' => false,
-                'message' => $skillResult['message']
-            ];
+            return BattleResult::failure($skillResult['message']);
         }
         
         $character = $skillResult['character'];
@@ -327,36 +318,38 @@ class BattleStateManager
         // 戦闘データをDB更新
         $activeBattle->updateBattleData($character, $monster, $battleLog);
         
-        return [
-            'success' => true,
-            'battle_end' => false,
-            'character' => $character,
-            'monster' => $monster,
-            'battle_log' => $battleLog,
-            'turn' => $activeBattle->turn + 1,
-        ];
+        return BattleResult::success(
+            $character,
+            $monster,
+            $battleLog,
+            $activeBattle->turn + 1
+        );
     }
 
     /**
      * 戦闘終了処理
      *
      * @param int $userId
-     * @return array
+     * @return BattleResult
      */
-    public function endBattle(int $userId): array
+    public function endBattle(int $userId): BattleResult
     {
         $activeBattle = ActiveBattle::getUserActiveBattle($userId);
         
         if (!$activeBattle) {
-            return ['success' => false, 'message' => '戦闘データが見つかりません'];
+            return BattleResult::failure('戦闘データが見つかりません');
         }
         
         $activeBattle->endBattle('forced_end');
         
-        return [
-            'success' => true,
-            'message' => '戦闘を終了しました'
-        ];
+        return BattleResult::success(
+            [],
+            [],
+            [],
+            0,
+            true,
+            '戦闘を終了しました'
+        );
     }
 
     /**

@@ -26,12 +26,12 @@
 
     <script src="/js/game.js"></script>
     <script>
-        // ゲームデータの初期化
-        const gameData = @json([
-            'currentLocation' => $currentLocation,
-            'player' => $player,
-            'nextLocation' => $nextLocation
-        ]);
+        // ゲームデータの初期化（DTO の toJson() メソッドを使用）
+        const gameData = {
+            character: @json($character),
+            currentLocation: @json($currentLocation),
+            nextLocation: @json($nextLocation)
+        };
 
         // ゲーム初期化
         initializeGame(gameData);

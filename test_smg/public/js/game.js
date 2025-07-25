@@ -22,20 +22,20 @@ class GameManager {
     }
 
     handleInitialLoad() {
-        console.log('Initial load - Player position:', this.gameData.player.position, 'Type:', this.gameData.player.current_location_type);
+        console.log('Initial load - Character position:', this.gameData.character.game_position, 'Type:', this.gameData.character.location_type);
         console.log('Initial load - Next location:', this.gameData.nextLocation);
         
         // 初期状態でUI全体を適切に設定
         const initialData = {
             currentLocation: this.gameData.currentLocation,
-            position: this.gameData.player.position,
-            location_type: this.gameData.player.current_location_type
+            position: this.gameData.character.game_position,
+            location_type: this.gameData.character.location_type
         };
         this.updateGameDisplay(initialData);
         
         // 道路でposition=100または0のとき、次の場所ボタンを表示
-        if (this.gameData.player.current_location_type === 'road') {
-            if ((this.gameData.player.position >= 100 || this.gameData.player.position <= 0) && this.gameData.nextLocation) {
+        if (this.gameData.character.location_type === 'road') {
+            if ((this.gameData.character.game_position >= 100 || this.gameData.character.game_position <= 0) && this.gameData.nextLocation) {
                 console.log('Initial load - Showing button for road at boundary');
                 this.updateNextLocationDisplay(this.gameData.nextLocation, true);
             } else {
@@ -75,15 +75,21 @@ class DiceManager {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            this.handleDiceResult(data);
-            
-            const rollDiceButton = document.getElementById('roll-dice');
-            if (rollDiceButton) rollDiceButton.disabled = false;
-        })
+        .then(response => ErrorHandler.handleApiResponse(
+            response,
+            (data) => {
+                this.handleDiceResult(data);
+                const rollDiceButton = document.getElementById('roll-dice');
+                if (rollDiceButton) rollDiceButton.disabled = false;
+            },
+            (error) => {
+                const rollDiceButton = document.getElementById('roll-dice');
+                if (rollDiceButton) rollDiceButton.disabled = false;
+                alert(error.error || error.message || 'サイコロを振ることができませんでした');
+            }
+        ))
         .catch(error => {
-            console.error('Error:', error);
+            ErrorHandler.handleApiError(error, 'サイコロを振る');
             const rollDiceButton = document.getElementById('roll-dice');
             if (rollDiceButton) rollDiceButton.disabled = false;
         });
@@ -123,7 +129,7 @@ class DiceManager {
         if (diceTotal) diceTotal.classList.remove('hidden');
         
         const movableLocations = ['road', 'dungeon'];
-        if (movableLocations.includes(this.gameManager.gameData.player.current_location_type)) {
+        if (movableLocations.includes(this.gameManager.gameData.character.location_type)) {
             const movementControls = document.getElementById('movement-controls');
             const moveLeft = document.getElementById('move-left');
             const moveRight = document.getElementById('move-right');
@@ -169,48 +175,71 @@ class MovementManager {
             },
             body: JSON.stringify(requestData)
         })
-        .then(response => {
-            console.log('Response status:', response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log('Move response:', data);
-            if (data.success) {
+        .then(response => ErrorHandler.handleApiResponse(
+            response,
+            (data) => {
+                console.log('Move response:', data);
                 this.handleMoveSuccess(data);
-            } else {
-                this.handleMoveError(data);
+            },
+            (error) => {
+                this.handleMoveError(error);
             }
-        })
+        ))
         .catch(error => {
-            console.error('Move error details:', error);
-            alert('移動中にエラーが発生しました: ' + error.message);
+            ErrorHandler.handleApiError(error, '移動');
             this.reenableMovementButtons();
         });
     }
 
     handleMoveSuccess(data) {
-        this.gameManager.updateGameDisplay(data);
+        // 新しいDTO構造に対応したデータ拡張
+        const extendedData = {
+            ...data,
+            location_type: this.getLocationTypeFromData(data)
+        };
+        
+        this.gameManager.updateGameDisplay(extendedData);
         this.gameManager.hideMovementControls();
         
-        // gameDataのプレイヤー位置を更新
-        this.gameManager.gameData.player.position = data.position;
+        // gameDataのキャラクター位置を更新
+        this.gameManager.gameData.character.game_position = data.position;
         
-        // エンカウント処理
+        // エンカウント処理（新しいDTO構造対応）
         if (data.encounter && data.monster) {
             this.gameManager.handleEncounter(data.monster);
             return;
         }
         
-        // position=100または0になったら次の道路ボタンを表示
-        if (data.position >= 100 && data.nextLocation) {
-            this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
-        } else if (data.position <= 0 && data.nextLocation) {
+        // canMoveToNextを使用した次の場所ボタン表示制御
+        if (data.canMoveToNext && data.nextLocation) {
             this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
         } else {
             this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
         }
         
         this.gameManager.hideDiceResult();
+    }
+    
+    /**
+     * レスポンスデータからlocation_typeを推測
+     */
+    getLocationTypeFromData(data) {
+        if (data.location_type) {
+            return data.location_type;
+        }
+        
+        // currentLocationから推測
+        if (data.currentLocation && data.currentLocation.type) {
+            return data.currentLocation.type;
+        }
+        
+        // フォールバック: 名前から推測
+        if (data.currentLocation && data.currentLocation.name) {
+            return data.currentLocation.name.includes('町') ? 'town' : 'road';
+        }
+        
+        // 最終フォールバック
+        return this.gameManager.gameData.character.location_type || 'town';
     }
 
     handleMoveError(data) {
@@ -233,13 +262,24 @@ class MovementManager {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            // UI全体を更新（新しいupdateGameDisplayが場所タイプに応じてUI切り替えを行う）
-            this.gameManager.updateGameDisplay(data);
+        .then(response => ErrorHandler.handleApiResponse(
+            response,
+            (data) => {
+            // 新しいDTO構造に対応したデータ拡張
+            const extendedData = {
+                ...data,
+                location_type: this.getLocationTypeFromData(data)
+            };
             
-            // 移動後の次の場所ボタンの表示制御
-            const locationType = data.location_type || this.gameManager.gameData.player.current_location_type;
+            // UI全体を更新（新しいupdateGameDisplayが場所タイプに応じてUI切り替えを行う）
+            this.gameManager.updateGameDisplay(extendedData);
+            
+            // gameDataのキャラクター位置を更新
+            this.gameManager.gameData.character.game_position = data.position;
+            this.gameManager.gameData.character.location_type = extendedData.location_type;
+            
+            // 移動後の次の場所ボタンの表示制御（新しいDTO構造）
+            const locationType = extendedData.location_type;
             if (locationType === 'town') {
                 // 町にいるときは次の道路ボタンを表示
                 if (data.nextLocation) {
@@ -248,13 +288,16 @@ class MovementManager {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
                 }
             } else {
-                // 道路にいるときは端にいる場合のみ次の場所ボタンを表示
-                if ((data.position >= 100 || data.position <= 0) && data.nextLocation) {
+                // 道路にいるときはcanMoveToNextを使用
+                if (data.canMoveToNext && data.nextLocation) {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
                 } else {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
                 }
             }
+        }))
+        .catch(error => {
+            ErrorHandler.handleApiError(error, '場所移動');
         });
     }
 }
@@ -269,8 +312,8 @@ class UIManager {
         
         // location_typeを確実に取得
         const locationType = data.location_type || (data.currentLocation.name.includes('町') ? 'town' : 'road');
-        this.gameManager.gameData.player.current_location_type = locationType;
-        this.gameManager.gameData.player.position = data.position;
+        this.gameManager.gameData.character.location_type = locationType;
+        this.gameManager.gameData.character.game_position = data.position;
         
         // 場所タイプに応じてUI全体を切り替え
         if (locationType === 'town') {
@@ -525,18 +568,18 @@ class BattleManager {
                     monster: monster
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            .then(response => ErrorHandler.handleApiResponse(
+                response,
+                (data) => {
                     // 戦闘画面に遷移
                     window.location.href = '/battle';
-                } else {
-                    alert('戦闘開始に失敗しました');
+                },
+                (error) => {
+                    alert(error.error || error.message || '戦闘開始に失敗しました');
                 }
-            })
+            ))
             .catch(error => {
-                console.error('Battle start error:', error);
-                alert('戦闘開始中にエラーが発生しました');
+                ErrorHandler.handleApiError(error, '戦闘開始');
             });
         } else {
             // 戦闘を拒否（現在の位置を元に戻す）
@@ -552,6 +595,46 @@ let diceManager;
 let movementManager;
 let uiManager;
 let battleManager;
+
+/**
+ * 統一されたエラーハンドリング
+ */
+class ErrorHandler {
+    static handleApiError(error, context = '') {
+        console.error(`${context} error:`, error);
+        
+        let message = 'エラーが発生しました';
+        if (context) {
+            message = `${context}中にエラーが発生しました`;
+        }
+        
+        if (error.message) {
+            message += `: ${error.message}`;
+        }
+        
+        alert(message);
+    }
+    
+    static handleApiResponse(response, successCallback, errorCallback = null) {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return response.json().then(data => {
+            if (data.success === false) {
+                const error = data.error || data.message || '処理に失敗しました';
+                if (errorCallback) {
+                    errorCallback(data);
+                } else {
+                    alert(error);
+                }
+                return;
+            }
+            
+            successCallback(data);
+        });
+    }
+}
 
 // 初期化
 function initializeGame(gameData) {
@@ -594,12 +677,29 @@ function resetGame() {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        gameManager.updateGameDisplay(data);
-        gameManager.updateNextLocationDisplay(data.nextLocation, false);
-        gameManager.hideMovementControls();
-        gameManager.hideDiceResult();
+    .then(response => ErrorHandler.handleApiResponse(
+        response,
+        (data) => {
+            // 新しいDTO構造に対応
+            const extendedData = {
+                ...data,
+                location_type: movementManager.getLocationTypeFromData(data)
+            };
+            
+            gameManager.updateGameDisplay(extendedData);
+            
+            // キャラクターデータを更新
+            gameManager.gameData.character.game_position = data.position;
+            gameManager.gameData.character.location_type = extendedData.location_type;
+            
+            // 次の場所ボタンを非表示
+            gameManager.updateNextLocationDisplay(data.nextLocation, false);
+            gameManager.hideMovementControls();
+            gameManager.hideDiceResult();
+        }
+    ))
+    .catch(error => {
+        ErrorHandler.handleApiError(error, 'ゲームリセット');
     });
 }
 
@@ -631,9 +731,9 @@ function performGathering() {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
+    .then(response => ErrorHandler.handleApiResponse(
+        response,
+        (data) => {
             let message = data.message;
             if (data.leveled_up) {
                 message += `\n採集スキルがレベルアップしました！ (Lv.${data.skill_level})`;
@@ -642,18 +742,23 @@ function performGathering() {
             message += `\nSP: ${data.remaining_sp} (${data.sp_consumed}消費)`;
             
             alert(message);
-        } else {
-            alert(data.error || data.message || '採集に失敗しました');
+            
+            if (gatheringBtn) {
+                gatheringBtn.disabled = false;
+                gatheringBtn.innerHTML = '<span class="icon">🌿</span> 採集する';
+            }
+        },
+        (error) => {
+            alert(error.error || error.message || '採集に失敗しました');
+            
+            if (gatheringBtn) {
+                gatheringBtn.disabled = false;
+                gatheringBtn.innerHTML = '<span class="icon">🌿</span> 採集する';
+            }
         }
-        
-        if (gatheringBtn) {
-            gatheringBtn.disabled = false;
-            gatheringBtn.innerHTML = '<span class="icon">🌿</span> 採集する';
-        }
-    })
+    ))
     .catch(error => {
-        console.error('Gathering error:', error);
-        alert('採集中にエラーが発生しました');
+        ErrorHandler.handleApiError(error, '採集');
         
         if (gatheringBtn) {
             gatheringBtn.disabled = false;
@@ -670,30 +775,29 @@ function showGatheringInfo() {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-            return;
+    .then(response => ErrorHandler.handleApiResponse(
+        response,
+        (data) => {
+            let info = `=== 採集情報 (${data.road_name}) ===\n`;
+            info += `採集スキル: Lv.${data.skill_level}\n`;
+            info += `経験値: ${data.experience}/${data.required_exp_for_next_level}\n`;
+            info += `SP消費: ${data.sp_cost} (現在SP: ${data.current_sp})\n`;
+            info += `採集可能: ${data.can_gather ? 'はい' : 'いいえ'}\n`;
+            info += `採集可能アイテム数: ${data.available_items_count}\n\n`;
+            
+            info += `=== 採集可能アイテム ===\n`;
+            data.all_items.forEach(item => {
+                const status = item.can_gather ? '✓' : '✗';
+                info += `${status} ${item.item_name} (Lv.${item.required_skill_level}必要, 成功率${item.success_rate}%)\n`;
+            });
+            
+            alert(info);
+        },
+        (error) => {
+            alert(error.error || error.message || '採集情報の取得に失敗しました');
         }
-        
-        let info = `=== 採集情報 (${data.road_name}) ===\n`;
-        info += `採集スキル: Lv.${data.skill_level}\n`;
-        info += `経験値: ${data.experience}/${data.required_exp_for_next_level}\n`;
-        info += `SP消費: ${data.sp_cost} (現在SP: ${data.current_sp})\n`;
-        info += `採集可能: ${data.can_gather ? 'はい' : 'いいえ'}\n`;
-        info += `採集可能アイテム数: ${data.available_items_count}\n\n`;
-        
-        info += `=== 採集可能アイテム ===\n`;
-        data.all_items.forEach(item => {
-            const status = item.can_gather ? '✓' : '✗';
-            info += `${status} ${item.item_name} (Lv.${item.required_skill_level}必要, 成功率${item.success_rate}%)\n`;
-        });
-        
-        alert(info);
-    })
+    ))
     .catch(error => {
-        console.error('Gathering info error:', error);
-        alert('採集情報の取得中にエラーが発生しました');
+        ErrorHandler.handleApiError(error, '採集情報取得');
     });
 }
