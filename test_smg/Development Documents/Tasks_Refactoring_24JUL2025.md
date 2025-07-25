@@ -150,37 +150,45 @@ Infrastructure/         # インフラストラクチャ
 - [x] `prepareBattleView()` でBattleData DTOを返すよう修正
 - [x] GameController での呼び出し側も修正
 
-### Phase 3: Controller純化（推定: 2-3時間）
+### Phase 3: Controller純化（推定: 2-3時間） ✅ **完了**
 
-#### Task 3.1: GameController リファクタリング
+#### Task 3.1: GameController リファクタリング ✅ **完了**
 **ファイル**: `app/Http/Controllers/GameController.php`
-**目的**: 387行 → 80行への削減
-- [ ] `index()` メソッドの簡素化（GameDisplayService使用）
-- [ ] `rollDice()` メソッドの簡素化（GameStateManager使用）
-- [ ] `move()` メソッドの簡素化（GameStateManager使用）
-- [ ] セッション管理ロジックをサービスに移管
-- [ ] ビジネスロジックをサービスに移管
+**目的**: 278行 → 77行への削減（72%削減）
+- [x] `index()` メソッドの簡素化（GameDisplayService使用）
+- [x] `rollDice()` メソッドの簡素化（GameStateManager使用）
+- [x] `move()` メソッドの簡素化（GameStateManager使用）
+- [x] セッション管理ロジックをサービスに移管
+- [x] ビジネスロジックをサービスに移管
 
-#### Task 3.2: GameStateManager 作成
-**ファイル**: `app/Application/Services/GameStateManager.php`
+#### Task 3.2: GameStateManager 作成 ✅ **完了**
+**ファイル**: `app/Application/Services/GameStateManager.php` (221行)
 **目的**: ゲーム状態管理の統一
-- [ ] `rollDice(Character $character): DiceResult` 実装
-- [ ] `moveCharacter(Character $character, MoveRequest $request): MoveResult` 実装
-- [ ] `transitionLocation(Character $character, Location $destination): TransitionResult` 実装
-- [ ] セッション→DB移行ロジックの統合
+- [x] `rollDice(Character $character): array` 実装
+- [x] `moveCharacter(Character $character, Request $request): MoveResult` 実装
+- [x] `moveToNextLocation(Character $character): MoveResult` 実装
+- [x] `resetGameState(Character $character): MoveResult` 実装
+- [x] セッション→DB移行ロジックの統合
+- [x] ターン効果処理の統合
 
-#### Task 3.3: Blade テンプレート更新
-**対象ファイル**: 
-- `resources/views/game/index.blade.php`
-- `resources/views/game/partials/location_info.blade.php`
-- `resources/views/game/partials/dice_container.blade.php`
-- `resources/views/game/partials/next_location_button.blade.php`
-- `resources/views/game/partials/movement_controls.blade.php`
+#### Task 3.3: BattleController リファクタリング ✅ **完了**
+**ファイル**: `app/Http/Controllers/BattleController.php`
+**目的**: 520行 → 86行への削減（83%削減）
+- [x] 全7メソッドのビジネスロジックをBattleStateManagerに移管
+- [x] 戦闘開始、攻撃、防御、逃走、スキル使用、戦闘終了処理の簡素化
 
-**作業内容**:
-- [ ] `$player` 変数を `$gameViewData` に統一
-- [ ] Character直接参照の統一
-- [ ] データアクセスパターンの統一
+#### Task 3.4: BattleStateManager 作成 ✅ **完了**
+**ファイル**: `app/Application/Services/BattleStateManager.php` (412行)
+**目的**: 戦闘状態管理の統一
+- [x] `startBattle()`, `processAttack()`, `processDefense()` 実装
+- [x] `processEscape()`, `processSkillUse()`, `endBattle()` 実装
+- [x] 戦闘終了シーケンス、モンスター攻撃処理の統合
+- [x] セッション移行、キャラクター更新処理の統合
+
+#### Task 3.5: 統合テスト ✅ **完了**
+- [x] PHP構文チェック: 全ファイル正常
+- [x] Composer autoload: 6232クラス正常登録
+- [x] Laravel tests: 25 passed (61 assertions)
 
 ### Phase 4: Character分割（推定: 3-4時間）
 
