@@ -6,9 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Domain\Character\CharacterSkills;
+use App\Domain\Character\CharacterEquipment;
+use App\Domain\Character\CharacterInventory;
 
 class Character extends Model
 {
+    use CharacterSkills, CharacterEquipment, CharacterInventory;
     protected $fillable = [
         'user_id',
         'name',
@@ -42,9 +46,6 @@ class Character extends Model
         'base_magic_attack',
         'base_accuracy',
     ];
-
-    // キャッシュ用プロパティ
-    private $_skillBonusesCache = null;
 
     protected $casts = [
         'user_id' => 'integer',
@@ -323,157 +324,13 @@ class Character extends Model
         return $this->hasMany(BattleLog::class, 'user_id', 'user_id');
     }
 
-    public function inventory(): HasOne
-    {
-        return $this->hasOne(Inventory::class);
-    }
-
-    public function equipment(): HasOne
-    {
-        return $this->hasOne(Equipment::class);
-    }
-
-    public function skills(): HasMany
-    {
-        return $this->hasMany(Skill::class);
-    }
 
     public function activeEffects(): HasMany
     {
         return $this->hasMany(ActiveEffect::class);
     }
 
-    public function getInventory(): Inventory
-    {
-        if ($this->inventory) {
-            return $this->inventory;
-        }
-        
-        return Inventory::createForCharacter($this->id ?? 1);
-    }
 
-    public function getEquipment(): Equipment
-    {
-        if ($this->equipment) {
-            return $this->equipment;
-        }
-        
-        return Equipment::createForCharacter($this->id ?? 1);
-    }
-
-    public function getCharacterWithInventory(): array
-    {
-        $inventory = $this->getInventory();
-        
-        return [
-            'character' => $this->getDetailedStats(),
-            'inventory' => $inventory->getInventoryData(),
-        ];
-    }
-
-    public function getCharacterWithEquipment(): array
-    {
-        $inventory = $this->getInventory();
-        $equipment = $this->getEquipment();
-        
-        return [
-            'character' => $this->getDetailedStats(),
-            'inventory' => $inventory->getInventoryData(),
-            'equipment' => $equipment->getEquippedItems(),
-            'equipment_stats' => $equipment->getTotalStats(),
-        ];
-    }
-
-    public function useSkill(string $skillName): array
-    {
-        $skill = $this->getSkill($skillName);
-        
-        if (!$skill) {
-            return ['success' => false, 'message' => "スキル「{$skillName}」を習得していません。"];
-        }
-        
-        if (!$skill->is_active) {
-            return ['success' => false, 'message' => "スキル「{$skillName}」は無効化されています。"];
-        }
-        
-        $spCost = $skill->getSkillSpCost();
-        if (!$this->consumeSP($spCost)) {
-            return ['success' => false, 'message' => "SPが足りません。必要SP: {$spCost}"];
-        }
-        
-        // スキル効果を適用
-        $result = $skill->applySkillEffect($this->id);
-        
-        if ($result['success']) {
-            // スキル経験値を獲得
-            $expGain = $skill->calculateExperienceGain();
-            $leveledUp = $skill->gainExperience($expGain);
-            
-            $result['experience_gained'] = $expGain;
-            $result['skill_leveled_up'] = $leveledUp;
-            
-            $this->save(); // SP消費を保存
-        }
-        
-        return $result;
-    }
-
-    public function getSkill(string $skillName): ?Skill
-    {
-        return $this->skills()->where('skill_name', $skillName)->first();
-    }
-
-    public function hasSkill(string $skillName): bool
-    {
-        return $this->skills()->where('skill_name', $skillName)->exists();
-    }
-
-    public function getActiveSkills(): array
-    {
-        return $this->skills()->where('is_active', true)->get()->toArray();
-    }
-
-    // スキル学習メソッド
-    public function learnSkill(string $skillType, string $skillName, array $effects = [], int $spCost = 10, int $duration = 5): Skill
-    {
-        // 既に習得している場合はそのスキルを返す
-        $existingSkill = $this->getSkill($skillName);
-        if ($existingSkill) {
-            return $existingSkill;
-        }
-
-        // 新しいスキルを作成
-        $skill = Skill::createForCharacter($this->id, $skillType, $skillName, $effects, $spCost, $duration);
-        
-        // スキル追加後にキャラクターレベルを更新
-        $this->updateCharacterLevel();
-        
-        return $skill;
-    }
-
-    // スキル一覧を取得
-    public function getSkillList(): array
-    {
-        return $this->skills()->get()->map(function($skill) {
-            return [
-                'id' => $skill->id,
-                'skill_name' => $skill->skill_name,
-                'skill_type' => $skill->skill_type,
-                'level' => $skill->level,
-                'experience' => $skill->experience,
-                'required_exp' => $skill->getRequiredExperienceForNextLevel(),
-                'sp_cost' => $skill->getSkillSpCost(),
-                'is_active' => $skill->is_active,
-                'effects' => $skill->effects,
-            ];
-        })->toArray();
-    }
-
-    // 総スキルレベルを取得
-    public function getTotalSkillLevel(): int
-    {
-        return $this->skills()->sum('level');
-    }
 
     public function spendGold(int $amount): bool
     {
@@ -497,7 +354,7 @@ class Character extends Model
     public function calculateCharacterLevel(): int
     {
         // スキルレベルの合計からキャラクターレベルを計算
-        $totalSkillLevel = $this->skills()->sum('level');
+        $totalSkillLevel = $this->getTotalSkillLevel();
         
         // スキルレベル合計を基にキャラクターレベルを計算
         // 例: スキルレベル合計10でキャラクターレベル2、20で3、など
@@ -526,7 +383,7 @@ class Character extends Model
     public function updateStatsForLevel(): void
     {
         $baseStats = $this->getBaseStats();
-        $skillBonuses = $this->calculateSkillBonuses();
+        $skillBonuses = $this->getSkillBonusesForStats();
         
         // 基本ステータス + スキルボーナス
         $this->attack = $baseStats['attack'] + $skillBonuses['attack'];
@@ -572,86 +429,10 @@ class Character extends Model
         ];
     }
 
-    private function calculateSkillBonuses(): array
-    {
-        // キャッシュがある場合はそれを使用
-        $cacheKey = 'skill_bonuses_' . $this->id;
-        if (isset($this->_skillBonusesCache)) {
-            return $this->_skillBonusesCache;
-        }
-
-        $bonuses = [
-            'attack' => 0,
-            'defense' => 0,
-            'agility' => 0,
-            'evasion' => 0,
-            'max_hp' => 0,
-            'max_sp' => 0,
-            'max_mp' => 0,
-            'magic_attack' => 0,
-            'accuracy' => 0,
-        ];
-
-        // スキルデータを取得（既にeager loadされていればそれを使用）
-        $skills = $this->relationLoaded('skills') 
-            ? $this->skills->where('is_active', true)
-            : $this->skills()->where('is_active', true)->get();
-        
-        foreach ($skills as $skill) {
-            $skillLevel = $skill->level;
-            $skillType = $skill->skill_type;
-            
-            // 全スキル共通のボーナス
-            $bonuses['max_hp'] += $skillLevel * 2;
-            $bonuses['max_sp'] += $skillLevel * 1;
-            $bonuses['max_mp'] += $skillLevel * 1;
-            
-            // スキル種類別のボーナス
-            switch ($skillType) {
-                case 'combat':
-                    $bonuses['attack'] += $skillLevel * 2;
-                    $bonuses['defense'] += $skillLevel * 1;
-                    $bonuses['accuracy'] += $skillLevel * 1;
-                    break;
-                    
-                case 'movement':
-                    $bonuses['agility'] += $skillLevel * 2;
-                    $bonuses['evasion'] += $skillLevel * 1;
-                    break;
-                    
-                case 'gathering':
-                    $bonuses['agility'] += $skillLevel * 1;
-                    $bonuses['evasion'] += $skillLevel * 1;
-                    break;
-                    
-                case 'magic':
-                    $bonuses['magic_attack'] += $skillLevel * 2;
-                    $bonuses['accuracy'] += $skillLevel * 1;
-                    break;
-                    
-                case 'utility':
-                    $bonuses['defense'] += $skillLevel * 1;
-                    $bonuses['evasion'] += $skillLevel * 1;
-                    break;
-            }
-        }
-        
-        // キャッシュに保存
-        $this->_skillBonusesCache = $bonuses;
-        
-        return $bonuses;
-    }
-
-    // スキルボーナスキャッシュを無効化
-    public function clearSkillBonusesCache(): void
-    {
-        $this->_skillBonusesCache = null;
-    }
-
     public function getDetailedStatsWithLevel(): array
     {
         $baseStats = $this->getDetailedStats();
-        $skillBonuses = $this->calculateSkillBonuses();
+        $skillBonuses = $this->getSkillBonusesForStats();
         $totalSkillLevel = $this->getTotalSkillLevel();
         
         return array_merge($baseStats, [
@@ -660,34 +441,6 @@ class Character extends Model
             'skill_bonuses' => $skillBonuses,
             'base_stats' => $this->getBaseStats(),
         ]);
-    }
-
-    // Equipment関連
-    public function getOrCreateEquipment(): Equipment
-    {
-        return $this->equipment ?: Equipment::createForCharacter($this->id);
-    }
-
-    // 装備を含む総合ステータス取得
-    public function getTotalStatsWithEquipment(): array
-    {
-        $baseStats = $this->getDetailedStats();
-        $equipment = $this->getOrCreateEquipment();
-        $equipmentStats = $equipment->getTotalStats();
-        
-        // 基本ステータスと装備ステータスを合計
-        return [
-            'attack' => ($baseStats['attack'] ?? 0) + ($equipmentStats['attack'] ?? 0),
-            'defense' => ($baseStats['defense'] ?? 0) + ($equipmentStats['defense'] ?? 0),
-            'agility' => ($baseStats['agility'] ?? 0) + ($equipmentStats['agility'] ?? 0),
-            'evasion' => ($baseStats['evasion'] ?? 0) + ($equipmentStats['evasion'] ?? 0),
-            'hp' => $baseStats['hp'] ?? 0,
-            'max_hp' => ($baseStats['max_hp'] ?? 0) + ($equipmentStats['hp'] ?? 0),
-            'mp' => $baseStats['mp'] ?? 0,
-            'max_mp' => ($baseStats['max_mp'] ?? 0) + ($equipmentStats['mp'] ?? 0),
-            'accuracy' => ($baseStats['accuracy'] ?? 0) + ($equipmentStats['accuracy'] ?? 0),
-            'equipment_effects' => $equipmentStats['effects'] ?? [],
-        ];
     }
 
     // 戦闘用の最適化されたステータス取得
@@ -699,7 +452,7 @@ class Character extends Model
         }
         
         $totalStats = $this->getTotalStatsWithEquipment();
-        $skillBonuses = $this->calculateSkillBonuses();
+        $skillBonuses = $this->getSkillBonusesForStats();
         
         return [
             'id' => $this->id,
