@@ -61,16 +61,6 @@ class ActiveBattle extends Model
         ]);
     }
 
-    // 戦闘データ更新
-    public function updateBattleData(array $character, array $monster, array $battleLog): void
-    {
-        $this->update([
-            'character_data' => $character,
-            'monster_data' => $monster,
-            'battle_log' => $battleLog,
-            'turn' => $this->turn + 1,
-        ]);
-    }
 
     // 戦闘ログ追加
     public function addBattleLog(string $action, string $message): void
@@ -89,21 +79,9 @@ class ActiveBattle extends Model
     public function endBattle(string $result): void
     {
         $this->update(['status' => 'completed']);
-
-        // 経験値とゴールド損失の計算
-        $experienceGained = $this->calculateExperienceGained($result);
-        $goldLost = $this->calculateGoldLost($result);
-
-        // BattleLogに記録
-        BattleLog::createLog($this->user_id, [
-            'monster' => $this->monster_data,
-            'location' => $this->location,
-            'result' => $result,
-            'experience_gained' => $experienceGained,
-            'gold_lost' => $goldLost,
-            'turns' => $this->turn,
-            'battle_log' => $this->battle_log,
-        ]);
+        
+        // Note: BattleLog creation is handled by BattleStateManager::endBattleSequence()
+        // to ensure all battle reward processing is completed before logging
     }
 
     // 経験値計算

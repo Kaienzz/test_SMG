@@ -38,24 +38,18 @@ class AuthenticatedSessionController extends Controller
 
     /**
      * 認証後のリダイレクト処理
+     * ユーザーエクスペリエンス向上のため、ログイン完了後は常にDashboardにリダイレクト
      */
     private function redirectAfterLogin($user): RedirectResponse
     {
-        // ゲーム画面に戻る場合の優先度チェック
-        $character = $user->character;
+        // intended URLがある場合は削除（使用しない）
+        session()->forget('url.intended');
         
-        if ($character && $character->location_type === 'battle') {
-            // バトル中の場合は戦闘画面へ
-            return redirect()->intended(route('battle.index'));
-        }
+        // プレイヤーの作成・更新を実行（データの整合性確保）
+        $player = $user->getOrCreatePlayer();
         
-        if ($character) {
-            // キャラクターが存在する場合は常にゲーム画面へ（セッション継続）
-            return redirect()->intended(route('game.index'));
-        }
-        
-        // キャラクターが無い場合のみダッシュボードへ
-        return redirect()->intended(route('dashboard'));
+        // 常にDashboardにリダイレクトし、ユーザーが自分でゲームを開始する
+        return redirect()->route('dashboard')->with('status', 'ログインが完了しました。');
     }
 
     /**

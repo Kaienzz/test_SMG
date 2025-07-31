@@ -2,7 +2,7 @@
 
 namespace App\Application\DTOs;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Monster;
 
 /**
@@ -210,76 +210,6 @@ class MoveResult
     }
 }
 
-/**
- * エンカウントデータDTO
- */
-class EncounterData
-{
-    public function __construct(
-        public readonly int $monster_id,
-        public readonly string $name,
-        public readonly string $emoji,
-        public readonly int $level,
-        public readonly array $stats,
-        public readonly string $encounter_type = 'battle'
-    ) {}
-
-    /**
-     * Monster モデルから EncounterData を作成
-     *
-     * @param Monster $monster
-     * @return self
-     */
-    public static function fromMonster(Monster $monster): self
-    {
-        return new self(
-            monster_id: $monster->id,
-            name: $monster->name,
-            emoji: $monster->emoji ?? '👹',
-            level: $monster->level ?? 1,
-            stats: [
-                'hp' => $monster->hp ?? 100,
-                'attack' => $monster->attack ?? 15,
-                'defense' => $monster->defense ?? 10,
-            ]
-        );
-    }
-
-    /**
-     * 配列から EncounterData を作成
-     *
-     * @param array $data
-     * @return self
-     */
-    public static function fromArray(array $data): self
-    {
-        return new self(
-            monster_id: $data['id'] ?? 0,
-            name: $data['name'] ?? 'Unknown Monster',
-            emoji: $data['emoji'] ?? '👹',
-            level: $data['level'] ?? 1,
-            stats: $data['stats'] ?? [],
-            encounter_type: $data['encounter_type'] ?? 'battle'
-        );
-    }
-
-    /**
-     * 配列に変換
-     *
-     * @return array
-     */
-    public function toArray(): array
-    {
-        return [
-            'id' => $this->monster_id,
-            'name' => $this->name,
-            'emoji' => $this->emoji,
-            'level' => $this->level,
-            'stats' => $this->stats,
-            'encounter_type' => $this->encounter_type,
-        ];
-    }
-}
 
 /**
  * 場所遷移結果DTO

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>装備変更 - {{ $character->name }}</title>
+    <title>装備変更 - {{ ($player ?? $character)->name }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
         * {
@@ -264,11 +264,6 @@
             color: white;
         }
 
-        .rarity-1 { color: #9ca3af; }
-        .rarity-2 { color: #10b981; }
-        .rarity-3 { color: #3b82f6; }
-        .rarity-4 { color: #8b5cf6; }
-        .rarity-5 { color: #f59e0b; }
     </style>
 </head>
 <body>
@@ -278,8 +273,8 @@
         </div>
 
         <div class="character-info">
-            <h3>{{ $character->name }} (Lv.{{ $character->level }})</h3>
-            <p>HP: {{ $character->hp }}/{{ $character->max_hp }} | SP: {{ $character->sp }}/{{ $character->max_sp }}</p>
+            <h3>{{ ($player ?? $character)->name }} (Lv.{{ ($player ?? $character)->level }})</h3>
+            <p>HP: {{ ($player ?? $character)->hp }}/{{ ($player ?? $character)->max_hp }} | SP: {{ ($player ?? $character)->sp }}/{{ ($player ?? $character)->max_sp }}</p>
         </div>
 
         <div class="equipment-container">
@@ -292,7 +287,7 @@
                             <div class="slot-label">{{ $label }}</div>
                             @if($equippedItems[$slot])
                                 <div class="slot-item">
-                                    <div class="item-name rarity-{{ $equippedItems[$slot]['rarity'] }}">
+                                    <div class="item-name">
                                         {{ $equippedItems[$slot]['name'] }}
                                     </div>
                                     <div class="item-stats">
@@ -373,7 +368,7 @@
                             <div class="inventory-item equippable" 
                                  data-item-id="{{ $inventoryItem['item']['id'] }}"
                                  data-category="{{ $inventoryItem['item']['category'] }}">
-                                <div class="item-name rarity-{{ $inventoryItem['item']['rarity'] }}">
+                                <div class="item-name">
                                     {{ $inventoryItem['item']['name'] }}
                                 </div>
                                 <div class="item-stats">
@@ -406,7 +401,7 @@
                     <div class="sample-items">
                         @foreach($items as $item)
                             <div class="sample-item" onclick="addSampleItem('{{ $category }}', '{{ $item['name'] }}')">
-                                <div class="item-name rarity-{{ $item['rarity'] }}">{{ $item['name'] }}</div>
+                                <div class="item-name">{{ $item['name'] }}</div>
                                 <div class="item-stats">
                                     {{ $item['description'] }}<br>
                                     @foreach($item['effects'] as $effect => $value)
@@ -433,7 +428,8 @@
     <div class="message" id="message"></div>
 
     <script>
-        const characterId = {{ $character->id }};
+        const playerId = {{ ($player ?? $character)->id }};
+        const characterId = playerId; // 下位互換性
         let currentSelectingSlot = null;
 
         function showMessage(text, type = 'success') {

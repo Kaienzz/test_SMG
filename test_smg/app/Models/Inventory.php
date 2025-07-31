@@ -9,12 +9,14 @@ class Inventory extends Model
 {
     protected $fillable = [
         'character_id',
+        'player_id',
         'slot_data',
         'max_slots',
     ];
 
     protected $casts = [
         'character_id' => 'integer',
+        'player_id' => 'integer',
         'slot_data' => 'array',
         'max_slots' => 'integer',
     ];
@@ -24,6 +26,11 @@ class Inventory extends Model
     public function character()
     {
         return $this->belongsTo(Character::class);
+    }
+
+    public function player()
+    {
+        return $this->belongsTo(Player::class);
     }
 
     public function getMaxSlots(): int
@@ -190,9 +197,6 @@ class Inventory extends Model
                     'category' => $item->category ? $item->category->value : '',
                     'category_name' => $item->category ? $item->category->getDisplayName() : '',
                     'effects' => $item->effects ?? [],
-                    'rarity' => $item->rarity ?? 1,
-                    'rarity_name' => $this->getRarityName($item->rarity ?? 1),
-                    'rarity_color' => $this->getRarityColor($item->rarity ?? 1),
                     'is_equippable' => $item->isEquippable() ?? false,
                     'is_usable' => $item->isUsable() ?? false,
                     'max_durability' => $item->max_durability ?? (method_exists($item, 'getMaxDurability') ? $item->getMaxDurability() : 100),
@@ -455,6 +459,17 @@ class Inventory extends Model
         );
     }
 
+    public static function createForPlayer(int $playerId): self
+    {
+        return self::firstOrCreate(
+            ['player_id' => $playerId],
+            [
+                'slot_data' => [],
+                'max_slots' => self::DEFAULT_MAX_SLOTS,
+            ]
+        );
+    }
+
     public function addSampleItems(): void
     {
         $sampleItems = [
@@ -471,31 +486,5 @@ class Inventory extends Model
                 $this->addItem($item, $itemData['quantity']);
             }
         }
-    }
-    
-    private function getRarityName(int $rarity): string
-    {
-        return match($rarity) {
-            1 => 'コモン',
-            2 => 'アンコモン', 
-            3 => 'レア',
-            4 => 'エピック',
-            5 => 'レジェンダリー',
-            6 => 'ミシック',
-            default => 'コモン',
-        };
-    }
-    
-    private function getRarityColor(int $rarity): string
-    {
-        return match($rarity) {
-            1 => '#9ca3af', // gray
-            2 => '#22c55e', // green
-            3 => '#3b82f6', // blue
-            4 => '#a855f7', // purple
-            5 => '#f59e0b', // yellow
-            6 => '#ef4444', // red
-            default => '#9ca3af',
-        };
     }
 }

@@ -57,6 +57,11 @@ class GameManager {
     initializeDisplay() {
         // 初期表示の設定
     }
+
+    enableDiceButton() {
+        const rollDiceButton = document.getElementById('roll-dice');
+        if (rollDiceButton) rollDiceButton.disabled = false;
+    }
 }
 
 class DiceManager {
@@ -79,8 +84,7 @@ class DiceManager {
             response,
             (data) => {
                 this.handleDiceResult(data);
-                const rollDiceButton = document.getElementById('roll-dice');
-                if (rollDiceButton) rollDiceButton.disabled = false;
+                // サイコロを振った後は、移動が完了するまでボタンを無効のままにする
             },
             (error) => {
                 const rollDiceButton = document.getElementById('roll-dice');
@@ -131,13 +135,7 @@ class DiceManager {
         const movableLocations = ['road', 'dungeon'];
         if (movableLocations.includes(this.gameManager.gameData.character.location_type)) {
             const movementControls = document.getElementById('movement-controls');
-            const moveLeft = document.getElementById('move-left');
-            const moveRight = document.getElementById('move-right');
             if (movementControls) movementControls.classList.remove('hidden');
-            if (moveLeft) moveLeft.disabled = false;
-            if (moveRight) moveRight.disabled = false;
-        } else {
-            alert('町にいるときはサイコロを振っても移動できません。道路やダンジョンに移動してください。');
         }
     }
 }
@@ -152,6 +150,17 @@ class MovementManager {
         
         if (this.gameManager.currentSteps <= 0) {
             alert('先にサイコロを振ってください！');
+            return;
+        }
+        
+        // 境界チェック
+        const currentPosition = this.gameManager.gameData.character.game_position || 0;
+        if (direction === 'left' && currentPosition <= 0) {
+            alert('道の端なので左に移動できません！');
+            return;
+        }
+        if (direction === 'right' && currentPosition >= 100) {
+            alert('道の端なので右に移動できません！');
             return;
         }
         
@@ -201,8 +210,19 @@ class MovementManager {
         this.gameManager.updateGameDisplay(extendedData);
         this.gameManager.hideMovementControls();
         
-        // gameDataのキャラクター位置を更新
+        // gameDataのキャラクター位置とnextLocationを更新
         this.gameManager.gameData.character.game_position = data.position;
+        this.gameManager.gameData.nextLocation = data.nextLocation;
+        
+        // 移動後の位置に応じて移動コントロールを更新
+        if (extendedData.location_type === 'road') {
+            this.gameManager.uiManager.ensureMovementControls(data.position);
+        }
+        
+        // 移動完了後：サイコロの状態をリセット
+        this.gameManager.currentSteps = 0;
+        this.gameManager.enableDiceButton();
+        this.gameManager.hideDiceResult();
         
         // エンカウント処理（新しいDTO構造対応）
         if (data.encounter && data.monster) {
@@ -210,14 +230,24 @@ class MovementManager {
             return;
         }
         
-        // canMoveToNextを使用した次の場所ボタン表示制御
-        if (data.canMoveToNext && data.nextLocation) {
-            this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
+        // 位置ベースの次の場所ボタン表示制御
+        if (extendedData.location_type === 'road') {
+            const isAtBoundary = data.position <= 0 || data.position >= 100;
+            if (isAtBoundary && data.nextLocation) {
+                console.log('Move success: Showing next location button at boundary, position:', data.position);
+                this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
+            } else {
+                console.log('Move success: Hiding next location button, position:', data.position);
+                this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
+            }
         } else {
-            this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
+            // 町の場合は次の場所ボタンを表示
+            if (data.nextLocation) {
+                this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
+            } else {
+                this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
+            }
         }
-        
-        this.gameManager.hideDiceResult();
     }
     
     /**
@@ -255,6 +285,21 @@ class MovementManager {
     }
 
     moveToNext() {
+        // 互換性のため残しておく（古いコードからの呼び出し対応）
+        this.moveToNextFromTown();
+    }
+
+    moveToNextFromTown() {
+        console.log('Town movement: Moving to next location');
+        this.performMoveToNext('town');
+    }
+
+    moveToNextFromRoad() {
+        console.log('Road movement: Moving to next location');
+        this.performMoveToNext('road');
+    }
+
+    performMoveToNext(sourceType) {
         fetch('/game/move-to-next', {
             method: 'POST',
             headers: {
@@ -265,18 +310,21 @@ class MovementManager {
         .then(response => ErrorHandler.handleApiResponse(
             response,
             (data) => {
+            console.log(`${sourceType} movement response:`, data);
+            
             // 新しいDTO構造に対応したデータ拡張
             const extendedData = {
                 ...data,
                 location_type: this.getLocationTypeFromData(data)
             };
             
-            // UI全体を更新（新しいupdateGameDisplayが場所タイプに応じてUI切り替えを行う）
-            this.gameManager.updateGameDisplay(extendedData);
-            
-            // gameDataのキャラクター位置を更新
+            // gameDataのキャラクター位置を更新（UI更新前に実行）
             this.gameManager.gameData.character.game_position = data.position;
             this.gameManager.gameData.character.location_type = extendedData.location_type;
+            this.gameManager.gameData.nextLocation = data.nextLocation;
+            
+            // UI全体を更新（gameData更新後に実行）
+            this.gameManager.updateGameDisplay(extendedData);
             
             // 移動後の次の場所ボタンの表示制御（新しいDTO構造）
             const locationType = extendedData.location_type;
@@ -288,8 +336,9 @@ class MovementManager {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
                 }
             } else {
-                // 道路にいるときはcanMoveToNextを使用
-                if (data.canMoveToNext && data.nextLocation) {
+                // 道路にいるときは位置で判定（境界にいる場合のみ表示）
+                const isAtBoundary = data.position <= 0 || data.position >= 100;
+                if (isAtBoundary && data.nextLocation) {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
                 } else {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
@@ -324,6 +373,19 @@ class UIManager {
         
         // 位置更新後にボタンの表示状態を確認
         console.log('Position updated to:', data.position, 'Type:', locationType);
+        
+        // 道路でのnextLocationボタンチェック（gameData更新後）
+        if (locationType === 'road') {
+            const isAtBoundary = data.position <= 0 || data.position >= 100;
+            console.log('updateGameDisplay: Road position check - position:', data.position, 'isAtBoundary:', isAtBoundary, 'nextLocation:', this.gameManager.gameData.nextLocation);
+            if (isAtBoundary && this.gameManager.gameData.nextLocation) {
+                console.log('updateGameDisplay: Showing next location button');
+                this.updateNextLocationDisplay(this.gameManager.gameData.nextLocation, true);
+            } else {
+                console.log('updateGameDisplay: Hiding next location button');
+                this.updateNextLocationDisplay(this.gameManager.gameData.nextLocation, false);
+            }
+        }
     }
 
     showTownUI(data) {
@@ -345,8 +407,8 @@ class UIManager {
             `;
         }
         
-        // 町の施設メニューを表示
-        this.showTownMenu();
+        // 町の施設メニューを動的に更新
+        this.updateTownMenu(data.currentLocation);
         
         // 道路専用UIを非表示
         this.hideRoadActions();
@@ -360,7 +422,8 @@ class UIManager {
         // 道路の表示
         document.getElementById('location-type').textContent = '道を歩いています';
         
-        // プログレスバーを表示・更新
+        // プログレスバーを表示・更新（存在しない場合は作成）
+        this.ensureProgressBar();
         const progressBar = document.querySelector('.progress-bar');
         if (progressBar) {
             progressBar.style.display = 'block';
@@ -370,6 +433,9 @@ class UIManager {
         if (progressFill && progressText) {
             progressFill.style.width = data.position + '%';
             progressText.textContent = data.position + '/100';
+            console.log('Progress bar updated:', data.position);
+        } else {
+            console.error('Progress bar elements not found after ensureProgressBar()');
         }
         
         // サイコロコンテナを道路用に変更
@@ -378,49 +444,222 @@ class UIManager {
             diceContainer.innerHTML = this.getDiceContainerHTML();
         }
         
+        // 境界での制限を適用
+        this.applyBoundaryRestrictions(data.position);
+        
         // 町の施設メニューを非表示
         this.hideTownMenu();
         
         // 道路専用UIを表示
         this.showRoadActions();
         
-        // 移動コントロール用のDOMを確保（非表示状態で）
-        this.ensureMovementControls();
+        // 移動コントロール用のDOMを確保（位置に応じて表示）
+        this.ensureMovementControls(data.position);
+        
+        // 次の場所ボタンの表示は updateGameDisplay で統一的に処理される
+        console.log('showRoadUI - Position:', data.position);
+    }
+
+    updateTownMenu(currentLocation) {
+        console.log('Updating town menu for:', currentLocation);
+        
+        // 施設データを取得してメニューを更新
+        fetch(`/api/location/shops?location_id=${currentLocation.id}&location_type=town`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Town shops data:', data);
+            this.renderTownMenu(data.shops);
+        })
+        .catch(error => {
+            console.error('Failed to fetch town shops:', error);
+            // フォールバック: デフォルトの施設メニューを表示
+            this.showDefaultTownMenu();
+        });
+    }
+
+    renderTownMenu(shops) {
+        const shopMenu = document.querySelector('.shop-menu');
+        if (!shopMenu) {
+            // shop-menuが存在しない場合は作成
+            this.createTownMenuContainer();
+        }
+        
+        const shopMenuElement = document.querySelector('.shop-menu');
+        if (shopMenuElement) {
+            let menuHTML = '<h3>町の施設</h3>';
+            
+            if (shops && shops.length > 0) {
+                shops.forEach(shop => {
+                    const routeName = this.getShopRouteName(shop.shop_type);
+                    if (routeName) {
+                        menuHTML += `
+                            <a href="${routeName}" class="btn btn-primary" title="${shop.description || this.getShopDescription(shop.shop_type)}" style="margin: 5px;">
+                                <span class="shop-icon">${this.getShopIcon(shop.shop_type)}</span>
+                                ${shop.name}
+                            </a>
+                        `;
+                    }
+                });
+            } else {
+                // フォールバック: 基本的な施設を表示
+                menuHTML += this.getDefaultShopsHTML();
+            }
+            
+            shopMenuElement.innerHTML = menuHTML;
+            shopMenuElement.style.display = 'block';
+        }
+    }
+
+    createTownMenuContainer() {
+        const locationInfo = document.querySelector('.location-info');
+        if (locationInfo) {
+            const shopMenu = document.createElement('div');
+            shopMenu.className = 'shop-menu';
+            shopMenu.style.cssText = 'background-color: #e0f7fa; border: 2px solid #00acc1; border-radius: 8px; padding: 15px; margin-bottom: 15px;';
+            
+            // プログレスバーの前に挿入
+            const progressBar = locationInfo.querySelector('.progress-bar');
+            if (progressBar) {
+                locationInfo.insertBefore(shopMenu, progressBar);
+            } else {
+                locationInfo.appendChild(shopMenu);
+            }
+        }
+    }
+
+    ensureProgressBar() {
+        // プログレスバーが存在しない場合は作成
+        let progressBar = document.querySelector('.progress-bar');
+        if (!progressBar) {
+            console.log('Creating progress bar');
+            const locationInfo = document.querySelector('.location-info');
+            if (locationInfo) {
+                progressBar = document.createElement('div');
+                progressBar.className = 'progress-bar';
+                progressBar.style.cssText = `
+                    width: 100%;
+                    height: 30px;
+                    background-color: #f0f0f0;
+                    border: 2px solid #ccc;
+                    border-radius: 15px;
+                    position: relative;
+                    margin: 10px 0;
+                    overflow: hidden;
+                `;
+                
+                const progressFill = document.createElement('div');
+                progressFill.className = 'progress-fill';
+                progressFill.id = 'progress-fill';
+                progressFill.style.cssText = `
+                    height: 100%;
+                    background: linear-gradient(90deg, #4CAF50, #81C784);
+                    border-radius: 13px;
+                    transition: width 0.3s ease;
+                    width: 0%;
+                `;
+                
+                const progressText = document.createElement('div');
+                progressText.className = 'progress-text';
+                progressText.id = 'progress-text';
+                progressText.style.cssText = `
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    color: #333;
+                    font-weight: bold;
+                    font-size: 14px;
+                    z-index: 10;
+                `;
+                progressText.textContent = '0/100';
+                
+                progressBar.appendChild(progressFill);
+                progressBar.appendChild(progressText);
+                
+                // shop-menuの後、次の場所ボタンの前に挿入
+                const shopMenu = locationInfo.querySelector('.shop-menu');
+                const nextLocationInfo = locationInfo.querySelector('#next-location-info');
+                
+                if (shopMenu && shopMenu.nextSibling) {
+                    locationInfo.insertBefore(progressBar, shopMenu.nextSibling);
+                } else if (nextLocationInfo) {
+                    locationInfo.insertBefore(progressBar, nextLocationInfo);
+                } else {
+                    locationInfo.appendChild(progressBar);
+                }
+            }
+        }
+    }
+
+    getShopRouteName(shopType) {
+        switch(shopType) {
+            case 'item_shop': return '/shops/item';
+            case 'blacksmith': return '/shops/blacksmith';
+            case 'tavern': return '/shops/tavern';
+            default: return null;
+        }
+    }
+
+    getShopIcon(shopType) {
+        switch(shopType) {
+            case 'item_shop': return '🏪';
+            case 'blacksmith': return '⚒️';
+            case 'tavern': return '🍺';
+            default: return '🏬';
+        }
+    }
+
+    getShopDescription(shopType) {
+        switch(shopType) {
+            case 'item_shop': return '道具屋';
+            case 'blacksmith': return '鍛冶屋';
+            case 'tavern': return 'HP、MP、SPを回復できます。';
+            default: return '店舗';
+        }
+    }
+
+    getDefaultShopsHTML() {
+        return `
+            <a href="/shops/item" class="btn btn-primary" title="道具屋" style="margin: 5px;">
+                <span class="shop-icon">🏪</span>
+                道具屋
+            </a>
+            <a href="/shops/blacksmith" class="btn btn-primary" title="鍛冶屋" style="margin: 5px;">
+                <span class="shop-icon">⚒️</span>
+                鍛冶屋
+            </a>
+        `;
     }
 
     showTownMenu() {
-        const locationInfo = document.querySelector('.location-info');
-        if (!locationInfo) return;
-        
-        // 既存の町メニューがあるか確認
-        let townMenu = locationInfo.querySelector('.town-menu');
-        if (!townMenu) {
-            // 町メニューを動的作成
-            townMenu = document.createElement('div');
-            townMenu.className = 'town-menu';
-            townMenu.innerHTML = `
-                <h3>町の施設</h3>
-                <div class="town-actions">
-                    <a href="/shops/item" class="btn btn-primary" title="アイテムショップ">
-                        <span class="shop-icon">🛒</span>
-                        アイテムショップ
-                    </a>
-                    <a href="/shops/blacksmith" class="btn btn-primary" title="鍛冶屋">
-                        <span class="shop-icon">⚒️</span>
-                        鍛冶屋
-                    </a>
-                </div>
-            `;
-            locationInfo.appendChild(townMenu);
+        // 既存のメニューを表示（後方互換性のため残す）
+        const shopMenu = document.querySelector('.shop-menu');
+        if (shopMenu) {
+            shopMenu.style.display = 'block';
         }
-        townMenu.style.display = 'block';
+    }
+
+    showDefaultTownMenu() {
+        // エラー時のフォールバック
+        const shopMenu = document.querySelector('.shop-menu');
+        if (shopMenu) {
+            shopMenu.innerHTML = '<h3>町の施設</h3>' + this.getDefaultShopsHTML();
+            shopMenu.style.display = 'block';
+        }
     }
 
     hideTownMenu() {
-        const townMenu = document.querySelector('.town-menu');
-        if (townMenu) {
-            townMenu.style.display = 'none';
+        const shopMenu = document.querySelector('.shop-menu');
+        if (shopMenu) {
+            shopMenu.style.display = 'none';
         }
+        // 移動メニューは next_location_button.blade.php で処理
     }
 
     showRoadActions() {
@@ -457,24 +696,41 @@ class UIManager {
         }
     }
 
-    ensureMovementControls() {
-        // 移動コントロールのDOMが存在しない場合作成
+    ensureMovementControls(position = 50) {
+        // 移動コントロールのDOMを位置に応じて作成・更新
         let movementControls = document.getElementById('movement-controls');
-        if (!movementControls) {
-            movementControls = document.createElement('div');
-            movementControls.className = 'movement-controls hidden';
-            movementControls.id = 'movement-controls';
-            movementControls.innerHTML = `
-                <button class="btn btn-warning" id="move-left" onclick="move('left')">←左に移動</button>
-                <button class="btn btn-warning" id="move-right" onclick="move('right')">→右に移動</button>
-            `;
-            
-            // dice-containerの後に挿入
-            const diceContainer = document.getElementById('dice-container');
-            if (diceContainer && diceContainer.parentNode) {
-                diceContainer.parentNode.insertBefore(movementControls, diceContainer.nextSibling);
-            }
+        
+        // 既存のコントロールがある場合は削除して再作成
+        if (movementControls) {
+            movementControls.remove();
         }
+        
+        // 新しい移動コントロールを作成
+        movementControls = document.createElement('div');
+        movementControls.className = 'movement-controls hidden';
+        movementControls.id = 'movement-controls';
+        
+        let buttonsHTML = '';
+        
+        // 左ボタン：位置が0より大きい場合のみ表示
+        if (position > 0) {
+            buttonsHTML += '<button class="btn btn-warning" id="move-left" onclick="move(\'left\')">←左に移動</button>';
+        }
+        
+        // 右ボタン：位置が100未満の場合のみ表示
+        if (position < 100) {
+            buttonsHTML += '<button class="btn btn-warning" id="move-right" onclick="move(\'right\')">→右に移動</button>';
+        }
+        
+        movementControls.innerHTML = buttonsHTML;
+        
+        // dice-containerの後に挿入
+        const diceContainer = document.getElementById('dice-container');
+        if (diceContainer && diceContainer.parentNode) {
+            diceContainer.parentNode.insertBefore(movementControls, diceContainer.nextSibling);
+        }
+        
+        console.log('Movement controls created for position:', position, 'Left:', position > 0, 'Right:', position < 100);
     }
 
     getDiceContainerHTML() {
@@ -525,7 +781,9 @@ class UIManager {
                 nextLocationInfo.style.display = 'none';
             }
         } else {
-            console.log('next-location-info element not found');
+            console.error('next-location-info element not found in DOM');
+            // DOM要素が存在しない場合の対処
+            console.log('Available elements with id:', Array.from(document.querySelectorAll('[id]')).map(el => el.id));
         }
     }
 
@@ -546,6 +804,21 @@ class UIManager {
             diceTotal.classList.add('hidden');
         }
         this.gameManager.currentSteps = 0;
+    }
+
+    applyBoundaryRestrictions(position) {
+        const rollDiceButton = document.getElementById('roll-dice');
+        
+        // サイコロは境界でも振れるようにする
+        if (rollDiceButton) {
+            rollDiceButton.disabled = false;
+            rollDiceButton.textContent = 'サイコロを振る';
+            rollDiceButton.style.opacity = '1';
+        }
+        
+        // 移動ボタンは ensureMovementControls で位置に応じて作成されるため、
+        // ここでの制限処理は不要
+        console.log('Boundary restrictions applied for position:', position);
     }
 }
 
@@ -669,6 +942,43 @@ function moveToNext() {
     movementManager.moveToNext();
 }
 
+function moveDirectly(direction = null, townDirection = null) {
+    const data = {};
+    if (direction) data.direction = direction;
+    if (townDirection) data.town_direction = townDirection;
+    
+    fetch('/game/move-directly', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Direct movement result:', data);
+        if (data.success) {
+            movementManager.updateGameState(data);
+            showMessage(data.message || '直接移動しました', 'success');
+        } else {
+            showMessage(data.error || '移動に失敗しました', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Direct movement error:', error);
+        showMessage('移動中にエラーが発生しました', 'error');
+    });
+}
+
+function moveToNextFromTown() {
+    movementManager.moveToNextFromTown();
+}
+
+function moveToNextFromRoad() {
+    movementManager.moveToNextFromRoad();
+}
+
 function resetGame() {
     fetch('/game/reset', {
         method: 'POST',
@@ -691,6 +1001,7 @@ function resetGame() {
             // キャラクターデータを更新
             gameManager.gameData.character.game_position = data.position;
             gameManager.gameData.character.location_type = extendedData.location_type;
+            gameManager.gameData.nextLocation = data.nextLocation;
             
             // 次の場所ボタンを非表示
             gameManager.updateNextLocationDisplay(data.nextLocation, false);
@@ -800,4 +1111,239 @@ function showGatheringInfo() {
     .catch(error => {
         ErrorHandler.handleApiError(error, '採集情報取得');
     });
+}
+
+/**
+ * 分岐選択システム
+ * T字路や交差点での方向選択を処理
+ */
+function selectBranch(direction) {
+    console.log(`Branch selection: ${direction}`);
+    
+    // 分岐ボタンを無効化
+    const branchButtons = document.querySelectorAll('.branch-btn');
+    branchButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.innerHTML = btn.innerHTML.replace(/^(.*)$/, '<span class="spinner">🔄</span> $1');
+    });
+    
+    fetch('/game/move-to-branch', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            direction: direction
+        })
+    })
+    .then(response => ErrorHandler.handleApiResponse(
+        response,
+        (data) => {
+            console.log('Branch movement result:', data);
+            
+            if (data.success) {
+                // 移動成功時の処理
+                if (data.message) {
+                    showSuccessMessage(data.message);
+                }
+                
+                // ゲーム画面を更新
+                updateGameDisplay(data);
+                
+                // 分岐選択UIを隠す
+                hideBranchSelection();
+                
+                // サイコロボタンを再度有効化
+                const rollDiceButton = document.getElementById('roll-dice');
+                if (rollDiceButton) {
+                    rollDiceButton.disabled = false;
+                }
+            } else {
+                // 移動失敗時の処理
+                showErrorMessage(data.error || '分岐移動に失敗しました');
+                resetBranchButtons();
+            }
+        },
+        (error) => {
+            showErrorMessage(error.error || error.message || '分岐移動に失敗しました');
+            resetBranchButtons();
+        }
+    ))
+    .catch(error => {
+        ErrorHandler.handleApiError(error, '分岐移動');
+        resetBranchButtons();
+    });
+}
+
+/**
+ * 分岐選択ボタンをリセット
+ */
+function resetBranchButtons() {
+    const branchButtons = document.querySelectorAll('.branch-btn');
+    branchButtons.forEach(btn => {
+        btn.disabled = false;
+        // スピナーを削除
+        btn.innerHTML = btn.innerHTML.replace(/<span class="spinner">🔄<\/span>\s*/, '');
+    });
+}
+
+/**
+ * 分岐選択UIを隠す
+ */
+function hideBranchSelection() {
+    const branchSelection = document.getElementById('branch-selection');
+    if (branchSelection) {
+        branchSelection.style.display = 'none';
+    }
+}
+
+/**
+ * 成功メッセージを表示
+ */
+function showSuccessMessage(message) {
+    // 簡易的なメッセージ表示（将来的にはより洗練されたUIに）
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'success-message';
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+        border-radius: 4px;
+        padding: 12px;
+        z-index: 1000;
+        max-width: 300px;
+    `;
+    messageDiv.textContent = message;
+    document.body.appendChild(messageDiv);
+    
+    // 3秒後に自動削除
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.parentNode.removeChild(messageDiv);
+        }
+    }, 3000);
+}
+
+/**
+ * エラーメッセージを表示
+ */
+function showErrorMessage(message) {
+    // 簡易的なエラーメッセージ表示
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'error-message';
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        padding: 12px;
+        z-index: 1000;
+        max-width: 300px;
+    `;
+    messageDiv.textContent = message;
+    document.body.appendChild(messageDiv);
+    
+    // 5秒後に自動削除
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.parentNode.removeChild(messageDiv);
+        }
+    }, 5000);
+}
+
+/**
+ * 複数接続システム
+ * 町からの方向選択移動を処理
+ */
+function moveToDirection(direction) {
+    console.log(`Direction movement: ${direction}`);
+    
+    // 方向選択ボタンを無効化
+    const connectionButtons = document.querySelectorAll('.connection-btn');
+    connectionButtons.forEach(btn => {
+        btn.disabled = true;
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner">🔄</span> 移動中...';
+        btn.setAttribute('data-original-content', originalContent);
+    });
+    
+    fetch('/game/move-to-direction', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            direction: direction
+        })
+    })
+    .then(response => ErrorHandler.handleApiResponse(
+        response,
+        (data) => {
+            console.log('Direction movement result:', data);
+            
+            if (data.success) {
+                // 移動成功時の処理
+                if (data.message) {
+                    showSuccessMessage(data.message);
+                }
+                
+                // ゲーム画面を更新
+                updateGameDisplay(data);
+                
+                // 複数接続UIを隠す
+                hideMultipleConnections();
+                
+                // サイコロボタンを再度有効化
+                const rollDiceButton = document.getElementById('roll-dice');
+                if (rollDiceButton) {
+                    rollDiceButton.disabled = false;
+                }
+            } else {
+                // 移動失敗時の処理
+                showErrorMessage(data.error || '方向移動に失敗しました');
+                resetConnectionButtons();
+            }
+        },
+        (error) => {
+            showErrorMessage(error.error || error.message || '方向移動に失敗しました');
+            resetConnectionButtons();
+        }
+    ))
+    .catch(error => {
+        ErrorHandler.handleApiError(error, '方向移動');
+        resetConnectionButtons();
+    });
+}
+
+/**
+ * 複数接続ボタンをリセット
+ */
+function resetConnectionButtons() {
+    const connectionButtons = document.querySelectorAll('.connection-btn');
+    connectionButtons.forEach(btn => {
+        btn.disabled = false;
+        const originalContent = btn.getAttribute('data-original-content');
+        if (originalContent) {
+            btn.innerHTML = originalContent;
+            btn.removeAttribute('data-original-content');
+        }
+    });
+}
+
+/**
+ * 複数接続UIを隠す
+ */
+function hideMultipleConnections() {
+    const multipleConnections = document.getElementById('multiple-connections');
+    if (multipleConnections) {
+        multipleConnections.style.display = 'none';
+    }
 }

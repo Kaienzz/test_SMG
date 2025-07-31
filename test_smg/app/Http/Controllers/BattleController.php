@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Application\Services\BattleStateManager;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -37,9 +37,9 @@ class BattleController extends Controller
     public function startBattle(Request $request): JsonResponse
     {
         $monster = $request->input('monster');
-        $character = $this->getOrCreateCharacter();
+        $player = $this->getOrCreatePlayer();
         
-        $battleResult = $this->battleStateManager->startBattle($character, $monster);
+        $battleResult = $this->battleStateManager->startBattle($player, $monster);
         
         return response()->json($battleResult->toArray());
     }
@@ -79,7 +79,7 @@ class BattleController extends Controller
     public function endBattle(Request $request): JsonResponse
     {
         $userId = Auth::id();
-        $battleResult = $this->battleStateManager->endBattle($userId);
+        $battleResult = $this->battleStateManager->forceBattleEnd($userId);
         
         return response()->json($battleResult->toArray());
     }

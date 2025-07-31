@@ -25,15 +25,15 @@ abstract class BaseShopController extends Controller
     public function index(Request $request): View|JsonResponse
     {
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
         
-        if (!$this->shopService->canEnterShop($character->location_id, $character->location_type)) {
+        if (!$this->shopService->canEnterShop($player->location_id, $player->location_type)) {
             return $this->handleLocationError($request, $this->shopType->getDisplayName() . 'は町にのみ存在します。');
         }
 
         $shop = Shop::findByLocationAndType(
-            $character->location_id, 
-            $character->location_type,
+            $player->location_id, 
+            $player->location_type,
             $this->shopType->value
         );
         
@@ -41,13 +41,29 @@ abstract class BaseShopController extends Controller
             return $this->handleShopNotFoundError($request, 'この町には' . $this->shopType->getDisplayName() . 'がありません。');
         }
 
-        // $character は既に上で取得済み
+        // $player は既に上で取得済み
         $shopData = $this->shopService->getShopData($shop);
+        
+        // 現在の場所情報を取得
+        $locationNames = [
+            'town_prima' => 'プリマ',
+            'town_a' => 'A町', // 下位互換性のため
+            'town_b' => 'B町',
+            'town_c' => 'C町',
+            'elven_village' => 'エルフの村',
+            'merchant_city' => '商業都市'
+        ];
+        
+        $currentLocation = [
+            'id' => $player->location_id,
+            'type' => $player->location_type,
+            'name' => $locationNames[$player->location_id] ?? '未知の場所'
+        ];
 
         return view($this->shopType->getViewPrefix() . '.index', [
             'shop' => $shop,
             'shopData' => $shopData,
-            'character' => (object) $character,
+            'player' => $player,
             'currentLocation' => $currentLocation,
             'shopType' => $this->shopType,
         ]);
@@ -59,11 +75,11 @@ abstract class BaseShopController extends Controller
         $request->validate($validationRules);
 
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
         
         $shop = Shop::findByLocationAndType(
-            $character->location_id, 
-            $character->location_type,
+            $player->location_id, 
+            $player->location_type,
             $this->shopType->value
         );
 
@@ -74,10 +90,7 @@ abstract class BaseShopController extends Controller
             ], 404);
         }
 
-        $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
-
-        $result = $this->shopService->processTransaction($shop, $character, $request->all());
+        $result = $this->shopService->processTransaction($shop, $player, $request->all());
 
         return response()->json($result, $result['success'] ? 200 : ($result['code'] ?? 400));
     }

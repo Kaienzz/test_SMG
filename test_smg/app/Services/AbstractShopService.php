@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Contracts\ShopServiceInterface;
 use App\Models\Shop;
-use App\Models\Character;
+use App\Models\Player;
 use App\Enums\ShopType;
 
 abstract class AbstractShopService implements ShopServiceInterface
@@ -32,7 +32,7 @@ abstract class AbstractShopService implements ShopServiceInterface
         ];
     }
 
-    abstract public function processTransaction(Shop $shop, Character $character, array $data): array;
+    abstract public function processTransaction(Shop $shop, Player $player, array $data): array;
     
     abstract public function getAvailableServices(Shop $shop): array;
     
@@ -55,7 +55,7 @@ abstract class AbstractShopService implements ShopServiceInterface
         ];
     }
 
-    protected function logTransaction(Shop $shop, Character $character, string $action, array $details): void
+    protected function logTransaction(Shop $shop, Player $player, string $action, array $details): void
     {
         // ログ記録の実装（将来的に）
     }

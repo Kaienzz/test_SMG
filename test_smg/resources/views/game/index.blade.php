@@ -17,7 +17,11 @@
         
         @include('game.partials.next_location_button')
         
+        @include('game.partials.multiple_connections')
+        
         @include('game.partials.dice_container')
+        
+        @include('game.partials.branch_selection')
         
         @include('game.partials.movement_controls')
         
@@ -28,7 +32,8 @@
     <script>
         // ゲームデータの初期化（DTO の toJson() メソッドを使用）
         const gameData = {
-            character: @json($character),
+            player: @json($player ?? $character),
+            character: @json($player ?? $character), // 下位互換性のため
             currentLocation: @json($currentLocation),
             nextLocation: @json($nextLocation)
         };

@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\ActiveBattle;
+use App\Models\Player;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
@@ -56,9 +57,15 @@ class User extends Authenticatable
     }
 
     // リレーション
+    public function player(): HasOne
+    {
+        return $this->hasOne(Player::class);
+    }
+    
+    // 下位互換性のためのCharacterリレーション
     public function character(): HasOne
     {
-        return $this->hasOne(Character::class);
+        return $this->hasOne(Player::class); // Playerテーブルを直接参照
     }
 
     public function battleLogs(): HasMany
@@ -67,9 +74,15 @@ class User extends Authenticatable
     }
 
     // ゲーム関連のメソッド
-    public function getOrCreateCharacter(): Character
+    public function getOrCreatePlayer(): Player
     {
-        return Character::getOrCreateForUser($this->id);
+        return Player::getOrCreateForUser($this->id);
+    }
+    
+    // 下位互換性のためのCharacterメソッド
+    public function getOrCreateCharacter(): Player
+    {
+        return $this->getOrCreatePlayer();
     }
 
     public function getBattleStats(): array
@@ -98,25 +111,43 @@ class User extends Authenticatable
 
     public function syncGameStateAcrossDevices(): array
     {
-        $character = $this->getOrCreateCharacter();
+        $player = $this->getOrCreatePlayer();
         
         return [
-            'character' => [
-                'name' => $character->name,
-                'level' => $character->level,
+            'player' => [
+                'name' => $player->name,
+                'level' => $player->level,
                 'location' => [
-                    'type' => $character->location_type,
-                    'id' => $character->location_id,
-                    'position' => $character->game_position,
+                    'type' => $player->location_type,
+                    'id' => $player->location_id,
+                    'position' => $player->game_position,
                 ],
                 'resources' => [
-                    'hp' => $character->hp,
-                    'max_hp' => $character->max_hp,
-                    'sp' => $character->sp,
-                    'max_sp' => $character->max_sp,
-                    'mp' => $character->mp,
-                    'max_mp' => $character->max_mp,
-                    'gold' => $character->gold,
+                    'hp' => $player->hp,
+                    'max_hp' => $player->max_hp,
+                    'sp' => $player->sp,
+                    'max_sp' => $player->max_sp,
+                    'mp' => $player->mp,
+                    'max_mp' => $player->max_mp,
+                    'gold' => $player->gold,
+                ],
+            ],
+            'character' => [
+                'name' => $player->name,
+                'level' => $player->level,
+                'location' => [
+                    'type' => $player->location_type,
+                    'id' => $player->location_id,
+                    'position' => $player->game_position,
+                ],
+                'resources' => [
+                    'hp' => $player->hp,
+                    'max_hp' => $player->max_hp,
+                    'sp' => $player->sp,
+                    'max_sp' => $player->max_sp,
+                    'mp' => $player->mp,
+                    'max_mp' => $player->max_mp,
+                    'gold' => $player->gold,
                 ],
             ],
             'active_battle' => ActiveBattle::getUserActiveBattle($this->id)?->battle_id,

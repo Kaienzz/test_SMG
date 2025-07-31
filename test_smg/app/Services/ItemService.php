@@ -91,25 +91,11 @@ class ItemService
     public static function calculateItemValue(ItemInterface $item): array
     {
         $baseValue = $item->getValue();
-        $rarity = $item->getRarity();
-        
-        // レアリティによる価値倍率
-        $rarityMultiplier = match($rarity) {
-            1 => 1.0,
-            2 => 1.5,
-            3 => 2.5,
-            4 => 4.0,
-            5 => 7.0,
-            default => 1.0,
-        };
-        
-        $adjustedValue = (int) round($baseValue * $rarityMultiplier);
         
         return [
             'base_value' => $baseValue,
-            'rarity_multiplier' => $rarityMultiplier,
-            'adjusted_value' => $adjustedValue,
-            'sell_value' => (int) round($adjustedValue * 0.8), // 売却時は80%
+            'adjusted_value' => $baseValue,
+            'sell_value' => (int) round($baseValue * 0.8), // 売却時は80%
         ];
     }
 
@@ -160,7 +146,6 @@ class ItemService
             'can_stack' => false,
             'same_category' => false,
             'same_type' => false,
-            'same_rarity' => false,
         ];
         
         // スタック可能性チェック
@@ -181,10 +166,6 @@ class ItemService
             }
         }
         
-        // レアリティ一致チェック
-        if ($item1->getRarity() === $item2->getRarity()) {
-            $compatibility['same_rarity'] = true;
-        }
         
         return $compatibility;
     }

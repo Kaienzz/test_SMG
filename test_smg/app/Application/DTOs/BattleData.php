@@ -2,7 +2,7 @@
 
 namespace App\Application\DTOs;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Monster;
 use App\Models\ActiveBattle;
 
@@ -15,8 +15,8 @@ use App\Models\ActiveBattle;
 class BattleData
 {
     public function __construct(
-        public readonly Character $character,
-        public readonly CharacterBattleStats $characterStats,
+        public readonly Player $player,
+        public readonly PlayerBattleStats $playerStats,
         public readonly ?Monster $monster = null,
         public readonly ?MonsterBattleStats $monsterStats = null,
         public readonly ?ActiveBattle $activeBattle = null,
@@ -27,17 +27,17 @@ class BattleData
     /**
      * 戦闘画面用データを作成
      *
-     * @param Character $character
+     * @param Player $player
      * @return self
      */
-    public static function forBattleView(Character $character): self
+    public static function forBattleView(Player $player): self
     {
-        $characterStats = CharacterBattleStats::fromCharacter($character);
-        $availableSkills = $character->getSkillList();
+        $playerStats = PlayerBattleStats::fromPlayer($player);
+        $availableSkills = $player->getSkillList();
 
         return new self(
-            character: $character,
-            characterStats: $characterStats,
+            player: $player,
+            playerStats: $playerStats,
             availableSkills: $availableSkills,
             battleState: BattleState::READY
         );
@@ -51,16 +51,16 @@ class BattleData
      */
     public static function fromActiveBattle(ActiveBattle $activeBattle): self
     {
-        $character = $activeBattle->character;
+        $player = $activeBattle->player;
         $monster = $activeBattle->monster;
         
-        $characterStats = CharacterBattleStats::fromCharacter($character);
+        $playerStats = PlayerBattleStats::fromPlayer($player);
         $monsterStats = MonsterBattleStats::fromMonster($monster);
-        $availableSkills = $character->getSkillList();
+        $availableSkills = $player->getSkillList();
 
         return new self(
-            character: $character,
-            characterStats: $characterStats,
+            player: $player,
+            playerStats: $playerStats,
             monster: $monster,
             monsterStats: $monsterStats,
             activeBattle: $activeBattle,
@@ -72,19 +72,19 @@ class BattleData
     /**
      * 戦闘開始データを作成
      *
-     * @param Character $character
+     * @param Player $player
      * @param Monster $monster
      * @return self
      */
-    public static function forBattleStart(Character $character, Monster $monster): self
+    public static function forBattleStart(Player $player, Monster $monster): self
     {
-        $characterStats = CharacterBattleStats::fromCharacter($character);
+        $playerStats = PlayerBattleStats::fromPlayer($player);
         $monsterStats = MonsterBattleStats::fromMonster($monster);
-        $availableSkills = $character->getSkillList();
+        $availableSkills = $player->getSkillList();
 
         return new self(
-            character: $character,
-            characterStats: $characterStats,
+            player: $player,
+            playerStats: $playerStats,
             monster: $monster,
             monsterStats: $monsterStats,
             availableSkills: $availableSkills,
@@ -100,9 +100,10 @@ class BattleData
     public function toArray(): array
     {
         $result = [
-            'character' => $this->character,
-            'stats' => $this->characterStats->toArray(),
-            'status' => $this->character->getStatusSummary(),
+            'player' => $this->player,
+            'character' => $this->player, // 下位互換性のためのalias
+            'stats' => $this->playerStats->toArray(),
+            'status' => $this->player->getStatusSummary(),
             'skills' => $this->availableSkills,
             'battleState' => $this->battleState->value,
         ];
@@ -132,12 +133,12 @@ class BattleData
     public function toJson(): array
     {
         $result = [
-            'character' => [
-                'id' => $this->character->id,
-                'name' => $this->character->name,
-                'level' => $this->character->level,
+            'player' => [
+                'id' => $this->player->id,
+                'name' => $this->player->name,
+                'level' => $this->player->level,
             ],
-            'characterStats' => $this->characterStats->toArray(),
+            'playerStats' => $this->playerStats->toArray(),
             'skills' => array_map(fn($skill) => [
                 'id' => $skill['id'] ?? null,
                 'name' => $skill['skill_name'] ?? $skill['name'],
@@ -189,13 +190,13 @@ class BattleData
     }
 
     /**
-     * キャラクターが生存しているかどうか
+     * プレイヤーが生存しているかどうか
      *
      * @return bool
      */
-    public function isCharacterAlive(): bool
+    public function isPlayerAlive(): bool
     {
-        return $this->character->isAlive();
+        return $this->player->isAlive();
     }
 
     /**
@@ -206,14 +207,14 @@ class BattleData
     public function __toString(): string
     {
         $vs = $this->monster ? " vs {$this->monster->name}" : '';
-        return "BattleData[{$this->character->name}{$vs}, state={$this->battleState->value}]";
+        return "BattleData[{$this->player->name}{$vs}, state={$this->battleState->value}]";
     }
 }
 
 /**
- * キャラクター戦闘統計DTO
+ * プレイヤー戦闘統計DTO
  */
-class CharacterBattleStats
+class PlayerBattleStats
 {
     public function __construct(
         public readonly int $level,
@@ -232,16 +233,16 @@ class CharacterBattleStats
         public readonly array $equipment_effects = []
     ) {}
 
-    public static function fromCharacter(Character $character): self
+    public static function fromPlayer(Player $player): self
     {
-        $battleStats = $character->getBattleStats();
+        $battleStats = $player->getBattleStats();
         
         return new self(
             level: $battleStats['level'],
             hp: $battleStats['hp'],
             max_hp: $battleStats['max_hp'],
-            sp: $character->sp,
-            max_sp: $character->max_sp,
+            sp: $player->sp,
+            max_sp: $player->max_sp,
             mp: $battleStats['mp'],
             max_mp: $battleStats['max_mp'],
             attack: $battleStats['attack'],

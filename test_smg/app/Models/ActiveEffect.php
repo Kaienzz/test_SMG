@@ -8,29 +8,26 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ActiveEffect extends Model
 {
     protected $fillable = [
-        'character_id',
-        'effect_type',
+        'player_id',
         'effect_name',
         'source_type',
         'source_id',
         'effects',
-        'duration',
         'remaining_duration',
         'is_active',
     ];
 
     protected $casts = [
-        'character_id' => 'integer',
+        'player_id' => 'integer',
         'source_id' => 'integer',
         'effects' => 'array',
-        'duration' => 'integer',
         'remaining_duration' => 'integer',
         'is_active' => 'boolean',
     ];
 
-    public function character(): BelongsTo
+    public function player(): BelongsTo
     {
-        return $this->belongsTo(Character::class);
+        return $this->belongsTo(Player::class);
     }
 
     public function getMovementEffects(): array
@@ -70,21 +67,19 @@ class ActiveEffect extends Model
     }
 
     public static function createTemporaryEffect(
-        int $characterId, 
+        int $playerId, 
         string $effectName, 
         array $effects, 
         int $duration,
-        string $sourceType = 'item',
+        string $sourceType = 'skill',
         int $sourceId = null
     ): self {
         return self::create([
-            'character_id' => $characterId,
-            'effect_type' => 'temporary',
+            'player_id' => $playerId,
             'effect_name' => $effectName,
             'source_type' => $sourceType,
             'source_id' => $sourceId,
             'effects' => $effects,
-            'duration' => $duration,
             'remaining_duration' => $duration,
             'is_active' => true,
         ]);

@@ -149,11 +149,6 @@
             text-align: center;
         }
 
-        .rarity-1 { border-left: 4px solid #9ca3af; }
-        .rarity-2 { border-left: 4px solid #10b981; }
-        .rarity-3 { border-left: 4px solid #3b82f6; }
-        .rarity-4 { border-left: 4px solid #8b5cf6; }
-        .rarity-5 { border-left: 4px solid #f59e0b; }
 
         .btn {
             padding: var(--space-3) var(--space-5);
@@ -322,8 +317,8 @@
 <body>
     <div class="container">
         <nav>
-            <a href="/character" class="nav-link">キャラクター</a>
-            <a href="/skills" class="nav-link">スキル</a>
+            <a href="/player" class="nav-link">プレイヤー</a>
+            <a href="/skills" class="nav-link">プレイヤースキル</a>
             <a href="/game" class="nav-link">ゲーム</a>
             <a href="/" class="nav-link">ホーム</a>
         </nav>
@@ -348,26 +343,26 @@
             </div>
 
             <div class="game-card">
-                <h3 class="game-card-title">キャラクター</h3>
+                <h3 class="game-card-title">プレイヤー</h3>
                 <div class="stat-item">
                     <span>名前</span>
-                    <span>{{ $character->name }}</span>
+                    <span>{{ ($player ?? $character)->name }}</span>
                 </div>
                 <div class="stat-item">
                     <span>レベル</span>
-                    <span>{{ $character->level }}</span>
+                    <span>{{ ($player ?? $character)->level }}</span>
                 </div>
                 <div class="stat-item">
                     <span>HP</span>
-                    <span id="character-hp">{{ $character->hp }}/{{ $character->max_hp }}</span>
+                    <span id="character-hp">{{ ($player ?? $character)->hp }}/{{ ($player ?? $character)->max_hp }}</span>
                 </div>
                 <div class="stat-item">
                     <span>MP</span>
-                    <span id="character-mp">{{ $character->mp }}/{{ $character->max_mp }}</span>
+                    <span id="character-mp">{{ ($player ?? $character)->mp }}/{{ ($player ?? $character)->max_mp }}</span>
                 </div>
                 <div class="stat-item">
                     <span>SP</span>
-                    <span id="character-sp">{{ $character->sp }}/{{ $character->max_sp }}</span>
+                    <span id="character-sp">{{ ($player ?? $character)->sp }}/{{ ($player ?? $character)->max_sp }}</span>
                 </div>
             </div>
         </div>
@@ -378,7 +373,7 @@
             <h2 class="game-card-title">アイテムスロット</h2>
             <div class="inventory-grid" id="inventory-grid">
                 @foreach($inventoryData['slots'] as $index => $slot)
-                    <div class="inventory-slot {{ isset($slot['empty']) ? 'empty' : 'has-item' }} {{ isset($slot['item_info']['rarity']) ? 'rarity-' . $slot['item_info']['rarity'] : '' }}" 
+                    <div class="inventory-slot {{ isset($slot['empty']) ? 'empty' : 'has-item' }}" 
                          data-slot="{{ $index }}" 
                          onclick="selectSlot({{ $index }})">
                         <div class="slot-number">{{ $index + 1 }}</div>
@@ -395,7 +390,7 @@
                             @endif
                             
                             <div class="item-controls">
-                                @if(isset($slot['item_info']) && $slot['item_info']['is_usable'])
+                                @if(isset($slot['item_info']) && isset($slot['item_info']['is_usable']) && $slot['item_info']['is_usable'])
                                     <button class="control-btn" onclick="useItem({{ $index }})">使用</button>
                                 @endif
                                 <button class="control-btn" onclick="removeItem({{ $index }}, 1)">削除1</button>
@@ -482,9 +477,6 @@
                 const slot = inventoryData.slots[i];
                 const slotEl = document.createElement('div');
                 slotEl.className = `inventory-slot ${slot.empty ? 'empty' : 'has-item'}`;
-                if (slot.item_info && slot.item_info.rarity) {
-                    slotEl.className += ` rarity-${slot.item_info.rarity}`;
-                }
                 slotEl.setAttribute('data-slot', i);
                 slotEl.onclick = () => selectSlot(i);
                 
@@ -503,7 +495,7 @@
                     }
                     
                     innerHTML += '<div class="item-controls">';
-                    if (slot.item_info && slot.item_info.is_usable) {
+                    if (slot.item_info && slot.item_info.is_usable === true) {
                         innerHTML += `<button class="control-btn" onclick="useItem(${i})">使用</button>`;
                     }
                     innerHTML += `<button class="control-btn" onclick="removeItem(${i}, 1)">削除1</button>`;

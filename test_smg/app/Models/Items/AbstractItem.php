@@ -14,7 +14,6 @@ abstract class AbstractItem extends Model implements ItemInterface
         'name',
         'description',
         'category',
-        'rarity',
         'value',
         'effects',
         'stack_limit',
@@ -25,7 +24,6 @@ abstract class AbstractItem extends Model implements ItemInterface
 
     protected $casts = [
         'category' => ItemCategory::class,
-        'rarity' => 'integer',
         'value' => 'integer',
         'effects' => 'array',
         'stack_limit' => 'integer',
@@ -52,11 +50,6 @@ abstract class AbstractItem extends Model implements ItemInterface
         return $this->category;
     }
 
-    public function getRarity(): int
-    {
-        return $this->rarity;
-    }
-
     public function getValue(): int
     {
         return $this->value;
@@ -65,30 +58,6 @@ abstract class AbstractItem extends Model implements ItemInterface
     public function getDisplayName(): string
     {
         return $this->name;
-    }
-
-    public function getRarityName(): string
-    {
-        return match($this->rarity) {
-            1 => 'コモン',
-            2 => 'アンコモン',
-            3 => 'レア',
-            4 => 'エピック',
-            5 => 'レジェンダリー',
-            default => 'コモン',
-        };
-    }
-
-    public function getRarityColor(): string
-    {
-        return match($this->rarity) {
-            1 => '#9ca3af', // グレー
-            2 => '#10b981', // グリーン
-            3 => '#3b82f6', // ブルー
-            4 => '#8b5cf6', // パープル
-            5 => '#f59e0b', // オレンジ
-            default => '#9ca3af',
-        };
     }
 
     public function canStack(): bool
@@ -142,9 +111,6 @@ abstract class AbstractItem extends Model implements ItemInterface
             'description' => $this->getDescription(),
             'category' => $this->getCategory()->value,
             'category_name' => $this->getCategory()->getDisplayName(),
-            'rarity' => $this->getRarity(),
-            'rarity_name' => $this->getRarityName(),
-            'rarity_color' => $this->getRarityColor(),
             'value' => $this->getValue(),
             'effects' => $this->getEffects(),
             'can_stack' => $this->canStack(),

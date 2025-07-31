@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Equipment;
 use App\Models\Item;
 use App\Models\Inventory;
@@ -16,9 +16,9 @@ class EquipmentController extends Controller
     public function show(Request $request): View
     {
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
-        $equipment = $this->getOrCreateEquipment($character->id);
-        $inventory = $character->getInventory();
+        $player = $user->getOrCreatePlayer();
+        $equipment = $this->getOrCreateEquipment($player->id);
+        $inventory = $player->getInventory();
         
         $equippedItems = $equipment->getEquippedItems();
         $totalStats = $equipment->getTotalStats();
@@ -26,12 +26,12 @@ class EquipmentController extends Controller
         $sampleEquipmentItems = Equipment::getSampleEquipmentItems();
 
         return view('equipment.index', compact(
-            'character',
+            'player',
             'equippedItems',
             'totalStats',
             'inventoryItems',
             'sampleEquipmentItems'
-        ));
+        ) + ['character' => $player]); // 下位互換性のためのalias
     }
 
     public function equip(Request $request): JsonResponse
@@ -42,9 +42,9 @@ class EquipmentController extends Controller
         ]);
 
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
-        $equipment = $this->getOrCreateEquipment($character->id);
-        $inventory = $character->getInventory();
+        $player = $user->getOrCreatePlayer();
+        $equipment = $this->getOrCreateEquipment($player->id);
+        $inventory = $player->getInventory();
         
         $itemId = $request->item_id;
         $slot = $request->slot;
@@ -91,11 +91,11 @@ class EquipmentController extends Controller
         ]);
 
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
         $slot = $request->slot;
 
-        $equipment = $this->getOrCreateEquipment($character->id);
-        $inventory = $character->getInventory();
+        $equipment = $this->getOrCreateEquipment($player->id);
+        $inventory = $player->getInventory();
 
         $currentEquippedItemId = $this->getCurrentEquippedItemId($equipment, $slot);
         
@@ -129,8 +129,8 @@ class EquipmentController extends Controller
         $slot = $request->query('slot');
 
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
-        $inventory = $character->getInventory();
+        $player = $user->getOrCreatePlayer();
+        $inventory = $player->getInventory();
         $items = $inventory->getItems();
 
         if ($slot) {
@@ -149,12 +149,12 @@ class EquipmentController extends Controller
         ]);
     }
 
-    private function getOrCreateEquipment(int $characterId): Equipment
+    private function getOrCreateEquipment(int $playerId): Equipment
     {
-        $equipment = Equipment::where('character_id', $characterId)->first();
+        $equipment = Equipment::where('player_id', $playerId)->first();
         
         if (!$equipment) {
-            $equipment = Equipment::createForCharacter($characterId);
+            $equipment = Equipment::createForPlayer($playerId);
         }
 
         return $equipment;
@@ -197,8 +197,8 @@ class EquipmentController extends Controller
         ]);
 
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
-        $inventory = $character->getInventory();
+        $player = $user->getOrCreatePlayer();
+        $inventory = $player->getInventory();
         $itemName = $request->item_name;
 
         // TODO: サンプル装備の実際の追加処理を実装

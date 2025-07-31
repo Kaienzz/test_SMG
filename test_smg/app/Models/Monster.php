@@ -287,6 +287,7 @@ class Monster extends Model
         });
 
         if (empty($roadMonsters)) {
+            \Log::warning('No monsters found for road', ['road_id' => $roadId]);
             return null;
         }
 
@@ -295,14 +296,90 @@ class Monster extends Model
         $random = mt_rand() / mt_getrandmax();
         $cumulativeRate = 0;
 
-        foreach ($roadMonsters as $monster) {
+        foreach ($roadMonsters as $index => $monster) {
             $cumulativeRate += $monster['spawn_rate'] / $totalRate;
             if ($random <= $cumulativeRate) {
+                // 一意のIDを追加
+                $monster['id'] = $index + 1;
+                
+                // データ完全性チェックと修正
+                $monster = self::validateAndFixMonsterData($monster);
+                
+                \Log::debug('Monster selected for encounter', [
+                    'road_id' => $roadId,
+                    'monster_name' => $monster['name'],
+                    'monster_data' => $monster
+                ]);
+                
                 return $monster;
             }
         }
 
         // フォールバック: 最初のモンスターを返す
-        return reset($roadMonsters);
+        $firstMonster = reset($roadMonsters);
+        $firstMonster['id'] = 1;
+        $firstMonster = self::validateAndFixMonsterData($firstMonster);
+        return $firstMonster;
+    }
+
+    /**
+     * モンスターデータの完全性チェックと自動修正
+     * 
+     * @param array $monster
+     * @return array
+     */
+    private static function validateAndFixMonsterData(array $monster): array
+    {
+        $requiredFields = [
+            'name' => 'Unknown Monster',
+            'level' => 1,
+            'hp' => 100,
+            'max_hp' => 100,
+            'attack' => 15,
+            'defense' => 10,
+            'agility' => 10,
+            'evasion' => 10,
+            'accuracy' => 80,
+            'experience_reward' => 0,
+            'emoji' => '👹',
+            'description' => '',
+        ];
+
+        $missingFields = [];
+        foreach ($requiredFields as $field => $defaultValue) {
+            if (!isset($monster[$field]) || $monster[$field] === null) {
+                $monster[$field] = $defaultValue;
+                $missingFields[] = $field;
+            }
+        }
+
+        // 特別なケース: descriptionが空の場合はデフォルト値を生成
+        if (empty($monster['description'])) {
+            $monster['description'] = "レベル{$monster['level']}の{$monster['name']}";
+        }
+
+        // HP系の整合性チェック
+        if ($monster['hp'] > $monster['max_hp']) {
+            $monster['hp'] = $monster['max_hp'];
+        }
+
+        // 負の値チェック
+        $numericFields = ['level', 'hp', 'max_hp', 'attack', 'defense', 'agility', 'evasion', 'accuracy', 'experience_reward'];
+        foreach ($numericFields as $field) {
+            if ($monster[$field] < 0) {
+                $monster[$field] = $requiredFields[$field];
+                $missingFields[] = $field . '(negative_value)';
+            }
+        }
+
+        if (!empty($missingFields)) {
+            \Log::warning('Monster data validation: Fixed missing/invalid fields', [
+                'monster_name' => $monster['name'],
+                'fixed_fields' => $missingFields,
+                'monster_data' => $monster
+            ]);
+        }
+
+        return $monster;
     }
 }

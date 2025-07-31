@@ -19,62 +19,62 @@
         
         <div class="battle-area">
             <div class="character-info">
-                <div class="character-name">{{ $character['name'] }}</div>
+                <div class="character-name">{{ $character['name'] ?? 'プレイヤー' }}</div>
                 <div class="progress">
-                    <div class="progress-fill hp" id="character-hp" style="width: {{ ($character['hp'] / $character['max_hp']) * 100 }}%"></div>
-                    <div class="progress-text" id="character-hp-text">{{ $character['hp'] }}/{{ $character['max_hp'] }}</div>
+                    <div class="progress-fill hp" id="character-hp" style="width: {{ (($character['hp'] ?? 100) / ($character['max_hp'] ?? 100)) * 100 }}%"></div>
+                    <div class="progress-text" id="character-hp-text">{{ $character['hp'] ?? 100 }}/{{ $character['max_hp'] ?? 100 }}</div>
                 </div>
                 <div class="progress">
-                    <div class="progress-fill mp" id="character-mp" style="width: {{ ($character['mp'] / $character['max_mp']) * 100 }}%"></div>
-                    <div class="progress-text" id="character-mp-text">{{ $character['mp'] }}/{{ $character['max_mp'] }}</div>
+                    <div class="progress-fill mp" id="character-mp" style="width: {{ (($character['mp'] ?? 50) / ($character['max_mp'] ?? 50)) * 100 }}%"></div>
+                    <div class="progress-text" id="character-mp-text">{{ $character['mp'] ?? 50 }}/{{ $character['max_mp'] ?? 50 }}</div>
                 </div>
                 <div class="stats-grid">
                     <div class="stat-item">
                         <div class="stat-label">攻撃力</div>
-                        <div class="stat-value">{{ $character['attack'] }}</div>
+                        <div class="stat-value">{{ $character['attack'] ?? 15 }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">魔法攻撃力</div>
-                        <div class="stat-value">{{ $character['magic_attack'] }}</div>
+                        <div class="stat-value">{{ $character['magic_attack'] ?? 12 }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">防御力</div>
-                        <div class="stat-value">{{ $character['defense'] }}</div>
+                        <div class="stat-value">{{ $character['defense'] ?? 12 }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">素早さ</div>
-                        <div class="stat-value">{{ $character['agility'] }}</div>
+                        <div class="stat-value">{{ $character['agility'] ?? 18 }}</div>
                     </div>
                 </div>
             </div>
             
             <div class="monster-info">
-                <div class="monster-name">{{ $monster['name'] }}</div>
-                <div class="monster-emoji">{{ $monster['emoji'] }}</div>
+                <div class="monster-name">{{ $monster['name'] ?? 'Unknown Monster' }}</div>
+                <div class="monster-emoji">{{ $monster['emoji'] ?? '👹' }}</div>
                 <div class="progress">
-                    <div class="progress-fill" id="monster-hp" style="width: {{ ($monster['hp'] / $monster['max_hp']) * 100 }}%; background: linear-gradient(90deg, var(--error), #ef4444);"></div>
-                    <div class="progress-text" id="monster-hp-text">{{ $monster['hp'] }}/{{ $monster['max_hp'] }}</div>
+                    <div class="progress-fill" id="monster-hp" style="width: {{ (($monster['stats']['hp'] ?? 100) / ($monster['stats']['max_hp'] ?? 100)) * 100 }}%; background: linear-gradient(90deg, var(--error), #ef4444);"></div>
+                    <div class="progress-text" id="monster-hp-text">{{ $monster['stats']['hp'] ?? 100 }}/{{ $monster['stats']['max_hp'] ?? 100 }}</div>
                 </div>
                 <div class="stats-grid">
                     <div class="stat-item">
                         <div class="stat-label">攻撃力</div>
-                        <div class="stat-value">{{ $monster['attack'] }}</div>
+                        <div class="stat-value">{{ $monster['stats']['attack'] ?? 15 }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">防御力</div>
-                        <div class="stat-value">{{ $monster['defense'] }}</div>
+                        <div class="stat-value">{{ $monster['stats']['defense'] ?? 10 }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">素早さ</div>
-                        <div class="stat-value">{{ $monster['agility'] }}</div>
+                        <div class="stat-value">{{ $monster['stats']['agility'] ?? 10 }}</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">回避率</div>
-                        <div class="stat-value">{{ $monster['evasion'] }}</div>
+                        <div class="stat-value">{{ $monster['stats']['evasion'] ?? 10 }}</div>
                     </div>
                 </div>
                 <div style="margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-secondary);">
-                    {{ $monster['description'] }}
+                    {{ $monster['description'] ?? 'モンスターの説明はありません' }}
                 </div>
             </div>
         </div>
@@ -116,7 +116,7 @@
         <div class="game-card">
             <h3 class="game-card-title">戦闘ログ</h3>
             <div class="game-card-content" id="log-container" style="max-height: 300px; overflow-y: auto;">
-                <div class="log-entry">{{ $monster['name'] }}が現れた！</div>
+                <div class="log-entry">{{ $monster['name'] ?? 'Unknown Monster' }}が現れた！</div>
             </div>
         </div>
     </div>
@@ -191,9 +191,9 @@
             document.getElementById('character-mp-text').textContent = `${character.mp}/${character.max_mp}`;
             
             // モンスターHP更新
-            const monsterHpPercentage = (monster.hp / monster.max_hp) * 100;
+            const monsterHpPercentage = (monster.stats.hp / monster.stats.max_hp) * 100;
             document.getElementById('monster-hp').style.width = monsterHpPercentage + '%';
-            document.getElementById('monster-hp-text').textContent = `${monster.hp}/${monster.max_hp}`;
+            document.getElementById('monster-hp-text').textContent = `${monster.stats.hp}/${monster.stats.max_hp}`;
             
             // 特技メニューを更新
             updateSkillMenu(character);
@@ -300,7 +300,15 @@
                 continueBtn.style.cursor = 'not-allowed';
             }
             
-            // 戦闘終了API呼び出し
+            // 戦闘が自然に終了した場合（勝利/敗北/逃走）は、
+            // 戦闘終了処理は既に完了しているため、直接ゲーム画面に戻る
+            if (battleEnded) {
+                console.log('Battle already ended naturally, redirecting directly to /game');
+                window.location.href = '/game';
+                return;
+            }
+            
+            // 戦闘が継続中で強制終了する場合のみAPI呼び出し
             fetch('/battle/end', {
                 method: 'POST',
                 headers: {
@@ -403,7 +411,7 @@
             attackButton.textContent = isMagicalWeapon ? '魔法攻撃' : '攻撃';
         }
 
-        // スキルメニューの外側をクリックで閉じる
+        // プレイヤースキルメニューの外側をクリックで閉じる
         document.addEventListener('click', function(event) {
             const skillMenu = document.getElementById('skill-menu');
             const skillButton = document.getElementById('skill-button');
@@ -420,7 +428,7 @@
             
             // 逃走率を計算して表示
             const baseEscapeRate = 50;
-            const speedDifference = character.agility - monster.agility;
+            const speedDifference = character.agility - monster.stats.agility;
             const escapeRate = Math.max(10, Math.min(90, baseEscapeRate + (speedDifference * 3)));
             
             document.getElementById('escape-rate').textContent = `成功率: ${escapeRate}%`;

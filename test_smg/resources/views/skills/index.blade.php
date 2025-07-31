@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>スキル - RPGゲーム</title>
+    <title>プレイヤースキル - RPGゲーム</title>
     <style>
         :root {
             /* カラーシステム */
@@ -344,64 +344,64 @@
 <body>
     <div class="skills-container">
         <nav>
-            <a href="/character" class="nav-link">キャラクター</a>
+            <a href="/player" class="nav-link">プレイヤー</a>
             <a href="/inventory" class="nav-link">インベントリー</a>
             <a href="/game" class="nav-link">← ゲームに戻る</a>
             <a href="/" class="nav-link">ホーム</a>
         </nav>
 
-        <h1 class="character-name">{{ $character->name }} - スキル</h1>
+        <h1 class="character-name">{{ ($player ?? $character)->name }} - プレイヤースキル</h1>
 
         <div class="game-card">
             <h2 class="game-card-title">SPステータス</h2>
             <div class="stat-item">
                 <span class="stat-label">現在SP</span>
-                <span class="stat-value" id="current-sp">{{ $character->sp }}</span>
+                <span class="stat-value" id="current-sp">{{ ($player ?? $character)->sp }}</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">最大SP</span>
-                <span class="stat-value">{{ $character->max_sp }}</span>
+                <span class="stat-value">{{ ($player ?? $character)->max_sp }}</span>
             </div>
             <div class="sp-bar" style="margin-top: var(--space-3);">
-                <div class="sp-fill" style="width: {{ ($character->sp / $character->max_sp) * 100 }}%"></div>
+                <div class="sp-fill" style="width: {{ (($player ?? $character)->sp / ($player ?? $character)->max_sp) * 100 }}%"></div>
             </div>
         </div>
 
         <div class="skills-grid">
             <div class="game-card">
-                <h2 class="game-card-title">習得済みスキル</h2>
+                <h2 class="game-card-title">習得済みプレイヤースキル</h2>
                 <div id="skills-list">
                     @forelse($skills as $skill)
-                        <div class="skill-item" data-skill-id="{{ $skill['id'] }}">
+                        <div class="skill-item" data-skill-id="{{ $skill['id'] ?? '' }}">
                             <div class="skill-header">
-                                <div class="skill-name">{{ $skill['name'] }}</div>
-                                <div class="skill-level">Lv.{{ $skill['level'] }}</div>
+                                <div class="skill-name">{{ $skill['skill_name'] ?? 'プレイヤースキル名不明' }}</div>
+                                <div class="skill-level">Lv.{{ $skill['level'] ?? 1 }}</div>
                             </div>
                             <div style="margin-bottom: var(--space-3);">
-                                <span class="skill-type-badge {{ $skill['type'] }}">{{ $skill['type'] }}</span>
+                                <span class="skill-type-badge {{ $skill['skill_type'] ?? 'unknown' }}">{{ $skill['skill_type'] ?? '種類不明' }}</span>
                             </div>
                             <div class="skill-section">
                                 <div class="stat-item">
                                     <span class="stat-label">SP消費</span>
-                                    <span class="stat-value">{{ $skill['sp_cost'] }}</span>
+                                    <span class="stat-value">{{ $skill['sp_cost'] ?? 0 }}</span>
                                 </div>
                                 <div class="stat-item">
                                     <span class="stat-label">経験値</span>
-                                    <span class="stat-value">{{ $skill['experience'] }}</span>
+                                    <span class="stat-value">{{ $skill['experience'] ?? 0 }}</span>
                                 </div>
                                 <div class="stat-item">
                                     <span class="stat-label">次のレベルまで</span>
-                                    <span class="stat-value">{{ $skill['next_level_exp'] ?? '最大' }}</span>
+                                    <span class="stat-value">{{ isset($skill['next_level_exp']) ? $skill['next_level_exp'] : '最大' }}</span>
                                 </div>
                             </div>
-                            @if($skill['experience'] > 0 && isset($skill['next_level_exp']))
+                            @if(($skill['experience'] ?? 0) > 0 && isset($skill['next_level_exp']))
                                 <div class="experience-bar">
-                                    <div class="experience-fill" style="width: {{ ($skill['experience'] / ($skill['experience'] + $skill['next_level_exp'])) * 100 }}%"></div>
+                                    <div class="experience-fill" style="width: {{ isset($skill['next_level_exp']) && ($skill['experience'] + $skill['next_level_exp']) > 0 ? ($skill['experience'] / ($skill['experience'] + $skill['next_level_exp'])) * 100 : 0 }}%"></div>
                                 </div>
                             @endif
                             <div class="skill-section" style="margin: var(--space-3) 0;">
                                 <h4 style="margin-bottom: var(--space-2); color: var(--text-secondary);">効果</h4>
-                                @foreach($skill['effects'] as $effect => $value)
+                                @foreach(($skill['effects'] ?? []) as $effect => $value)
                                     <div class="stat-item">
                                         <span class="stat-label">{{ $effect }}</span>
                                         <span class="stat-value">
@@ -415,13 +415,13 @@
                                 @endforeach
                             </div>
                             <button class="btn btn-primary" style="width: 100%;" 
-                                    onclick="useSkill('{{ $skill['name'] }}')"
-                                    {{ !$skill['can_use'] ? 'disabled' : '' }}>
-                                スキル使用 (SP {{ $skill['sp_cost'] }})
+                                    onclick="useSkill('{{ $skill['skill_name'] ?? '' }}')"
+                                    {{ !($skill['is_active'] ?? true) ? 'disabled' : '' }}>
+                                プレイヤースキル使用 (SP {{ $skill['sp_cost'] ?? 0 }})
                             </button>
                         </div>
                     @empty
-                        <p style="text-align: center; color: var(--text-secondary);">スキルを習得していません</p>
+                        <p style="text-align: center; color: var(--text-secondary);">プレイヤースキルを習得していません</p>
                     @endforelse
                 </div>
             </div>
@@ -459,35 +459,35 @@
         </div>
 
         <div class="game-card">
-            <h2 class="game-card-title">習得可能スキル</h2>
+            <h2 class="game-card-title">習得可能プレイヤースキル</h2>
             <div class="skills-grid">
                 @foreach($sampleSkills as $skill)
-                    <div class="skill-item" style="cursor: pointer;" onclick="addSampleSkill('{{ $skill['skill_name'] }}')">
+                    <div class="skill-item" style="cursor: pointer;" onclick="addSampleSkill('{{ $skill['skill_name'] ?? '' }}')">
                         <div class="skill-header">
-                            <div class="skill-name">{{ $skill['skill_name'] }}</div>
-                            <span class="skill-type-badge {{ $skill['skill_type'] }}">{{ $skill['skill_type'] }}</span>
+                            <div class="skill-name">{{ $skill['skill_name'] ?? 'プレイヤースキル名不明' }}</div>
+                            <span class="skill-type-badge {{ $skill['skill_type'] ?? 'unknown' }}">{{ $skill['skill_type'] ?? '種類不明' }}</span>
                         </div>
                         <p style="color: var(--text-secondary); margin-bottom: var(--space-3);">
-                            {{ $skill['description'] }}
+                            {{ $skill['description'] ?? '説明なし' }}
                         </p>
                         <div class="skill-section">
                             <div class="stat-item">
                                 <span class="stat-label">SP消費</span>
-                                <span class="stat-value">{{ $skill['sp_cost'] }}</span>
+                                <span class="stat-value">{{ $skill['sp_cost'] ?? 0 }}</span>
                             </div>
                             <div class="stat-item">
                                 <span class="stat-label">持続時間</span>
-                                <span class="stat-value">{{ $skill['duration'] }}ターン</span>
+                                <span class="stat-value">{{ $skill['duration'] ?? 1 }}ターン</span>
                             </div>
                             <div class="stat-item">
                                 <span class="stat-label">最大レベル</span>
-                                <span class="stat-value">{{ $skill['max_level'] }}</span>
+                                <span class="stat-value">{{ $skill['max_level'] ?? 10 }}</span>
                             </div>
                         </div>
-                        @if(!empty($skill['effects']))
+                        @if(!empty($skill['effects'] ?? []))
                             <div class="skill-section" style="margin-top: var(--space-3);">
                                 <h4 style="margin-bottom: var(--space-2); color: var(--text-secondary);">効果</h4>
-                                @foreach($skill['effects'] as $effect => $value)
+                                @foreach(($skill['effects'] ?? []) as $effect => $value)
                                     <div class="stat-item">
                                         <span class="stat-label">{{ $effect }}</span>
                                         <span class="stat-value">
@@ -513,7 +513,8 @@
     </div>
 
     <script>
-        const characterId = {{ $character->id }};
+        const playerId = {{ ($player ?? $character)->id }};
+        const characterId = playerId; // 下位互換性
 
         function showMessage(text, type = 'success') {
             const message = document.getElementById('message');
@@ -544,7 +545,7 @@
                     showMessage(data.message, 'success');
                     updateSp(data.character_sp);
                     if (data.leveled_up) {
-                        showMessage(`スキルがレベルアップしました！現在Lv.${data.skill_level}`, 'success');
+                        showMessage(`プレイヤースキルがレベルアップしました！現在Lv.${data.skill_level}`, 'success');
                     }
                     setTimeout(() => {
                         location.reload();
@@ -590,7 +591,7 @@
 
         function updateSp(newSp) {
             document.getElementById('current-sp').textContent = newSp;
-            const maxSp = {{ $character->max_sp }};
+            const maxSp = {{ ($player ?? $character)->max_sp }};
             const percentage = (newSp / maxSp) * 100;
             document.querySelector('.sp-fill').style.width = `${percentage}%`;
         }

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Character;
+use App\Models\Player;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
@@ -13,13 +13,14 @@ class CharacterController extends Controller
     use \App\Http\Controllers\Traits\HasCharacter;
     public function index(): View
     {
-        $character = $this->getOrCreateCharacter();
-        $character->updateCharacterLevel();
-        $stats = $character->getDetailedStatsWithLevel();
-        $summary = $character->getStatusSummary();
+        $player = $this->getOrCreatePlayer();
+        $player->updatePlayerLevel();
+        $stats = $player->getDetailedStatsWithLevel();
+        $summary = $player->getStatusSummary();
         
         return view('character.index', [
-            'character' => $character,
+            'player' => $player,
+            'character' => $player, // 下位互換性のためのalias
             'stats' => $stats,
             'summary' => $summary,
         ]);
@@ -36,22 +37,24 @@ class CharacterController extends Controller
             'name' => 'required|string|max:255|min:1'
         ]);
 
-        $character = Character::createNewCharacter($request->input('name'));
+        $player = Player::createNewPlayer(Auth::id(), $request->input('name'));
         
         return response()->json([
             'success' => true,
-            'character' => $character->getDetailedStats(),
-            'message' => 'キャラクターが作成されました！'
+            'player' => $player->getDetailedStats(),
+            'character' => $player->getDetailedStats(), // 下位互換性のためのalias
+            'message' => 'プレイヤーが作成されました！'
         ]);
     }
 
     public function show(): JsonResponse
     {
-        $character = $this->getOrCreateCharacter();
+        $player = $this->getOrCreatePlayer();
         
         return response()->json([
-            'character' => $character->getDetailedStats(),
-            'summary' => $character->getStatusSummary(),
+            'player' => $player->getDetailedStats(),
+            'character' => $player->getDetailedStats(), // 下位互換性のためのalias
+            'summary' => $player->getStatusSummary(),
         ]);
     }
 
@@ -61,17 +64,18 @@ class CharacterController extends Controller
             'amount' => 'integer|min:1|max:1000'
         ]);
 
-        $character = $this->getOrCreateCharacter();
+        $player = $this->getOrCreatePlayer();
         $amount = $request->input('amount', 10);
         
-        $oldHp = $character->hp;
-        $character->heal($amount);
-        $actualHealing = $character->hp - $oldHp;
+        $oldHp = $player->hp;
+        $player->heal($amount);
+        $actualHealing = $player->hp - $oldHp;
 
         return response()->json([
             'success' => true,
             'message' => "HPが{$actualHealing}回復しました",
-            'character' => $character->getStatusSummary(),
+            'player' => $player->getStatusSummary(),
+            'character' => $player->getStatusSummary(), // 下位互換性のためのalias
         ]);
     }
 
@@ -81,17 +85,18 @@ class CharacterController extends Controller
             'amount' => 'integer|min:1|max:1000'
         ]);
 
-        $character = $this->getOrCreateCharacter();
+        $player = $this->getOrCreatePlayer();
         $amount = $request->input('amount', 10);
         
-        $oldMp = $character->mp;
-        $character->restoreMP($amount);
-        $actualRestore = $character->mp - $oldMp;
+        $oldMp = $player->mp;
+        $player->restoreMP($amount);
+        $actualRestore = $player->mp - $oldMp;
 
         return response()->json([
             'success' => true,
             'message' => "MPが{$actualRestore}回復しました",
-            'character' => $character->getStatusSummary(),
+            'player' => $player->getStatusSummary(),
+            'character' => $player->getStatusSummary(), // 下位互換性のためのalias
         ]);
     }
 
@@ -102,51 +107,53 @@ class CharacterController extends Controller
             'amount' => 'integer|min:1|max:1000'
         ]);
 
-        $character = $this->getOrCreateCharacter();
+        $player = $this->getOrCreatePlayer();
         $amount = $request->input('amount', 10);
         
-        $oldHp = $character->hp;
-        $character->takeDamage($amount);
-        $actualDamage = $oldHp - $character->hp;
+        $oldHp = $player->hp;
+        $player->takeDamage($amount);
+        $actualDamage = $oldHp - $player->hp;
 
         $message = "{$actualDamage}のダメージを受けました";
-        if (!$character->isAlive()) {
-            $message .= "。キャラクターが倒れました...";
+        if (!$player->isAlive()) {
+            $message .= "。プレイヤーが倒れました...";
         }
 
         return response()->json([
             'success' => true,
             'message' => $message,
-            'character' => $character->getStatusSummary(),
-            'is_alive' => $character->isAlive(),
+            'player' => $player->getStatusSummary(),
+            'character' => $player->getStatusSummary(), // 下位互換性のためのalias
+            'is_alive' => $player->isAlive(),
         ]);
     }
 
     public function reset(): JsonResponse
     {
-        $character = $this->getOrCreateCharacter();
+        $player = $this->getOrCreatePlayer();
         
-        $character->level = 1;
-        $character->base_attack = 10;
-        $character->base_defense = 8;
-        $character->base_agility = 12;
-        $character->base_evasion = 15;
-        $character->base_max_hp = 100;
-        $character->base_max_sp = 50;
-        $character->base_max_mp = 30;
-        $character->base_magic_attack = 8;
-        $character->base_accuracy = 85;
+        $player->level = 1;
+        $player->base_attack = 10;
+        $player->base_defense = 8;
+        $player->base_agility = 12;
+        $player->base_evasion = 15;
+        $player->base_max_hp = 100;
+        $player->base_max_sp = 50;
+        $player->base_max_mp = 30;
+        $player->base_magic_attack = 8;
+        $player->base_accuracy = 85;
         
-        $character->updateStatsForLevel();
-        $character->hp = $character->max_hp;
-        $character->sp = $character->max_sp;
-        $character->mp = $character->max_mp;
-        $character->save();
+        $player->updateStatsForLevel();
+        $player->hp = $player->max_hp;
+        $player->sp = $player->max_sp;
+        $player->mp = $player->max_mp;
+        $player->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'キャラクターをリセットしました',
-            'character' => $character->getDetailedStats(),
+            'message' => 'プレイヤーをリセットしました',
+            'player' => $player->getDetailedStats(),
+            'character' => $player->getDetailedStats(), // 下位互換性のためのalias
         ]);
     }
 

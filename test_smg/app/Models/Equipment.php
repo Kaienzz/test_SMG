@@ -9,6 +9,7 @@ class Equipment extends Model
 {
     protected $fillable = [
         'character_id',
+        'player_id',
         'weapon_id',
         'body_armor_id',
         'shield_id',
@@ -19,6 +20,7 @@ class Equipment extends Model
 
     protected $casts = [
         'character_id' => 'integer',
+        'player_id' => 'integer',
         'weapon_id' => 'integer',
         'body_armor_id' => 'integer',
         'shield_id' => 'integer',
@@ -30,6 +32,11 @@ class Equipment extends Model
     public function character(): BelongsTo
     {
         return $this->belongsTo(Character::class);
+    }
+
+    public function player(): BelongsTo
+    {
+        return $this->belongsTo(Player::class);
     }
 
     public function weapon(): BelongsTo
@@ -232,6 +239,13 @@ class Equipment extends Model
         ]);
     }
 
+    public static function createForPlayer(int $playerId): self
+    {
+        return self::create([
+            'player_id' => $playerId,
+        ]);
+    }
+
     public static function getSampleEquipmentItems(): array
     {
         return [
@@ -241,21 +255,18 @@ class Equipment extends Model
                     'description' => '攻撃力+8の良質な剣',
                     'category' => 'weapon',
                     'effects' => ['attack' => 8],
-                    'rarity' => 2,
                 ],
                 [
                     'name' => 'ミスリルソード',
                     'description' => '攻撃力+12、命中力+5の魔法の剣',
                     'category' => 'weapon',
                     'effects' => ['attack' => 12, 'accuracy' => 5],
-                    'rarity' => 3,
                 ],
                 [
                     'name' => '疾風の剣',
                     'description' => '攻撃力+10、素早さ+8の風の剣',
                     'category' => 'weapon',
                     'effects' => ['attack' => 10, 'agility' => 8],
-                    'rarity' => 3,
                 ],
             ],
             'body_armor' => [
@@ -264,21 +275,18 @@ class Equipment extends Model
                     'description' => '防御力+8の頑丈な鎧',
                     'category' => 'body_equipment',
                     'effects' => ['defense' => 8],
-                    'rarity' => 2,
                 ],
                 [
                     'name' => 'ドラゴンスケイル',
                     'description' => '防御力+15、HP+20のドラゴンの鱗の鎧',
                     'category' => 'body_equipment',
                     'effects' => ['defense' => 15, 'hp' => 20],
-                    'rarity' => 4,
                 ],
                 [
                     'name' => '影の外套',
                     'description' => '防御力+6、回避+12の闇の外套',
                     'category' => 'body_equipment',
                     'effects' => ['defense' => 6, 'evasion' => 12],
-                    'rarity' => 3,
                 ],
             ],
             'shields' => [
@@ -287,14 +295,12 @@ class Equipment extends Model
                     'description' => '防御力+5の基本的な盾',
                     'category' => 'shield',
                     'effects' => ['defense' => 5],
-                    'rarity' => 1,
                 ],
                 [
                     'name' => '魔法の盾',
                     'description' => '防御力+8、MP+15の魔法の盾',
                     'category' => 'shield',
                     'effects' => ['defense' => 8, 'mp' => 15],
-                    'rarity' => 3,
                 ],
             ],
             'helmets' => [
@@ -303,14 +309,12 @@ class Equipment extends Model
                     'description' => '防御力+3の基本的な兜',
                     'category' => 'head_equipment',
                     'effects' => ['defense' => 3],
-                    'rarity' => 1,
                 ],
                 [
                     'name' => '知恵の兜',
                     'description' => '防御力+4、MP+10の賢者の兜',
                     'category' => 'head_equipment',
                     'effects' => ['defense' => 4, 'mp' => 10],
-                    'rarity' => 2,
                 ],
             ],
             'boots' => [
@@ -319,14 +323,12 @@ class Equipment extends Model
                     'description' => '素早さ+3の軽い靴',
                     'category' => 'foot_equipment',
                     'effects' => ['agility' => 3],
-                    'rarity' => 1,
                 ],
                 [
                     'name' => '疾風のブーツ',
                     'description' => '素早さ+8、移動サイコロ+1の風の靴',
                     'category' => 'foot_equipment',
                     'effects' => ['agility' => 8, 'extra_dice' => 1],
-                    'rarity' => 3,
                 ],
             ],
             'accessories' => [
@@ -335,21 +337,18 @@ class Equipment extends Model
                     'description' => '攻撃力+4を与える指輪',
                     'category' => 'accessory',
                     'effects' => ['attack' => 4],
-                    'rarity' => 2,
                 ],
                 [
                     'name' => '状態異常耐性の指輪',
                     'description' => 'すべての状態異常を無効化する指輪',
                     'category' => 'accessory',
                     'effects' => ['status_immunity' => true],
-                    'rarity' => 4,
                 ],
                 [
                     'name' => '幸運のお守り',
                     'description' => '移動時のサイコロの目+2のお守り',
                     'category' => 'accessory',
                     'effects' => ['dice_bonus' => 2],
-                    'rarity' => 3,
                 ],
             ],
         ];

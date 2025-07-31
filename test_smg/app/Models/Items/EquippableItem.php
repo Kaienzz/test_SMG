@@ -10,7 +10,6 @@ abstract class EquippableItem extends AbstractItem implements EquippableInterfac
         'name',
         'description',
         'category',
-        'rarity',
         'value',
         'effects',
         'stack_limit',
@@ -26,7 +25,6 @@ abstract class EquippableItem extends AbstractItem implements EquippableInterfac
 
     protected $casts = [
         'category' => ItemCategory::class,
-        'rarity' => 'integer',
         'value' => 'integer',
         'effects' => 'array',
         'stack_limit' => 'integer',

@@ -2,8 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Monster;
+use Illuminate\Support\Facades\Auth;
 
 class BattleService
 {
@@ -160,9 +161,24 @@ class BattleService
     public static function processBattleResult(array $character, array $monster, string $result): array
     {
         if ($result === 'victory') {
+            // 経験値計算: 基本経験値 + レベル差ボーナス
+            $baseExp = $monster['experience_reward'] ?? 0;
+            $playerLevel = $character['level'] ?? 1;
+            $monsterLevel = $monster['level'] ?? 1;
+            $levelDiff = max(0, $monsterLevel - $playerLevel);
+            $levelBonus = $levelDiff * 5; // レベル差1につき+5exp
+            $experienceGained = $baseExp + $levelBonus;
+            
+            // ゴールド報酬計算: モンスターレベル × 10-20G (ランダム)
+            $baseGold = $monsterLevel * mt_rand(10, 20);
+            $goldBonus = $levelDiff * 3; // レベル差1につき+3G
+            $goldGained = $baseGold + $goldBonus;
+            
             return [
                 'result' => 'victory',
-                'message' => "{$monster['name']}を倒した！"
+                'message' => "{$monster['name']}を倒した！",
+                'experience_gained' => $experienceGained,
+                'gold_gained' => $goldGained
             ];
         } elseif ($result === 'defeat') {
             // 戦闘敗北時の処理
@@ -194,8 +210,22 @@ class BattleService
      */
     private static function processDefeat(array $character): array
     {
-        // 直近に入った町を取得（デフォルトはtown_a）
-        $lastTown = session('last_visited_town', 'town_a');
+        // 直近に入った町を取得（Player モデルから取得、デフォルトはtown_a）
+        $lastTown = 'town_a'; // デフォルト値
+        
+        // Player モデルから last_visited_town を取得
+        if (Auth::check()) {
+            $player = \App\Models\Player::where('user_id', Auth::id())->first();
+            if ($player && $player->last_visited_town) {
+                $lastTown = $player->last_visited_town;
+            }
+        }
+        
+        // セッションからも確認（フォールバック）
+        $sessionTown = session('last_visited_town');
+        if ($sessionTown) {
+            $lastTown = $sessionTown;
+        }
         
         // 所持金ペナルティの計算（20%-30%をランダムで失う）
         $currentGold = $character['gold'] ?? 0;
@@ -208,12 +238,15 @@ class BattleService
         $updatedCharacter['gold'] = $remainingGold;
         $updatedCharacter['hp'] = 1; // HPを1に回復
         
-        // セッションを更新（町にテレポート + 所持金更新）
-        session([
-            'location_type' => 'town',
-            'location_id' => $lastTown,
-            'game_position' => 0,
-            'character_gold' => $remainingGold,
+        // 戦闘敗北時のセッション状態をクリア（DBが正となるため）
+        // 古いセッションデータでPlayerデータが上書きされないようにする
+        session()->forget([
+            'location_type',
+            'location_id', 
+            'game_position',
+            'character_gold',
+            'player_gold',
+            'player_sp'
         ]);
         
         // 町の名前を取得
@@ -275,11 +308,214 @@ class BattleService
     {
         $actions = ['attack'];
         
+        // 安全なHP比率計算
+        $currentHp = $monster['hp'] ?? 0;
+        $maxHp = $monster['max_hp'] ?? 1;
+        
+        // ゼロ除算防止とHP比率計算
+        $hpRatio = $maxHp > 0 ? ($currentHp / $maxHp) : 0;
+        
         // モンスターのHPが30%以下の場合、たまに防御を選択
-        if (($monster['hp'] / $monster['max_hp']) < 0.3) {
+        if ($hpRatio < 0.3 && $currentHp > 0) {
             $actions[] = 'defend';
+            
+            // さらにHPが低い場合は逃走も考慮（10%以下）
+            if ($hpRatio < 0.1) {
+                $actions[] = 'defend'; // 防御の確率を上げる
+            }
         }
         
         return $actions[array_rand($actions)];
+    }
+
+    /**
+     * スキル使用処理
+     * 
+     * @param array $character
+     * @param array $monster
+     * @param string $skillId
+     * @return array
+     */
+    public static function useSkill(array $character, array $monster, string $skillId): array
+    {
+        try {
+            // スキル情報の取得
+            $skills = $character['skills'] ?? [];
+            $skill = null;
+            
+            foreach ($skills as $s) {
+                if (($s['id'] ?? '') == $skillId || ($s['skill_name'] ?? '') == $skillId) {
+                    $skill = $s;
+                    break;
+                }
+            }
+            
+            if (!$skill) {
+                return [
+                    'success' => false,
+                    'message' => 'スキルが見つかりません',
+                    'character' => $character,
+                    'monster' => $monster
+                ];
+            }
+            
+            // SP消費チェック
+            $spCost = $skill['sp_cost'] ?? 10;
+            if (($character['sp'] ?? 0) < $spCost) {
+                return [
+                    'success' => false,
+                    'message' => 'SPが足りません',
+                    'character' => $character,
+                    'monster' => $monster
+                ];
+            }
+            
+            // SP消費
+            $character['sp'] = max(0, ($character['sp'] ?? 0) - $spCost);
+            
+            // スキル効果の適用
+            $skillType = $skill['skill_type'] ?? 'combat';
+            $skillLevel = $skill['level'] ?? 1;
+            
+            switch ($skillType) {
+                case 'combat':
+                    return self::applyCombatSkill($character, $monster, $skill);
+                    
+                case 'magic':
+                    return self::applyMagicSkill($character, $monster, $skill);
+                    
+                case 'defense':
+                    return self::applyDefenseSkill($character, $monster, $skill);
+                    
+                default:
+                    return self::applyGenericSkill($character, $monster, $skill);
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Skill use failed', [
+                'skill_id' => $skillId,
+                'character' => $character['name'] ?? 'Unknown',
+                'error' => $e->getMessage()
+            ]);
+            
+            return [
+                'success' => false,
+                'message' => 'スキル使用に失敗しました',
+                'character' => $character,
+                'monster' => $monster
+            ];
+        }
+    }
+    
+    /**
+     * 戦闘スキル効果の適用
+     */
+    private static function applyCombatSkill(array $character, array $monster, array $skill): array
+    {
+        $skillLevel = $skill['level'] ?? 1;
+        $skillName = $skill['skill_name'] ?? 'スキル';
+        
+        // 攻撃力ボーナス
+        $baseAttack = $character['attack'] ?? 10;
+        $bonusAttack = $baseAttack + ($skillLevel * 5);
+        
+        // 強化された攻撃を実行
+        $enhancedCharacter = $character;
+        $enhancedCharacter['attack'] = $bonusAttack;
+        
+        $attackResult = self::calculateAttack($enhancedCharacter, $monster);
+        $monster = self::applyDamage($monster, $attackResult['damage']);
+        
+        $message = "{$character['name']}は{$skillName}を使った！ ";
+        $message .= $attackResult['hit'] ? 
+            "{$monster['name']}に{$attackResult['damage']}のダメージ！" . 
+            ($attackResult['critical'] ? ' ' . $attackResult['message'] : '') :
+            $attackResult['message'];
+        
+        return [
+            'success' => true,
+            'message' => $message,
+            'character' => $character,
+            'monster' => $monster
+        ];
+    }
+    
+    /**
+     * 魔法スキル効果の適用
+     */
+    private static function applyMagicSkill(array $character, array $monster, array $skill): array
+    {
+        $skillLevel = $skill['level'] ?? 1;
+        $skillName = $skill['skill_name'] ?? '魔法';
+        
+        // 魔法攻撃力ボーナス
+        $baseMagicAttack = $character['magic_attack'] ?? 8;
+        $bonusMagicAttack = $baseMagicAttack + ($skillLevel * 3);
+        
+        // 魔法攻撃を実行
+        $enhancedCharacter = $character;
+        $enhancedCharacter['magic_attack'] = $bonusMagicAttack;
+        
+        $attackResult = self::calculateAttack($enhancedCharacter, $monster, null);
+        $monster = self::applyDamage($monster, $attackResult['damage'], 'magical');
+        
+        $message = "{$character['name']}は{$skillName}を唱えた！ ";
+        $message .= $attackResult['hit'] ? 
+            "{$monster['name']}に{$attackResult['damage']}の魔法ダメージ！" :
+            $attackResult['message'];
+        
+        return [
+            'success' => true,
+            'message' => $message,
+            'character' => $character,
+            'monster' => $monster
+        ];
+    }
+    
+    /**
+     * 防御スキル効果の適用
+     */
+    private static function applyDefenseSkill(array $character, array $monster, array $skill): array
+    {
+        $skillLevel = $skill['level'] ?? 1;
+        $skillName = $skill['skill_name'] ?? '守りのスキル';
+        
+        // 防御力一時的増加
+        $character['defense'] = ($character['defense'] ?? 5) + ($skillLevel * 3);
+        
+        return [
+            'success' => true,
+            'message' => "{$character['name']}は{$skillName}を使い、防御力が上がった！",
+            'character' => $character,
+            'monster' => $monster
+        ];
+    }
+    
+    /**
+     * 汎用スキル効果の適用
+     */
+    private static function applyGenericSkill(array $character, array $monster, array $skill): array
+    {
+        $skillName = $skill['skill_name'] ?? 'スキル';
+        
+        // HP回復効果
+        if (isset($skill['effects']['heal'])) {
+            $healAmount = $skill['effects']['heal'];
+            $character['hp'] = min($character['max_hp'] ?? 100, ($character['hp'] ?? 0) + $healAmount);
+            
+            return [
+                'success' => true,
+                'message' => "{$character['name']}は{$skillName}を使い、{$healAmount}HP回復した！",
+                'character' => $character,
+                'monster' => $monster
+            ];
+        }
+        
+        return [
+            'success' => true,
+            'message' => "{$character['name']}は{$skillName}を使った！",
+            'character' => $character,
+            'monster' => $monster
+        ];
     }
 }

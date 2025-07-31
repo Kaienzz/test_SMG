@@ -260,7 +260,8 @@ public function restoreMp(Request $request) // MP回復
 BaseShopController (抽象クラス)
 ├── ItemShopController    (アイテムショップ)
 ├── BlacksmithController  (鍛冶屋)
-└── [将来的な拡張ショップ]
+├── TavernController      (酒場)
+└── AlchemyShopController (錬金屋) ※2025年7月29日追加
 ```
 
 #### 共通ショップ機能
@@ -280,6 +281,66 @@ BLACKSMITH => [
     'name' => '鍛冶屋', 
     'icon' => '⚒️',
     'description' => '武器・防具を販売・修理'
+],
+ALCHEMY_SHOP => [
+    'name' => '錬金屋',
+    'icon' => '🧪', 
+    'description' => 'アイテム錬金・カスタムアイテム作成'
+]
+```
+
+### 4.3 錬金ショップシステム
+**ファイル**: `app/Http/Controllers/AlchemyShopController.php`, `app/Services/AlchemyShopService.php`
+
+#### 錬金システム概要
+- **ベースアイテム消費**: 公式武器・防具をベースとして消費
+- **素材組み合わせ**: 複数の錬金素材で効果付与
+- **カスタムアイテム生成**: 耐久値継承・ランダム効果適用
+- **マスターワーク確率**: 素材効果により上位品生成可能
+
+#### 錬金処理フロー
+```php
+// AlchemyShopService::performAlchemy()
+1. ベースアイテム検証: 錬金可能（公式アイテムのみ）
+2. 素材効果計算: AlchemyMaterial::calculateCombinedEffects()
+3. マスターワーク判定: 素材パワーに基づく確率計算
+4. ステータス計算: ベース値 + 素材効果 + ランダム変動
+5. 耐久値継承: ベースアイテムの現在耐久値を引き継ぎ
+6. CustomItem生成: データベースへの永続化
+7. インベントリ更新: ベース・素材消費、生成品追加
+```
+
+#### 錬金素材データ
+```php
+// AlchemyMaterial::getBasicMaterialsData()
+'鉄鉱石' => ['attack' => 2, 'defense' => 1],
+'動物の爪' => ['attack' => 3, 'agility' => 1], 
+'ルビー' => ['attack' => 4, 'magic_attack' => 2],
+'サファイア' => ['defense' => 3, 'magic_attack' => 2],
+'エメラルド' => ['agility' => 3, 'evasion' => 2],
+'ダイヤモンド' => ['attack' => 3, 'defense' => 3],
+'ミスリル' => ['attack' => 5, 'agility' => 2],
+'オリハルコン' => ['attack' => 6, 'defense' => 4, 'magic_attack' => 3]
+```
+
+#### カスタムアイテム構造
+```php
+// CustomItem Model
+[
+    'base_item_id' => 1,              // ベースアイテムID
+    'creator_id' => 1,                // 作成者（プレイヤー）ID
+    'custom_name' => '炎の鉄剣+1',     // カスタム名
+    'custom_stats' => [               // JSON: カスタムステータス
+        'attack' => 15,
+        'durability_bonus' => 5
+    ],
+    'base_durability' => 45,          // ベースアイテム耐久値
+    'durability' => 45,               // 現在耐久値
+    'max_durability' => 50,           // 最大耐久値
+    'is_masterwork' => true,          // マスターワーク品
+    'materials_used' => [             // 使用素材記録
+        '鉄鉱石' => 2, 'ルビー' => 1
+    ]
 ]
 ```
 
@@ -306,7 +367,8 @@ resources/views/
 ├── skills/index.blade.php              # スキル画面
 └── shops/
     ├── item/index.blade.php            # アイテムショップ
-    └── blacksmith/index.blade.php      # 鍛冶屋
+    ├── blacksmith/index.blade.php      # 鍛冶屋
+    └── alchemy/index.blade.php         # 錬金屋 ※2025年7月29日追加
 ```
 
 ### 5.2 CSS設計
@@ -359,7 +421,9 @@ database/migrations/
 ├── create_skills_table.php           # スキル  
 ├── create_shops_table.php            # ショップ
 ├── create_shop_items_table.php       # ショップ商品
-└── create_active_effects_table.php   # アクティブ効果
+├── create_active_effects_table.php   # アクティブ効果
+├── create_custom_items_table.php     # カスタムアイテム ※2025年7月29日追加
+└── create_alchemy_materials_table.php # 錬金素材 ※2025年7月29日追加
 ```
 
 ### 6.2 主要テーブル構造
@@ -378,6 +442,15 @@ inventories: id, character_id, item_id, quantity, slot, durability
 -- 装備テーブル
 equipment: character_id, weapon_id, body_armor_id, shield_id, 
           helmet_id, boots_id, accessory_id
+
+-- カスタムアイテムテーブル ※2025年7月29日追加
+custom_items: id, base_item_id, creator_id, custom_name, custom_stats(JSON),
+             base_durability, durability, max_durability, is_masterwork,
+             materials_used(JSON), created_at, updated_at
+
+-- 錬金素材テーブル ※2025年7月29日追加  
+alchemy_materials: id, item_name, stat_bonuses(JSON), durability_bonus,
+                  created_at, updated_at
 ```
 
 ---
@@ -431,6 +504,14 @@ GET  /skills                  # スキル画面
 POST /skills/use              # スキル使用
 ```
 
+### 7.3 ショップ管理ルート ※2025年7月29日追加
+```php
+// 錬金ショップ
+GET  /shops/alchemy           # 錬金ショップ画面
+POST /shops/alchemy/preview   # 錬金プレビュー
+POST /shops/alchemy/perform   # 錬金実行
+```
+
 ---
 
 ## 8. 重要な設定・定数
@@ -479,6 +560,13 @@ DEFAULT_INVENTORY_SLOTS = 20  // デフォルトスロット数
 4 => 'スーパーレア'   (#a855f7)
 5 => 'ウルトラレア'   (#f59e0b)
 6 => 'レジェンダリー' (#ef4444)
+
+// 錬金システム ※2025年7月29日追加
+MASTERWORK_BASE_CHANCE = 20     // マスターワーク基本確率(%)
+RANDOM_VARIATION_MIN = 90       // 通常品ランダム変動最小(%)
+RANDOM_VARIATION_MAX = 110      // 通常品ランダム変動最大(%)
+MASTERWORK_VARIATION_MIN = 120  // マスターワーク品変動最小(%)
+MASTERWORK_VARIATION_MAX = 150  // マスターワーク品変動最大(%)
 ```
 
 ---
@@ -505,6 +593,11 @@ GameController::index()           // メインデータ渡し
 public/js/game.js                 // フロントエンド機能
 resources/views/game/index.blade.php // UI追加
 routes/web.php                    // ルート追加
+
+// 錬金システム拡張時 ※2025年7月29日追加
+AlchemyMaterial::getBasicMaterialsData() // 錬金素材データ
+AlchemyShopService::performAlchemy()     // 錬金処理ロジック
+CustomItem::getFinalStats()             // カスタムアイテム統計
 ```
 
 ### 9.4 デバッグ・トラブルシューティング
@@ -528,9 +621,10 @@ Log::info('Player data:', $playerData);          // ログ出力
 - マルチプレイヤー対応準備
 
 ### 10.2 機能拡張
+- **錬金システム**: ✅ 完了（2025年7月29日）- カスタムアイテム作成機能
 - **新スキル**: 戦闘スキル、魔法スキル追加
 - **新エリア**: ダンジョン、ボス戦エリア
-- **装備強化**: 装備合成・強化システム
+- **装備強化**: 装備合成・強化システム（錬金システムと統合検討）
 - **ギルドシステム**: プレイヤー協力機能
 
 ### 10.3 パフォーマンス改善
@@ -542,3 +636,14 @@ Log::info('Player data:', $playerData);          // ログ出力
 ---
 
 このドキュメントは開発の参考資料として使用し、新機能追加時や既存機能の修正時に参照してください。
+
+---
+
+## 更新履歴
+
+**2025年7月29日**: 錬金システム実装完了
+- CustomItem・AlchemyMaterialモデル追加
+- AlchemyShopController・AlchemyShopService実装
+- 錬金ショップUI・API追加
+- カスタムアイテム作成機能実装
+- データベース設計・ルーティング拡張

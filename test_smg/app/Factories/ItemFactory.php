@@ -131,17 +131,6 @@ class ItemFactory
         return null;
     }
 
-    /**
-     * レアリティでサンプルアイテムをフィルタリング
-     */
-    public static function createSampleItemsByRarity(int $rarity): array
-    {
-        $allSamples = self::createSampleItems();
-        
-        return array_filter($allSamples, function($item) use ($rarity) {
-            return $item->getRarity() === $rarity;
-        });
-    }
 
     /**
      * カテゴリでサンプルアイテムをフィルタリング
@@ -245,19 +234,13 @@ class ItemFactory
     /**
      * ランダムなアイテムを生成
      */
-    public static function createRandomItem(?ItemCategory $category = null, ?int $rarity = null): ItemInterface
+    public static function createRandomItem(?ItemCategory $category = null): ItemInterface
     {
         $samples = self::createSampleItems();
         
         if ($category) {
             $samples = array_filter($samples, function($item) use ($category) {
                 return $item->getCategory() === $category;
-            });
-        }
-        
-        if ($rarity) {
-            $samples = array_filter($samples, function($item) use ($rarity) {
-                return $item->getRarity() === $rarity;
             });
         }
         

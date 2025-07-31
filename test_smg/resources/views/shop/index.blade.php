@@ -17,7 +17,7 @@
                 </div>
                 <div class="bg-green-100 rounded-lg p-4">
                     <div class="text-sm text-gray-600">所持金</div>
-                    <div class="text-2xl font-bold text-green-600" id="player-gold">{{ $character->gold ?? 1000 }}G</div>
+                    <div class="text-2xl font-bold text-green-600" id="player-gold">{{ $player->gold ?? 1000 }}G</div>
                 </div>
             </div>
         </div>

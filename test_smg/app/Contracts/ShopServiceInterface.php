@@ -3,7 +3,7 @@
 namespace App\Contracts;
 
 use App\Models\Shop;
-use App\Models\Character;
+use App\Models\Player;
 
 interface ShopServiceInterface
 {
@@ -11,7 +11,7 @@ interface ShopServiceInterface
     
     public function getShopData(Shop $shop): array;
     
-    public function processTransaction(Shop $shop, Character $character, array $data): array;
+    public function processTransaction(Shop $shop, Player $player, array $data): array;
     
     public function getAvailableServices(Shop $shop): array;
     

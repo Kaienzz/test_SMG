@@ -2,28 +2,46 @@
 
 namespace App\Http\Controllers\Traits;
 
-use App\Models\Character;
+use App\Models\Player;
 use Illuminate\Support\Facades\Auth;
 
 trait HasCharacter
 {
     /**
-     * 認証ユーザーのキャラクターを取得または作成
+     * 認証ユーザーのプレイヤーを取得または作成
      */
-    protected function getOrCreateCharacter(): Character
+    protected function getOrCreatePlayer(): Player
     {
         $user = Auth::user();
-        return $user->getOrCreateCharacter();
+        return $user->getOrCreatePlayer();
     }
 
     /**
-     * 認証ユーザーのキャラクターを取得
-     * キャラクターが存在しない場合はnullを返す
+     * 認証ユーザーのプレイヤーを取得
+     * プレイヤーが存在しない場合はnullを返す
      */
-    protected function getCharacter(): ?Character
+    protected function getPlayer(): ?Player
     {
         $user = Auth::user();
-        return $user->character;
+        return $user->player;
+    }
+
+    /**
+     * 下位互換性のためのgetOrCreateCharacterメソッド
+     * @deprecated getOrCreatePlayer()を使用してください
+     */
+    protected function getOrCreateCharacter(): Player
+    {
+        return $this->getOrCreatePlayer();
+    }
+
+    /**
+     * 下位互換性のためのgetCharacterメソッド
+     * @deprecated getPlayer()を使用してください
+     */
+    protected function getCharacter(): ?Player
+    {
+        return $this->getPlayer();
     }
 
     /**

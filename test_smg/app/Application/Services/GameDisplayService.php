@@ -2,7 +2,7 @@
 
 namespace App\Application\Services;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Domain\Location\LocationService;
 use App\Application\DTOs\GameViewData;
 use App\Application\DTOs\LocationData;
@@ -11,7 +11,7 @@ use App\Application\DTOs\BattleData;
 /**
  * ゲーム表示用データ変換サービス
  * 
- * Character からView用データへの変換を統一管理
+ * Player からView用データへの変換を統一管理
  * GameController の Player オブジェクト生成ロジックを統合
  * Phase 2: DTO統合により型安全性を向上
  */
@@ -24,21 +24,21 @@ class GameDisplayService
     /**
      * ゲーム画面用のView用データを準備
      *
-     * @param Character $character
+     * @param Player $player
      * @return GameViewData
      */
-    public function prepareGameView(Character $character): GameViewData
+    public function prepareGameView(Player $player): GameViewData
     {
-        $currentLocation = $this->locationService->getCurrentLocation($character);
-        $nextLocation = $this->locationService->getNextLocation($character);
-        $locationStatus = $this->locationService->getLocationStatus($character);
+        $currentLocation = $this->locationService->getCurrentLocation($player);
+        $nextLocation = $this->locationService->getNextLocation($player);
+        $locationStatus = $this->locationService->getLocationStatus($player);
         
         // LocationData DTOを作成
         $currentLocationDto = LocationData::fromArray($currentLocation);
         $nextLocationDto = $nextLocation ? LocationData::fromArray($nextLocation) : null;
         
         return GameViewData::create(
-            character: $character,
+            player: $player,
             currentLocation: $currentLocationDto,
             nextLocation: $nextLocationDto,
             locationStatus: $locationStatus
@@ -48,43 +48,47 @@ class GameDisplayService
     /**
      * 戦闘画面用のView用データを準備
      *
-     * @param Character $character
+     * @param Player $player
      * @return BattleData
      */
-    public function prepareBattleView(Character $character): BattleData
+    public function prepareBattleView(Player $player): BattleData
     {
-        return BattleData::forBattleView($character);
+        return BattleData::forBattleView($player);
     }
 
     /**
      * Ajax レスポンス用のゲーム状態データを準備
      *
-     * @param Character $character
+     * @param Player $player
      * @return array
      */
-    public function prepareGameStateResponse(Character $character): array
+    public function prepareGameStateResponse(Player $player): array
     {
-        $currentLocation = $this->locationService->getCurrentLocation($character);
-        $nextLocation = $this->locationService->getNextLocation($character);
-        $locationStatus = $this->locationService->getLocationStatus($character);
+        $currentLocation = $this->locationService->getCurrentLocation($player);
+        $nextLocation = $this->locationService->getNextLocation($player);
+        $locationStatus = $this->locationService->getLocationStatus($player);
+        
+        // LocationData DTOを作成
+        $currentLocationDto = LocationData::fromArray($currentLocation);
+        $nextLocationDto = $nextLocation ? LocationData::fromArray($nextLocation) : null;
         
         return [
-            'character' => [
-                'id' => $character->id,
-                'name' => $character->name,
-                'location_type' => $character->location_type,
-                'location_id' => $character->location_id,
-                'game_position' => $character->game_position,
-                'hp' => $character->hp,
-                'max_hp' => $character->max_hp,
-                'sp' => $character->sp,
-                'max_sp' => $character->max_sp,
-                'gold' => $character->gold,
+            'player' => [
+                'id' => $player->id,
+                'name' => $player->name,
+                'location_type' => $player->location_type,
+                'location_id' => $player->location_id,
+                'game_position' => $player->game_position,
+                'hp' => $player->hp,
+                'max_hp' => $player->max_hp,
+                'sp' => $player->sp,
+                'max_sp' => $player->max_sp,
+                'gold' => $player->gold,
             ],
-            'currentLocation' => $currentLocation,
-            'nextLocation' => $nextLocation,
-            'position' => $character->game_position ?? 0,
-            'location_type' => $character->location_type ?? 'town',
+            'currentLocation' => $currentLocationDto,
+            'nextLocation' => $nextLocationDto,
+            'position' => $player->game_position ?? 0,
+            'location_type' => $player->location_type ?? 'town',
             'isInTown' => $locationStatus['isInTown'],
             'isOnRoad' => $locationStatus['isOnRoad'],
             'canMove' => $locationStatus['canMove'],
@@ -95,18 +99,18 @@ class GameDisplayService
      * View用プレイヤーデータオブジェクトを作成（Playerクラスの代替）
      * 
      * @deprecated Phase 2: DTOに移行済み、下位互換性のため残存
-     * @param Character $character
+     * @param Player $player
      * @param array $locationStatus
      * @return object
      */
-    private function createPlayerData(Character $character, array $locationStatus): object
+    private function createPlayerData(Player $player, array $locationStatus): object
     {
         return (object) [
-            'name' => $character->name ?? 'プレイヤー',
-            'current_location_type' => $character->location_type ?? 'town',
-            'current_location_id' => $character->location_id ?? 'town_a',
-            'position' => $character->game_position ?? 0,
-            'game_position' => $character->game_position ?? 0,
+            'name' => $player->name ?? 'プレイヤー',
+            'current_location_type' => $player->location_type ?? 'town',
+            'current_location_id' => $player->location_id ?? 'town_a',
+            'position' => $player->game_position ?? 0,
+            'game_position' => $player->game_position ?? 0,
             
             // 位置状態メソッド（既存Bladeテンプレート互換性のため）
             'isInTown' => function() use ($locationStatus) {
@@ -115,8 +119,8 @@ class GameDisplayService
             'isOnRoad' => function() use ($locationStatus) {
                 return $locationStatus['isOnRoad'];
             },
-            'getCharacter' => function() use ($character) {
-                return $character;
+            'getPlayer' => function() use ($player) {
+                return $player;
             }
         ];
     }
@@ -125,12 +129,12 @@ class GameDisplayService
      * 移動情報を取得（現在はダミーデータ）
      * 
      * @deprecated Phase 2: MovementInfo DTOに移行済み、下位互換性のため残存
-     * @param Character $character
+     * @param Player $player
      * @return array
      */
-    private function getMovementInfo(Character $character): array
+    private function getMovementInfo(Player $player): array
     {
-        // TODO: 将来的には Character のスキル・装備から動的計算
+        // TODO: 将来的には Player のスキル・装備から動的計算
         return [
             'base_dice_count' => 2,
             'extra_dice' => 1,
@@ -146,21 +150,21 @@ class GameDisplayService
     /**
      * キャラクター統計情報を準備
      *
-     * @param Character $character
+     * @param Player $player
      * @return array
      */
-    public function prepareCharacterStats(Character $character): array
+    public function preparePlayerStats(Player $player): array
     {
         return [
             'basic_stats' => [
-                'level' => $character->level,
-                'experience' => $character->experience,
-                'experience_to_next' => $character->experience_to_next,
-                'gold' => $character->gold,
+                'level' => $player->level,
+                'experience' => $player->experience,
+                'experience_to_next' => $player->experience_to_next,
+                'gold' => $player->gold,
             ],
-            'battle_stats' => $character->getBattleStats(),
-            'status_summary' => $character->getStatusSummary(),
-            'skills' => $character->getSkillList(),
+            'battle_stats' => $player->getBattleStats(),
+            'status_summary' => $player->getStatusSummary(),
+            'skills' => $player->getSkillList(),
         ];
     }
 }

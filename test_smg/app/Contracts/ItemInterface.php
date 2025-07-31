@@ -13,15 +13,12 @@ interface ItemInterface
     public function getName(): string;
     public function getDescription(): string;
     public function getCategory(): ItemCategory;
-    public function getRarity(): int;
     public function getValue(): int;
 
     /**
      * アイテムの表示用情報を取得
      */
     public function getDisplayName(): string;
-    public function getRarityName(): string;
-    public function getRarityColor(): string;
     public function getItemInfo(): array;
 
     /**

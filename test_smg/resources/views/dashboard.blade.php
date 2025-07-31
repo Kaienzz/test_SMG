@@ -25,6 +25,16 @@
                 </div>
             @endif
 
+            <!-- Status Messages -->
+            @if(session('status'))
+                <div class="mb-8 bg-green-50 border border-green-200 text-green-800 rounded-xl p-6 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="text-green-600 mr-3">✅</div>
+                        <div class="text-lg font-medium">{{ session('status') }}</div>
+                    </div>
+                </div>
+            @endif
+
             <div class="bg-white overflow-hidden shadow-lg rounded-2xl border border-slate-200">
                 <div class="p-8 text-slate-900">
                     <div class="text-center mb-8">
@@ -33,7 +43,7 @@
                     </div>
                     
                     @php
-                        $character = Auth::user()->character;
+                        $player = Auth::user()->getOrCreatePlayer();
                     @endphp
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -43,9 +53,9 @@
                                 🎮 <span class="ml-2">ゲーム開始</span>
                             </h4>
                             <p class="text-slate-600 mb-4">
-                                @if($character && $character->location_type !== 'town')
-                                    前回の冒険の続きから始めましょう！現在地: {{ $character->location_id === 'town_a' ? 'A町' : $character->location_id }}
-                                @elseif($character)
+                                @if($player && $player->location_type !== 'town')
+                                    前回の冒険の続きから始めましょう！現在地: {{ $player->location_id === 'town_a' ? 'A町' : $player->location_id }}
+                                @elseif($player)
                                     A町での冒険が待っています！町の施設を利用したり、次の場所へ移動しましょう。
                                 @else
                                     新しい冒険の世界へ旅立ちましょう！A町からあなたの物語が始まります。
@@ -79,7 +89,7 @@
                                onmouseup="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0, 0, 0, 0.15)'"
                                onfocus="this.style.boxShadow='0 0 0 2px rgba(59, 130, 246, 0.8)'"
                                onblur="this.style.boxShadow='0 1px 3px rgba(0, 0, 0, 0.1)'">
-                                @if($character && $character->location_type !== 'town')
+                                @if($player && $player->location_type !== 'town')
                                     冒険を続ける
                                 @else
                                     冒険を始める
@@ -100,30 +110,30 @@
                     </div>
                     
                     <!-- ゲーム情報 -->
-                    @if($character)
+                    @if($player)
                     <div class="mt-8 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-xl p-6">
                         <h4 class="text-slate-800 font-semibold text-xl mb-6 flex items-center">
                             📊 <span class="ml-2">キャラクター情報</span>
                         </h4>
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
                             <div class="text-center bg-white rounded-lg p-4 border border-slate-200">
-                                <div class="text-3xl font-bold text-blue-600 mb-2">{{ $character->level ?? 1 }}</div>
+                                <div class="text-3xl font-bold text-blue-600 mb-2">{{ $player->level ?? 1 }}</div>
                                 <div class="text-slate-600 font-medium">レベル</div>
                             </div>
                             <div class="text-center bg-white rounded-lg p-4 border border-slate-200">
-                                <div class="text-3xl font-bold text-green-600 mb-2">{{ number_format($character->gold ?? 0) }}</div>
+                                <div class="text-3xl font-bold text-green-600 mb-2">{{ number_format($player->gold ?? 0) }}</div>
                                 <div class="text-slate-600 font-medium">所持金 (G)</div>
                             </div>
                             <div class="text-center bg-white rounded-lg p-4 border border-slate-200">
-                                <div class="text-3xl font-bold text-red-600 mb-2">{{ $character->hp ?? 0 }}/{{ $character->max_hp ?? 0 }}</div>
+                                <div class="text-3xl font-bold text-red-600 mb-2">{{ $player->hp ?? 0 }}/{{ $player->max_hp ?? 0 }}</div>
                                 <div class="text-slate-600 font-medium">HP</div>
                             </div>
                             <div class="text-center bg-white rounded-lg p-4 border border-slate-200">
                                 <div class="text-2xl font-bold text-purple-600 mb-2">
-                                    @if($character->location_id === 'town_a')
+                                    @if($player->location_id === 'town_a')
                                         A町
                                     @else
-                                        {{ $character->location_id }}
+                                        {{ $player->location_id }}
                                     @endif
                                 </div>
                                 <div class="text-slate-600 font-medium">現在地</div>

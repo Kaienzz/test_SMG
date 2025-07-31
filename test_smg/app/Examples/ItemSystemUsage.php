@@ -27,7 +27,6 @@ class ItemSystemUsage
             'name' => '薬草',
             'description' => 'HPを20回復する薬草',
             'category' => ItemCategory::POTION,
-            'rarity' => 1,
             'value' => 10,
             'effects' => ['heal_hp' => 20],
             'effect_type' => 'heal_hp',
@@ -43,7 +42,6 @@ class ItemSystemUsage
             'name' => '鉄の剣',
             'description' => '攻撃力+5の基本的な剣',
             'category' => ItemCategory::WEAPON,
-            'rarity' => 1,
             'value' => 100,
             'effects' => ['attack' => 5],
             'weapon_type' => WeaponItem::TYPE_PHYSICAL,
@@ -134,7 +132,7 @@ class ItemSystemUsage
         foreach ($groupedItems as $type => $typeItems) {
             echo "\n--- {$type} ---\n";
             foreach ($typeItems as $item) {
-                echo "- {$item->getName()} (レアリティ: {$item->getRarity()})\n";
+                echo "- {$item->getName()}\n";
                 echo "  {$item->getDescription()}\n";
             }
         }
@@ -149,14 +147,6 @@ class ItemSystemUsage
 
         $allItems = ItemFactory::createSampleItems();
         
-        // レアリティ3以上のアイテムをフィルタ
-        $rareItems = ItemService::filterItems($allItems, ['rarity' => 3]);
-        
-        echo "レアリティ3のアイテム:\n";
-        foreach ($rareItems as $item) {
-            echo "- {$item->getName()}\n";
-        }
-
         // 武器のみをフィルタ
         $weapons = ItemService::filterItems($allItems, ['category' => ItemCategory::WEAPON]);
         

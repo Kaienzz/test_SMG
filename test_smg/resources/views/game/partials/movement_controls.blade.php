@@ -1,6 +1,10 @@
-@if($player->current_location_type === 'road')
+@if($player->location_type === 'road')
 <div class="movement-controls hidden" id="movement-controls">
-    <button class="btn btn-warning" id="move-left" onclick="move('left')">←左に移動</button>
-    <button class="btn btn-warning" id="move-right" onclick="move('right')">→右に移動</button>
+    @if($player->game_position > 0)
+        <button class="btn btn-warning" id="move-left" onclick="move('left')">←左に移動</button>
+    @endif
+    @if($player->game_position < 100)
+        <button class="btn btn-warning" id="move-right" onclick="move('right')">→右に移動</button>
+    @endif
 </div>
 @endif

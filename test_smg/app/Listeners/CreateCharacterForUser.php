@@ -3,7 +3,7 @@
 namespace App\Listeners;
 
 use Illuminate\Auth\Events\Registered;
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Inventory;
 use App\Models\Equipment;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,23 +26,16 @@ class CreateCharacterForUser
     {
         $user = $event->user;
         
-        // キャラクターを作成
-        $character = Character::getOrCreateForUser($user->id);
+        // プレイヤーを作成
+        $player = Player::getOrCreateForUser($user->id);
         
         // インベントリを作成
-        Inventory::createForCharacter($character->id);
+        Inventory::createForPlayer($player->id);
         
         // 装備を作成
-        Equipment::createForCharacter($character->id);
+        Equipment::createForPlayer($player->id);
         
-        // 初期スキルを習得（オプション）
-        $character->learnSkill('combat', '基本攻撃', [
-            'damage_bonus' => 5,
-            'accuracy_bonus' => 10
-        ], 5, 0);
-        
-        $character->learnSkill('movement', '移動', [
-            'agility_bonus' => 3
-        ], 3, 0);
+        // 初期プレイヤースキルを習得（飛脚術と採集のみ）
+        // 基本攻撃と移動は基本能力なのでスキルとして登録しない
     }
 }

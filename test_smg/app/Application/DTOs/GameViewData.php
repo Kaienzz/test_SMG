@@ -2,7 +2,7 @@
 
 namespace App\Application\DTOs;
 
-use App\Models\Character;
+use App\Models\Player;
 
 /**
  * ゲーム画面用のView用データ統一DTO
@@ -13,38 +13,38 @@ use App\Models\Character;
 class GameViewData
 {
     public function __construct(
-        public readonly Character $character,
+        public readonly Player $player,
         public readonly LocationData $currentLocation,
         public readonly ?LocationData $nextLocation,
-        public readonly PlayerData $player,
+        public readonly PlayerData $playerData,
         public readonly MovementInfo $movementInfo,
         public readonly LocationStatus $locationStatus
     ) {}
 
     /**
-     * ファクトリーメソッド: Character から GameViewData を作成
+     * ファクトリーメソッド: Player から GameViewData を作成
      *
-     * @param Character $character
+     * @param Player $player
      * @param LocationData $currentLocation
      * @param LocationData|null $nextLocation
      * @param array $locationStatus
      * @return self
      */
     public static function create(
-        Character $character,
+        Player $player,
         LocationData $currentLocation,
         ?LocationData $nextLocation,
         array $locationStatus
     ): self {
-        $playerData = PlayerData::fromCharacter($character, $locationStatus);
-        $movementInfo = MovementInfo::getDefault($character);
+        $playerData = PlayerData::fromPlayer($player, $locationStatus);
+        $movementInfo = MovementInfo::getDefault($player);
         $locationStatusDto = LocationStatus::fromArray($locationStatus);
 
         return new self(
-            character: $character,
+            player: $player,
             currentLocation: $currentLocation,
             nextLocation: $nextLocation,
-            player: $playerData,
+            playerData: $playerData,
             movementInfo: $movementInfo,
             locationStatus: $locationStatusDto
         );
@@ -58,10 +58,10 @@ class GameViewData
     public function toArray(): array
     {
         return [
-            'character' => $this->character,
-            'player' => $this->player->toObject(), // 既存テンプレート互換性
+            'player' => $this->player, // Player model instance for templates
+            'character' => $this->player, // 下位互換性のためのalias
             'currentLocation' => $this->currentLocation->toObject(),
-            'nextLocation' => $this->nextLocation?->toArray(),
+            'nextLocation' => $this->nextLocation?->toObject(),
             'movementInfo' => $this->movementInfo->toArray(),
             'locationStatus' => $this->locationStatus->toArray(),
         ];
@@ -75,22 +75,22 @@ class GameViewData
     public function toJson(): array
     {
         return [
-            'character' => [
-                'id' => $this->character->id,
-                'name' => $this->character->name,
-                'location_type' => $this->character->location_type,
-                'location_id' => $this->character->location_id,
-                'game_position' => $this->character->game_position,
-                'hp' => $this->character->hp,
-                'max_hp' => $this->character->max_hp,
-                'sp' => $this->character->sp,
-                'max_sp' => $this->character->max_sp,
-                'gold' => $this->character->gold,
+            'player' => [
+                'id' => $this->player->id,
+                'name' => $this->player->name,
+                'location_type' => $this->player->location_type,
+                'location_id' => $this->player->location_id,
+                'game_position' => $this->player->game_position,
+                'hp' => $this->player->hp,
+                'max_hp' => $this->player->max_hp,
+                'sp' => $this->player->sp,
+                'max_sp' => $this->player->max_sp,
+                'gold' => $this->player->gold,
             ],
             'currentLocation' => $this->currentLocation->toArray(),
             'nextLocation' => $this->nextLocation?->toArray(),
-            'position' => $this->character->game_position ?? 0,
-            'location_type' => $this->character->location_type ?? 'town',
+            'position' => $this->player->game_position ?? 0,
+            'location_type' => $this->player->location_type ?? 'town',
             'isInTown' => $this->locationStatus->isInTown,
             'isOnRoad' => $this->locationStatus->isOnRoad,
             'canMove' => $this->locationStatus->canMove,
@@ -118,9 +118,8 @@ class GameViewData
      */
     public function isValid(): bool
     {
-        return $this->character !== null
+        return $this->player !== null
             && $this->currentLocation !== null
-            && $this->player !== null
             && $this->movementInfo !== null
             && $this->locationStatus !== null;
     }
@@ -133,10 +132,10 @@ class GameViewData
     public function __toString(): string
     {
         return sprintf(
-            'GameViewData[character=%s, location=%s, position=%d]',
-            $this->character->name,
+            'GameViewData[player=%s, location=%s, position=%d]',
+            $this->player->name,
             $this->currentLocation->name,
-            $this->character->game_position ?? 0
+            $this->player->game_position ?? 0
         );
     }
 }
@@ -156,14 +155,14 @@ class PlayerData
         private readonly array $locationStatus
     ) {}
 
-    public static function fromCharacter(Character $character, array $locationStatus): self
+    public static function fromPlayer(Player $player, array $locationStatus): self
     {
         return new self(
-            name: $character->name ?? 'プレイヤー',
-            current_location_type: $character->location_type ?? 'town',
-            current_location_id: $character->location_id ?? 'town_a',
-            position: $character->game_position ?? 0,
-            game_position: $character->game_position ?? 0,
+            name: $player->name ?? 'プレイヤー',
+            current_location_type: $player->location_type ?? 'town',
+            current_location_id: $player->location_id ?? 'town_a',
+            position: $player->game_position ?? 0,
+            game_position: $player->game_position ?? 0,
             locationStatus: $locationStatus
         );
     }
@@ -180,7 +179,7 @@ class PlayerData
             // 既存テンプレート互換性のためのメソッド
             'isInTown' => fn() => $this->locationStatus['isInTown'],
             'isOnRoad' => fn() => $this->locationStatus['isOnRoad'],
-            'getCharacter' => fn() => null, // TODO: 実装が必要な場合
+            'getPlayer' => fn() => null, // TODO: 実装が必要な場合
         ];
     }
 }
@@ -201,9 +200,9 @@ class MovementInfo
         public readonly int $max_possible_movement
     ) {}
 
-    public static function getDefault(Character $character): self
+    public static function getDefault(Player $player): self
     {
-        // TODO: 将来的には Character のスキル・装備から動的計算
+        // TODO: 将来的には Player のスキル・装備から動的計算
         return new self(
             base_dice_count: 2,
             extra_dice: 1,

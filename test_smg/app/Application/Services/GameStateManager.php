@@ -2,10 +2,12 @@
 
 namespace App\Application\Services;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Domain\Location\LocationService;
 use App\Application\DTOs\MoveResult;
 use App\Application\DTOs\DiceResult;
+use App\Application\DTOs\LocationData;
+use App\Application\DTOs\EncounterData;
 use App\Services\BattleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,12 +27,12 @@ class GameStateManager
     /**
      * サイコロを振る
      *
-     * @param Character $character
+     * @param Player $player
      * @return DiceResult
      */
-    public function rollDice(Character $character): DiceResult
+    public function rollDice(Player $player): DiceResult
     {
-        // TODO: 将来的にはCharacterのスキル・装備による動的計算
+        // TODO: 将来的にはPlayerのスキル・装備による動的計算
         $dice1 = rand(1, 6);
         $dice2 = rand(1, 6);
         $dice3 = rand(1, 6); // 追加サイコロ
@@ -47,13 +49,13 @@ class GameStateManager
     }
 
     /**
-     * キャラクターを移動させる
+     * プレイヤーを移動させる
      *
-     * @param Character $character
+     * @param Player $player
      * @param Request $request
      * @return MoveResult
      */
-    public function moveCharacter(Character $character, Request $request): MoveResult
+    public function movePlayer(Player $player, Request $request): MoveResult
     {
         $direction = $request->input('direction');
         $steps = $request->input('steps');
@@ -66,48 +68,250 @@ class GameStateManager
         }
         
         // LocationService で移動計算
-        $moveResult = $this->locationService->calculateMovement($character, $steps, $direction);
+        $moveResult = $this->locationService->calculateMovement($player, $steps, $direction);
         
         if (!$moveResult['success']) {
-            return MoveResult::failure($moveResult['error']);
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: $moveResult['error'],
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
         }
         
-        // キャラクター位置を更新
-        $character->update(['game_position' => $moveResult['newPosition']]);
+        // プレイヤー位置を更新
+        $player->update(['game_position' => $moveResult['newPosition']]);
         
-        $currentLocation = $this->locationService->getCurrentLocation($character);
-        $nextLocation = $this->locationService->getNextLocation($character);
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
+        $nextLocationArray = $this->locationService->getNextLocation($player);
+        
+        $currentLocation = LocationData::fromArray($currentLocationArray);
+        $nextLocation = $nextLocationArray ? LocationData::fromArray($nextLocationArray) : null;
         
         // エンカウント判定
-        $encounter = $this->checkEncounter($character);
+        $encounter = $this->checkEncounter($player);
         
-        return MoveResult::success([
-            'position' => $moveResult['newPosition'],
-            'steps_moved' => $moveResult['stepsMoved'],
-            'currentLocation' => $currentLocation,
-            'nextLocation' => $nextLocation,
-            'canMoveToNext' => $moveResult['canMoveToNext'],
-            'canMoveToPrevious' => $moveResult['canMoveToPrevious'],
-        ], $encounter);
+        return MoveResult::success(
+            position: $moveResult['newPosition'],
+            stepsMoved: $moveResult['stepsMoved'],
+            currentLocation: $currentLocation,
+            nextLocation: $nextLocation,
+            canMoveToNext: $moveResult['canMoveToNext'],
+            canMoveToPrevious: $moveResult['canMoveToPrevious'],
+            encounter: $encounter
+        );
+    }
+
+    /**
+     * 特定方向への移動（複数接続システム用）
+     *
+     * @param Player $player
+     * @param string $direction
+     * @return MoveResult
+     */
+    public function moveToDirection(Player $player, string $direction): MoveResult
+    {
+        // 現在町にいるかチェック
+        if ($player->location_type !== 'town') {
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: '方向指定移動は町でのみ可能です',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
+        }
+
+        // 複数接続があるかチェック
+        if (!$this->locationService->hasMultipleConnections($player->location_id)) {
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: 'この町には複数の接続がありません',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
+        }
+
+        // 指定方向への移動先を取得
+        $nextLocation = $this->locationService->getNextLocationFromTownDirection(
+            $player->location_id,
+            $direction
+        );
+
+        if (!$nextLocation) {
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: '指定された方向への移動先が見つかりません',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
+        }
+
+        // 現在の位置情報を取得
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
+
+        // 移動方向に基づく開始位置を計算
+        $newPosition = $this->locationService->calculateStartPosition(
+            $currentLocationArray['type'],
+            $currentLocationArray['id'],
+            $nextLocation['type'],
+            $nextLocation['id']
+        );
+
+        // プレイヤーの位置を更新
+        $player->update([
+            'location_type' => $nextLocation['type'],
+            'location_id' => $nextLocation['id'],
+            'game_position' => $newPosition,
+        ]);
+
+        // 町に入った場合、履歴を更新
+        if ($nextLocation['type'] === 'town') {
+            session(['last_visited_town' => $nextLocation['id']]);
+        }
+
+        // 最新情報を取得
+        $player->refresh();
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
+        $newNextLocationArray = $this->locationService->getNextLocation($player);
+
+        $currentLocation = LocationData::fromArray($currentLocationArray);
+        $newNextLocation = $newNextLocationArray ? LocationData::fromArray($newNextLocationArray) : null;
+
+        // 方向ラベルを取得
+        $connections = $this->locationService->getTownConnections($player->location_id);
+        $directionLabel = $connections[$direction]['direction_label'] ?? $direction;
+
+        return MoveResult::transition(
+            currentLocation: $currentLocation,
+            nextLocation: $newNextLocation,
+            position: $player->game_position ?? 0,
+            message: "方向選択で移動しました（{$directionLabel}）"
+        );
+    }
+
+    /**
+     * 分岐選択による移動
+     *
+     * @param Player $player
+     * @param string $direction
+     * @return MoveResult
+     */
+    public function moveToBranch(Player $player, string $direction): MoveResult
+    {
+        // 現在道路上にいるかチェック
+        if ($player->location_type !== 'road') {
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: '分岐移動は道路上でのみ可能です',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
+        }
+
+        // 分岐可能位置にいるかチェック
+        if (!$this->locationService->hasBranchAt($player->location_id, $player->game_position)) {
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: 'この位置には分岐がありません',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
+        }
+
+        // 分岐先を取得
+        $nextLocation = $this->locationService->getNextLocationFromBranch(
+            $player->location_id,
+            $player->game_position,
+            $direction
+        );
+
+        if (!$nextLocation) {
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: '選択された方向への移動先が見つかりません',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
+        }
+
+        // 現在の位置情報を取得
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
+
+        // 移動方向に基づく開始位置を計算
+        $newPosition = $this->locationService->calculateStartPosition(
+            $currentLocationArray['type'],
+            $currentLocationArray['id'],
+            $nextLocation['type'],
+            $nextLocation['id']
+        );
+
+        // プレイヤーの位置を更新
+        $player->update([
+            'location_type' => $nextLocation['type'],
+            'location_id' => $nextLocation['id'],
+            'game_position' => $newPosition,
+        ]);
+
+        // 町に入った場合、履歴を更新
+        if ($nextLocation['type'] === 'town') {
+            session(['last_visited_town' => $nextLocation['id']]);
+        }
+
+        // 最新情報を取得
+        $player->refresh();
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
+        $newNextLocationArray = $this->locationService->getNextLocation($player);
+
+        $currentLocation = LocationData::fromArray($currentLocationArray);
+        $newNextLocation = $newNextLocationArray ? LocationData::fromArray($newNextLocationArray) : null;
+
+        return MoveResult::transition(
+            currentLocation: $currentLocation,
+            nextLocation: $newNextLocation,
+            position: $player->game_position ?? 0,
+            message: "分岐を選択して移動しました（{$direction}）"
+        );
     }
 
     /**
      * 次の場所に移動する
      *
-     * @param Character $character
+     * @param Player $player
      * @return MoveResult
      */
-    public function moveToNextLocation(Character $character): MoveResult
+    public function moveToNextLocation(Player $player): MoveResult
     {
-        $nextLocation = $this->locationService->getNextLocation($character);
+        $nextLocation = $this->locationService->getNextLocation($player);
         
         if (!$nextLocation) {
-            return MoveResult::failure('次の場所が見つかりません');
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: '次の場所が見つかりません',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
         }
         
-        $newPosition = $nextLocation['type'] === 'road' ? 50 : 0;
+        // 現在の位置情報を取得
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
         
-        $character->update([
+        // 移動方向に基づく開始位置を計算
+        $newPosition = $this->locationService->calculateStartPosition(
+            $currentLocationArray['type'],
+            $currentLocationArray['id'],
+            $nextLocation['type'],
+            $nextLocation['id']
+        );
+        
+        $player->update([
             'location_type' => $nextLocation['type'],
             'location_id' => $nextLocation['id'],
             'game_position' => $newPosition,
@@ -119,50 +323,123 @@ class GameStateManager
         }
         
         // 最新情報を取得
-        $character->refresh();
-        $currentLocation = $this->locationService->getCurrentLocation($character);
-        $newNextLocation = $this->locationService->getNextLocation($character);
+        $player->refresh();
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
+        $newNextLocationArray = $this->locationService->getNextLocation($player);
         
-        return MoveResult::transition([
-            'currentLocation' => $currentLocation,
-            'position' => $character->game_position ?? 0,
-            'nextLocation' => $newNextLocation,
-            'location_type' => $character->location_type ?? 'town',
+        $currentLocation = LocationData::fromArray($currentLocationArray);
+        $newNextLocation = $newNextLocationArray ? LocationData::fromArray($newNextLocationArray) : null;
+        
+        return MoveResult::transition(
+            currentLocation: $currentLocation,
+            nextLocation: $newNextLocation,
+            position: $player->game_position ?? 0,
+            message: '移動しました'
+        );
+    }
+
+    /**
+     * 直接移動（サイコロなし移動）
+     *
+     * @param Player $player
+     * @param string|null $direction 分岐での方向指定
+     * @param string|null $townDirection 町での方向指定
+     * @return MoveResult
+     */
+    public function moveDirectly(Player $player, ?string $direction = null, ?string $townDirection = null): MoveResult
+    {
+        // 直接移動が可能かチェック
+        if (!$this->locationService->canMoveDirectly($player)) {
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: '現在の位置からは直接移動できません',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
+        }
+
+        // 直接移動を実行
+        $moveResult = $this->locationService->moveDirectly($player, $direction, $townDirection);
+        
+        if (!$moveResult['success']) {
+            $currentLocationArray = $this->locationService->getCurrentLocation($player);
+            $currentLocation = LocationData::fromArray($currentLocationArray);
+            return MoveResult::failure(
+                error: $moveResult['error'] ?? '移動に失敗しました',
+                currentPosition: $player->game_position ?? 0,
+                currentLocation: $currentLocation
+            );
+        }
+
+        $destination = $moveResult['destination'];
+        $startPosition = $moveResult['startPosition'];
+
+        // プレイヤー情報を更新
+        $player->update([
+            'location_type' => $destination['type'],
+            'location_id' => $destination['id'],
+            'game_position' => $startPosition,
         ]);
+
+        // 町に入った場合、履歴を更新
+        if ($destination['type'] === 'town') {
+            session(['last_visited_town' => $destination['id']]);
+        }
+
+        // 最新情報を取得
+        $player->refresh();
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
+        $newNextLocationArray = $this->locationService->getNextLocation($player);
+
+        $currentLocation = LocationData::fromArray($currentLocationArray);
+        $newNextLocation = $newNextLocationArray ? LocationData::fromArray($newNextLocationArray) : null;
+
+        return MoveResult::transition(
+            currentLocation: $currentLocation,
+            nextLocation: $newNextLocation,
+            position: $player->game_position ?? 0,
+            message: 'サイコロを使わずに移動しました'
+        );
     }
 
     /**
      * ゲーム状態をリセットする
      *
-     * @param Character $character
+     * @param Player $player
      * @return MoveResult
      */
-    public function resetGameState(Character $character): MoveResult
+    public function resetGameState(Player $player): MoveResult
     {
-        $character->update([
+        $player->update([
             'location_type' => 'town',
             'location_id' => 'town_a',
             'game_position' => 0,
         ]);
         
-        $currentLocation = $this->locationService->getCurrentLocation($character);
-        $nextLocation = $this->locationService->getNextLocation($character);
+        $currentLocationArray = $this->locationService->getCurrentLocation($player);
+        $nextLocationArray = $this->locationService->getNextLocation($player);
         
-        return MoveResult::success([
-            'currentLocation' => $currentLocation,
-            'position' => 0,
-            'nextLocation' => $nextLocation,
-            'message' => 'ゲームがリセットされました'
-        ]);
+        $currentLocation = LocationData::fromArray($currentLocationArray);
+        $nextLocation = $nextLocationArray ? LocationData::fromArray($nextLocationArray) : null;
+        
+        return MoveResult::success(
+            position: 0,
+            stepsMoved: 0,
+            currentLocation: $currentLocation,
+            nextLocation: $nextLocation,
+            canMoveToNext: false,
+            canMoveToPrevious: false
+        );
     }
 
     /**
      * セッションデータをデータベースに移行する
      * 
-     * @param Character $character
+     * @param Player $player
      * @return void
      */
-    public function migrateSessionToDatabase(Character $character): void
+    public function migrateSessionToDatabase(Player $player): void
     {
         $userId = Auth::id();
         $sessionKey = "user_{$userId}_game_data";
@@ -172,36 +449,40 @@ class GameStateManager
             $sessionData = session($sessionKey) ?? [];
             
             // セッションからlocation情報を取得（フォールバック付き）
-            $locationType = $sessionData['location_type'] ?? session('location_type', $character->location_type ?? 'town');
-            $locationId = $sessionData['location_id'] ?? session('location_id', $character->location_id ?? 'town_a');
-            $gamePosition = $sessionData['game_position'] ?? session('game_position', $character->game_position ?? 0);
+            $locationType = $sessionData['location_type'] ?? session('location_type', $player->location_type ?? 'town');
+            $locationId = $sessionData['location_id'] ?? session('location_id', $player->location_id ?? 'town_a');
+            $gamePosition = $sessionData['game_position'] ?? session('game_position', $player->game_position ?? 0);
+            
+            // 戦闘が最近終了した場合（過去5分以内にPlayerが更新された場合）はlocation移行をスキップ
+            $recentlyUpdated = $player->updated_at && $player->updated_at->diffInMinutes(now()) < 5;
             
             // DBのlocation情報が初期値の場合のみセッションデータで更新
-            if (!$character->location_type || $character->location_type === 'town') {
-                $character->updateLocation($locationType, $locationId, $gamePosition);
+            // ただし、戦闘終了直後など最近更新された場合は移行しない
+            if ((!$player->location_type || ($player->location_type === 'town' && !$recentlyUpdated)) && !$recentlyUpdated) {
+                $player->updateLocation($locationType, $locationId, $gamePosition);
             }
             
             // リソース情報も移行（SP, Gold）
-            if (isset($sessionData['character_sp']) && $character->sp !== $sessionData['character_sp']) {
-                $character->update(['sp' => $sessionData['character_sp']]);
+            if (isset($sessionData['player_sp']) && $player->sp !== $sessionData['player_sp']) {
+                $player->update(['sp' => $sessionData['player_sp']]);
             }
-            if (isset($sessionData['character_gold']) && $character->gold !== $sessionData['character_gold']) {
-                $character->update(['gold' => $sessionData['character_gold']]);
+            if (isset($sessionData['player_gold']) && $player->gold !== $sessionData['player_gold']) {
+                $player->update(['gold' => $sessionData['player_gold']]);
             }
             
             // セッション個別キーも移行
-            if (session()->has('character_sp') && $character->sp !== session('character_sp')) {
-                $character->update(['sp' => session('character_sp')]);
+            if (session()->has('player_sp') && $player->sp !== session('player_sp')) {
+                $player->update(['sp' => session('player_sp')]);
             }
-            if (session()->has('character_gold') && $character->gold !== session('character_gold')) {
-                $character->update(['gold' => session('character_gold')]);
+            if (session()->has('player_gold') && $player->gold !== session('player_gold')) {
+                $player->update(['gold' => session('player_gold')]);
             }
             
             // セッションデータを削除（移行完了）
             session()->forget([
                 $sessionKey, 
                 'location_type', 'location_id', 'game_position',
-                'character_sp', 'character_gold'
+                'player_sp', 'player_gold'
             ]);
         }
     }
@@ -209,15 +490,15 @@ class GameStateManager
     /**
      * ターン効果処理
      *
-     * @param Character $character
+     * @param Player $player
      * @return void
      */
-    public function processTurnEffects(Character $character): void
+    public function processTurnEffects(Player $player): void
     {
-        $character->restoreSP(2);
-        $character->save();
+        $player->restoreSP(2);
+        $player->save();
 
-        $activeEffects = $character->activeEffects()
+        $activeEffects = $player->activeEffects()
                                   ->where('is_active', true)
                                   ->where('remaining_duration', '>', 0)
                                   ->get();
@@ -230,14 +511,18 @@ class GameStateManager
     /**
      * エンカウント判定
      *
-     * @param Character $character
-     * @return array|null
+     * @param Player $player
+     * @return EncounterData|null
      */
-    private function checkEncounter(Character $character): ?array
+    private function checkEncounter(Player $player): ?EncounterData
     {
         // 道路にいる場合のみエンカウント判定
-        if ($character->location_type === 'road') {
-            return BattleService::checkEncounter($character->location_id);
+        if ($player->location_type === 'road') {
+            $encounterArray = BattleService::checkEncounter($player->location_id);
+            
+            if ($encounterArray) {
+                return EncounterData::fromArray($encounterArray);
+            }
         }
         
         return null;

@@ -22,7 +22,6 @@ class Item extends Model
         'stack_limit',
         'max_durability',
         'effects',
-        'rarity',
         'value',
         'sell_price',
         'battle_skill_id',
@@ -34,7 +33,6 @@ class Item extends Model
         'stack_limit' => 'integer',
         'max_durability' => 'integer',
         'effects' => 'array',
-        'rarity' => 'integer',
         'value' => 'integer',
         'sell_price' => 'integer',
     ];
@@ -124,29 +122,6 @@ class Item extends Model
         return !empty($this->battle_skill_id);
     }
 
-    public function getRarityName(): string
-    {
-        return match($this->rarity) {
-            1 => 'コモン',
-            2 => 'アンコモン',
-            3 => 'レア',
-            4 => 'エピック',
-            5 => 'レジェンダリー',
-            default => 'コモン',
-        };
-    }
-
-    public function getRarityColor(): string
-    {
-        return match($this->rarity) {
-            1 => '#9ca3af', // グレー
-            2 => '#10b981', // グリーン
-            3 => '#3b82f6', // ブルー
-            4 => '#8b5cf6', // パープル
-            5 => '#f59e0b', // オレンジ
-            default => '#9ca3af',
-        };
-    }
 
     public function getSellPrice(): int
     {
@@ -164,9 +139,6 @@ class Item extends Model
             'stack_limit' => $this->getStackLimit(),
             'max_durability' => $this->getMaxDurability(),
             'effects' => $this->getEffects(),
-            'rarity' => $this->rarity,
-            'rarity_name' => $this->getRarityName(),
-            'rarity_color' => $this->getRarityColor(),
             'value' => $this->value,
             'sell_price' => $this->getSellPrice(),
             'is_equippable' => $this->isEquippable(),
@@ -192,7 +164,6 @@ class Item extends Model
                 'category' => ItemCategory::POTION->value,
                 'stack_limit' => 50,
                 'effects' => ['heal_hp' => 5],
-                'rarity' => 1,
                 'value' => 10,
             ],
             [
@@ -201,7 +172,6 @@ class Item extends Model
                 'category' => ItemCategory::POTION->value,
                 'stack_limit' => 50,
                 'effects' => ['heal_mp' => 30],
-                'rarity' => 1,
                 'value' => 15,
             ],
             [
@@ -210,7 +180,6 @@ class Item extends Model
                 'category' => ItemCategory::WEAPON->value,
                 'max_durability' => 100,
                 'effects' => ['attack' => 5],
-                'rarity' => 1,
                 'value' => 100,
                 'weapon_type' => self::WEAPON_TYPE_PHYSICAL,
             ],
@@ -220,7 +189,6 @@ class Item extends Model
                 'category' => ItemCategory::WEAPON->value,
                 'max_durability' => 80,
                 'effects' => ['magic_attack' => 6],
-                'rarity' => 2,
                 'value' => 150,
                 'weapon_type' => self::WEAPON_TYPE_MAGICAL,
                 'battle_skill_id' => 'fire_magic',
@@ -231,7 +199,6 @@ class Item extends Model
                 'category' => ItemCategory::WEAPON->value,
                 'max_durability' => 80,
                 'effects' => ['magic_attack' => 5],
-                'rarity' => 2,
                 'value' => 140,
                 'weapon_type' => self::WEAPON_TYPE_MAGICAL,
                 'battle_skill_id' => 'ice_magic',
@@ -242,7 +209,6 @@ class Item extends Model
                 'category' => ItemCategory::BODY_EQUIPMENT->value,
                 'max_durability' => 80,
                 'effects' => ['defense' => 3],
-                'rarity' => 1,
                 'value' => 80,
             ],
             [
@@ -251,7 +217,6 @@ class Item extends Model
                 'category' => ItemCategory::SHIELD,
                 'max_durability' => 90,
                 'effects' => ['defense' => 2],
-                'rarity' => 1,
                 'value' => 60,
             ],
             [
@@ -259,7 +224,6 @@ class Item extends Model
                 'description' => '武器や防具の素材となる鉱石',
                 'category' => ItemCategory::MATERIAL,
                 'stack_limit' => 99,
-                'rarity' => 1,
                 'value' => 5,
             ],
             [
@@ -268,7 +232,6 @@ class Item extends Model
                 'category' => ItemCategory::BAG,
                 'max_durability' => 120,
                 'effects' => ['inventory_slots' => 2],
-                'rarity' => 2,
                 'value' => 200,
             ],
         ];
@@ -319,7 +282,6 @@ class Item extends Model
             'name' => $data['name'],
             'description' => $data['description'],
             'category' => $data['category'],
-            'rarity' => $data['rarity'],
             'value' => $data['value'],
             'effects' => $data['effects'],
             'stack_limit' => $data['stack_limit'] ?? null,

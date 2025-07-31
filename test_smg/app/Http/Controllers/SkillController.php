@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Skill;
 use App\Models\ActiveEffect;
 use Illuminate\Http\Request;
@@ -15,20 +15,20 @@ class SkillController extends Controller
     public function index(Request $request): View
     {
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
-        $skills = $character->getActiveSkills();
-        $activeEffects = $character->activeEffects()
+        $player = $user->getOrCreatePlayer();
+        $skills = $player->getActiveSkills();
+        $activeEffects = $player->activeEffects()
                                   ->where('is_active', true)
                                   ->where('remaining_duration', '>', 0)
                                   ->get();
         $sampleSkills = Skill::getSampleSkills();
         
         return view('skills.index', compact(
-            'character',
+            'player',
             'skills',
             'activeEffects',
             'sampleSkills'
-        ));
+        ) + ['character' => $player]); // 下位互換性のためのalias
     }
 
     public function useSkill(Request $request): JsonResponse
@@ -38,31 +38,31 @@ class SkillController extends Controller
         ]);
 
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
         $skillName = $request->skill_name;
         
-        // キャラクターがスキルを持っているか確認
-        if (!$character->hasSkill($skillName)) {
+        // プレイヤーがプレイヤースキルを持っているか確認
+        if (!$player->hasSkill($skillName)) {
             return response()->json([
                 'success' => false,
-                'message' => 'そのスキルを習得していません。',
+                'message' => 'そのプレイヤースキルを習得していません。',
             ], 400);
         }
         
-        // スキル使用処理
-        $result = $character->useSkill($skillName);
+        // プレイヤースキル使用処理
+        $result = $player->useSkill($skillName);
         
         if ($result['success']) {
             return response()->json([
                 'success' => true,
                 'message' => $result['message'],
-                'character_sp' => $character->sp,
+                'character_sp' => $player->sp,
                 'sp_consumed' => $result['sp_consumed'],
                 'experience_gained' => $result['experience_gained'] ?? 0,
                 'leveled_up' => $result['leveled_up'] ?? false,
                 'skill_level' => $result['skill_level'] ?? 1,
                 'effect_applied' => $result['effect_applied'] ?? null,
-                'updated_skills' => $character->getActiveSkills(),
+                'updated_skills' => $player->getActiveSkills(),
             ]);
         } else {
             return response()->json([
@@ -79,13 +79,13 @@ class SkillController extends Controller
         ]);
 
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
         $skillName = $request->skill_name;
         
-        if ($character->hasSkill($skillName)) {
+        if ($player->hasSkill($skillName)) {
             return response()->json([
                 'success' => false,
-                'message' => 'そのスキルは既に習得済みです。',
+                'message' => 'そのプレイヤースキルは既に習得済みです。',
             ], 400);
         }
         
@@ -95,12 +95,12 @@ class SkillController extends Controller
         if (!$skillData) {
             return response()->json([
                 'success' => false,
-                'message' => 'スキルが見つかりません。',
+                'message' => 'プレイヤースキルが見つかりません。',
             ], 404);
         }
 
-        $skill = Skill::createForCharacter(
-            $character->id,
+        $skill = Skill::createForPlayer(
+            $player->id,
             $skillData['skill_type'],
             $skillData['skill_name'],
             $skillData['effects'],
@@ -110,7 +110,7 @@ class SkillController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "スキル「{$skillName}」を習得しました。",
+            'message' => "プレイヤースキル「{$skillName}」を習得しました。",
             'skill' => [
                 'id' => $skill->id,
                 'name' => $skill->skill_name,
@@ -118,16 +118,16 @@ class SkillController extends Controller
                 'level' => $skill->level,
                 'sp_cost' => $skill->getSkillSpCost(),
             ],
-            'updated_skills' => $character->getActiveSkills(),
+            'updated_skills' => $player->getActiveSkills(),
         ]);
     }
 
     public function getActiveEffects(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
         
-        $activeEffects = $character->activeEffects()
+        $activeEffects = $player->activeEffects()
                                   ->where('is_active', true)
                                   ->where('remaining_duration', '>', 0)
                                   ->get()
@@ -150,9 +150,9 @@ class SkillController extends Controller
     public function decreaseEffectDurations(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
         
-        $activeEffects = $character->activeEffects()
+        $activeEffects = $player->activeEffects()
                                   ->where('is_active', true)
                                   ->where('remaining_duration', '>', 0)
                                   ->get();
@@ -169,7 +169,7 @@ class SkillController extends Controller
             'success' => true,
             'message' => '効果の持続時間を減少させました。',
             'expired_effects' => $expiredEffects,
-            'remaining_effects' => $character->activeEffects()
+            'remaining_effects' => $player->activeEffects()
                                            ->where('is_active', true)
                                            ->where('remaining_duration', '>', 0)
                                            ->get()

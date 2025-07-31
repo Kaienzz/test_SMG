@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Shop;
 use App\Models\ShopItem;
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Item;
 use App\Services\ItemService;
 use Illuminate\Http\Request;
@@ -17,9 +17,9 @@ class ShopController extends Controller
     public function index(Request $request): View|JsonResponse
     {
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
         
-        if ($character->location_type !== 'town') {
+        if ($player->location_type !== 'town') {
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
@@ -30,7 +30,7 @@ class ShopController extends Controller
             return redirect('/game')->with('error', '道具屋は町にのみ存在します。');
         }
 
-        $shop = Shop::findByLocation($character->location_id, $character->location_type);
+        $shop = Shop::findByLocation($player->location_id, $player->location_type);
         
         if (!$shop) {
             if ($request->wantsJson()) {
@@ -48,10 +48,10 @@ class ShopController extends Controller
         return view('shop.index', [
             'shop' => $shop,
             'shopItems' => $shopItems,
-            'character' => $character,
+            'player' => $player,
             'currentLocation' => [
-                'type' => $character->location_type,
-                'id' => $character->location_id,
+                'type' => $player->location_type,
+                'id' => $player->location_id,
             ],
         ]);
     }
@@ -82,12 +82,12 @@ class ShopController extends Controller
 
         $totalPrice = $shopItem->price * $quantity;
         $user = Auth::user();
-        $character = $user->getOrCreateCharacter();
+        $player = $user->getOrCreatePlayer();
 
-        if (!$character->hasGold($totalPrice)) {
+        if (!$player->hasGold($totalPrice)) {
             return response()->json([
                 'success' => false,
-                'message' => "Gが足りません。必要: {$totalPrice}G, 所持: {$character->gold}G"
+                'message' => "Gが足りません。必要: {$totalPrice}G, 所持: {$player->gold}G"
             ], 400);
         }
 
@@ -98,7 +98,7 @@ class ShopController extends Controller
             ], 400);
         }
 
-        if (!$character->spendGold($totalPrice)) {
+        if (!$player->spendGold($totalPrice)) {
             $shopItem->stock += $quantity;
             $shopItem->save();
             
@@ -109,12 +109,12 @@ class ShopController extends Controller
         }
 
         $itemService = new ItemService();
-        $addResult = $itemService->addItemToInventory($character->id, $shopItem->item_id, $quantity);
+        $addResult = $itemService->addItemToInventory($player->id, $shopItem->item_id, $quantity);
 
         if (!$addResult['success']) {
             $shopItem->stock += $quantity;
             $shopItem->save();
-            $character->addGold($totalPrice);
+            $player->addGold($totalPrice);
             
             return response()->json([
                 'success' => false,
@@ -122,7 +122,7 @@ class ShopController extends Controller
             ], 400);
         }
 
-        $character->save();
+        $player->save();
 
         return response()->json([
             'success' => true,
@@ -133,7 +133,7 @@ class ShopController extends Controller
                 'total_price' => $totalPrice,
             ],
             'character' => [
-                'remaining_gold' => $character->gold,
+                'remaining_gold' => $player->gold,
             ],
             'shop_item' => [
                 'remaining_stock' => $shopItem->stock,

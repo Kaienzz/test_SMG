@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Inventory;
 use App\Models\Item;
 use App\Enums\ItemCategory;
@@ -15,12 +15,12 @@ class InventoryController extends Controller
 {
     public function index(): View
     {
-        // Database-First: 認証ユーザーのキャラクターとインベントリを取得
-        $character = Auth::user()->getOrCreateCharacter();
-        $inventory = Inventory::createForCharacter($character->id);
+        // Database-First: 認証ユーザーのプレイヤーとインベントリを取得
+        $player = Auth::user()->getOrCreatePlayer();
+        $inventory = Inventory::createForPlayer($player->id);
         
         // セッション→DB移行: 既存セッションデータがあればDBに反映
-        $this->migrateInventorySessionToDatabase($inventory, $character->id);
+        $this->migrateInventorySessionToDatabase($inventory, $player->id);
         
         $inventoryData = $inventory->getInventoryData();
         
@@ -44,7 +44,7 @@ class InventoryController extends Controller
         ];
         
         return view('inventory.index', [
-            'character' => $character,
+            'player' => $player,
             'inventoryData' => $inventoryData,
             'categories' => [],
             'sampleItems' => $sampleItems,
@@ -53,12 +53,12 @@ class InventoryController extends Controller
 
     public function show(): JsonResponse
     {
-        $character = Auth::user()->getOrCreateCharacter();
-        $inventory = Inventory::createForCharacter($character->id);
+        $player = Auth::user()->getOrCreatePlayer();
+        $inventory = Inventory::createForPlayer($player->id);
         
         return response()->json([
             'inventory' => $inventory->getInventoryData(),
-            'character' => $character->getStatusSummary(),
+            'character' => $player->getStatusSummary(),
         ]);
     }
 
@@ -70,8 +70,8 @@ class InventoryController extends Controller
                 'quantity' => 'integer|min:1|max:999',
             ]);
 
-            $character = Auth::user()->getOrCreateCharacter();
-            $inventory = Inventory::createForCharacter($character->id);
+            $player = Auth::user()->getOrCreatePlayer();
+            $inventory = Inventory::createForPlayer($player->id);
             
             $item = Item::findSampleItem($request->input('item_name'));
             
@@ -114,8 +114,8 @@ class InventoryController extends Controller
             'quantity' => 'integer|min:1|max:999',
         ]);
 
-        $character = Auth::user()->getOrCreateCharacter();
-        $inventory = Inventory::createForCharacter($character->id);
+        $player = Auth::user()->getOrCreatePlayer();
+        $inventory = Inventory::createForPlayer($player->id);
         
         $slotIndex = $request->input('slot_index');
         $quantity = $request->input('quantity', 1);
@@ -141,11 +141,11 @@ class InventoryController extends Controller
             'slot_index' => 'required|integer|min:0',
         ]);
 
-        $character = Auth::user()->getOrCreateCharacter();
-        $inventory = Inventory::createForCharacter($character->id);
+        $player = Auth::user()->getOrCreatePlayer();
+        $inventory = Inventory::createForPlayer($player->id);
         
         $slotIndex = $request->input('slot_index');
-        $result = $inventory->useItem($slotIndex, $character);
+        $result = $inventory->useItem($slotIndex, $player);
         
         // Save inventory state to database after modification
         if ($result['success']) {
@@ -157,7 +157,7 @@ class InventoryController extends Controller
             'message' => $result['message'],
             'effects' => $result['effects'] ?? [],
             'inventory' => $inventory->getInventoryData(),
-            'character' => $result['character'] ?? $character->getStatusSummary(),
+            'character' => $result['character'] ?? $player->getStatusSummary(),
         ]);
     }
 
@@ -167,8 +167,8 @@ class InventoryController extends Controller
             'additional_slots' => 'required|integer|min:1|max:20',
         ]);
 
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
+        $player = Auth::user()->getOrCreatePlayer();
+        $inventory = Inventory::createForPlayer($player->id);
         
         $additionalSlots = $request->input('additional_slots');
         $inventory->expandSlots($additionalSlots);
@@ -207,8 +207,8 @@ class InventoryController extends Controller
 
     public function addSampleItems(): JsonResponse
     {
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
+        $player = Auth::user()->getOrCreatePlayer();
+        $inventory = Inventory::createForPlayer($player->id);
         
         $inventory->addSampleItems();
 
@@ -221,8 +221,8 @@ class InventoryController extends Controller
 
     public function clearInventory(): JsonResponse
     {
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
+        $player = Auth::user()->getOrCreatePlayer();
+        $inventory = Inventory::createForPlayer($player->id);
         
         $inventory->setSlotData([]);
 
@@ -261,8 +261,8 @@ class InventoryController extends Controller
             'to_slot' => 'required|integer|min:0',
         ]);
 
-        $character = $this->getOrCreateCharacter();
-        $inventory = $this->getOrCreateInventory($character);
+        $player = Auth::user()->getOrCreatePlayer();
+        $inventory = Inventory::createForPlayer($player->id);
         
         $fromSlot = $request->input('from_slot');
         $toSlot = $request->input('to_slot');
@@ -305,9 +305,9 @@ class InventoryController extends Controller
     /**
      * セッションインベントリデータをデータベースに移行する安全なブリッジメソッド
      */
-    private function migrateInventorySessionToDatabase(Inventory $inventory, int $characterId): void
+    private function migrateInventorySessionToDatabase(Inventory $inventory, int $playerId): void
     {
-        $sessionKey = 'inventory_data_' . $characterId;
+        $sessionKey = 'inventory_data_' . $playerId;
         
         // セッションにインベントリデータがある場合はDBに移行
         if (session()->has($sessionKey)) {
@@ -343,6 +343,9 @@ class InventoryController extends Controller
                         'description' => $item['name'] === '薬草' ? 'HPを回復する' : '毒を治す',
                         'effect' => $item['name'] === '薬草' ? 'heal' : 'cure_poison',
                         'value' => $item['name'] === '薬草' ? 30 : 0,
+                        'is_usable' => $item['type'] === 'consumable',
+                        'is_equippable' => false,
+                        'max_durability' => null,
                     ],
                 ];
             }

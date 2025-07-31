@@ -10,7 +10,6 @@ class MaterialItem extends AbstractItem
         'name',
         'description',
         'category',
-        'rarity',
         'value',
         'effects',
         'stack_limit',
@@ -24,7 +23,6 @@ class MaterialItem extends AbstractItem
 
     protected $casts = [
         'category' => ItemCategory::class,
-        'rarity' => 'integer',
         'value' => 'integer',
         'effects' => 'array',
         'stack_limit' => 'integer',
@@ -60,7 +58,7 @@ class MaterialItem extends AbstractItem
      */
     public function getMaterialGrade(): int
     {
-        return $this->material_grade ?? $this->getRarity();
+        return $this->material_grade ?? 1;
     }
 
     /**
@@ -79,20 +77,6 @@ class MaterialItem extends AbstractItem
         return (int) round($this->getValue() * 0.9);
     }
 
-    /**
-     * 素材の希少度による説明を取得
-     */
-    public function getRarityDescription(): string
-    {
-        return match($this->getRarity()) {
-            1 => '一般的な素材',
-            2 => '良質な素材',
-            3 => '稀少な素材', 
-            4 => '極稀少な素材',
-            5 => '伝説級の素材',
-            default => '未知の素材',
-        };
-    }
 
     private function determineMaterialTypeFromName(): string
     {
@@ -149,7 +133,6 @@ class MaterialItem extends AbstractItem
             'material_grade' => $this->getMaterialGrade(),
             'crafting_uses' => $this->getCraftingUses(),
             'sell_value' => $this->getSellValue(),
-            'rarity_description' => $this->getRarityDescription(),
         ]);
     }
 
@@ -164,7 +147,6 @@ class MaterialItem extends AbstractItem
                 'name' => '鉄鉱石',
                 'description' => '武器や防具の素材となる鉱石',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 1,
                 'value' => 5,
                 'stack_limit' => 99,
                 'material_type' => 'ore',
@@ -176,7 +158,6 @@ class MaterialItem extends AbstractItem
                 'name' => '銀鉱石',
                 'description' => '上質な武器や防具を作るのに使われる銀の鉱石',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 2,
                 'value' => 15,
                 'stack_limit' => 99,
                 'material_type' => 'ore',
@@ -188,7 +169,6 @@ class MaterialItem extends AbstractItem
                 'name' => 'ミスリル鉱石',
                 'description' => '魔法の力を宿した希少な鉱石',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 4,
                 'value' => 100,
                 'stack_limit' => 50,
                 'material_type' => 'ore',
@@ -202,7 +182,6 @@ class MaterialItem extends AbstractItem
                 'name' => '普通の木材',
                 'description' => 'ごく一般的な木材',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 1,
                 'value' => 3,
                 'stack_limit' => 99,
                 'material_type' => 'wood',
@@ -214,7 +193,6 @@ class MaterialItem extends AbstractItem
                 'name' => '神木の枝',
                 'description' => '神聖な力を持つ樹の枝',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 5,
                 'value' => 500,
                 'stack_limit' => 10,
                 'material_type' => 'wood',
@@ -228,7 +206,6 @@ class MaterialItem extends AbstractItem
                 'name' => 'ウルフの毛皮',
                 'description' => 'オオカミの丈夫な毛皮',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 2,
                 'value' => 20,
                 'stack_limit' => 50,
                 'material_type' => 'leather',
@@ -240,7 +217,6 @@ class MaterialItem extends AbstractItem
                 'name' => 'ドラゴンレザー',
                 'description' => 'ドラゴンの鱗を加工した究極の革',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 5,
                 'value' => 1000,
                 'stack_limit' => 5,
                 'material_type' => 'leather',
@@ -254,7 +230,6 @@ class MaterialItem extends AbstractItem
                 'name' => 'ルビー',
                 'description' => '炎の力を宿した赤い宝石',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 3,
                 'value' => 80,
                 'stack_limit' => 20,
                 'material_type' => 'gem',
@@ -266,7 +241,6 @@ class MaterialItem extends AbstractItem
                 'name' => 'サファイア',
                 'description' => '水の力を宿した青い宝石',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 3,
                 'value' => 80,
                 'stack_limit' => 20,
                 'material_type' => 'gem',
@@ -280,7 +254,6 @@ class MaterialItem extends AbstractItem
                 'name' => '薬草',
                 'description' => '治癒効果のある一般的な薬草',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 1,
                 'value' => 2,
                 'stack_limit' => 99,
                 'material_type' => 'herb',
@@ -292,7 +265,6 @@ class MaterialItem extends AbstractItem
                 'name' => '万能薬草',
                 'description' => 'あらゆる病気に効く奇跡の薬草',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 4,
                 'value' => 200,
                 'stack_limit' => 10,
                 'material_type' => 'herb',
@@ -306,7 +278,6 @@ class MaterialItem extends AbstractItem
                 'name' => '魔法の粉',
                 'description' => '不思議な力を持つ謎の粉',
                 'category' => ItemCategory::MATERIAL,
-                'rarity' => 2,
                 'value' => 25,
                 'stack_limit' => 50,
                 'material_type' => 'misc',

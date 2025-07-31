@@ -2,24 +2,24 @@
 
 namespace App\Services;
 
-use App\Models\Character;
+use App\Models\Player;
 use App\Models\Equipment;
 use App\Models\Skill;
 use App\Models\ActiveEffect;
 
 class MovementService
 {
-    public function calculateDiceRoll(int $characterId = null): array
+    public function calculateDiceRoll(int $playerId = null): array
     {
         $baseDiceCount = 2;
         $baseDiceSides = 6;
         $bonusToTotal = 0;
         $extraDice = 0;
         
-        if ($characterId) {
-            $character = Character::find($characterId);
-            if ($character) {
-                $equipment = $character->getEquipment();
+        if ($playerId) {
+            $player = Player::find($playerId);
+            if ($player) {
+                $equipment = $player->getEquipment();
                 $equipmentStats = $equipment->getTotalStats();
                 
                 $bonusToTotal = $equipmentStats['effects']['dice_bonus'] ?? 0;
@@ -53,7 +53,7 @@ class MovementService
         ];
     }
     
-    public function calculateMovementEffects(int $characterId = null): array
+    public function calculateMovementEffects(int $playerId = null): array
     {
         $effects = [
             'dice_bonus' => 0,
@@ -62,12 +62,12 @@ class MovementService
             'special_effects' => [],
         ];
         
-        if ($characterId) {
-            $character = Character::find($characterId);
-            if ($character) {
-                $equipmentEffects = $this->getEquipmentMovementEffects($character);
-                $skillEffects = $this->getSkillMovementEffects($character);
-                $itemEffects = $this->getItemMovementEffects($character);
+        if ($playerId) {
+            $player = Player::find($playerId);
+            if ($player) {
+                $equipmentEffects = $this->getEquipmentMovementEffects($player);
+                $skillEffects = $this->getSkillMovementEffects($player);
+                $itemEffects = $this->getItemMovementEffects($player);
                 
                 $effects = $this->mergeEffects($effects, $equipmentEffects, $skillEffects, $itemEffects);
             }
@@ -76,9 +76,9 @@ class MovementService
         return $effects;
     }
     
-    private function getEquipmentMovementEffects(Character $character): array
+    private function getEquipmentMovementEffects(Player $player): array
     {
-        $equipment = $character->getEquipment();
+        $equipment = $player->getEquipment();
         $equipmentStats = $equipment->getTotalStats();
         
         return [
@@ -89,9 +89,9 @@ class MovementService
         ];
     }
     
-    private function getSkillMovementEffects(Character $character): array
+    private function getSkillMovementEffects(Player $player): array
     {
-        $skills = Skill::where('character_id', $character->id)
+        $skills = Skill::where('player_id', $player->id)
                       ->where('is_active', true)
                       ->get();
         
@@ -120,9 +120,9 @@ class MovementService
         return $effects;
     }
     
-    private function getItemMovementEffects(Character $character): array
+    private function getItemMovementEffects(Player $player): array
     {
-        $activeEffects = ActiveEffect::where('character_id', $character->id)
+        $activeEffects = ActiveEffect::where('player_id', $player->id)
                                    ->where('is_active', true)
                                    ->where('remaining_duration', '>', 0)
                                    ->get();
@@ -177,9 +177,9 @@ class MovementService
         return $merged;
     }
     
-    public function calculateActualMovement(int $baseDiceTotal, int $characterId = null): array
+    public function calculateActualMovement(int $baseDiceTotal, int $playerId = null): array
     {
-        $movementEffects = $this->calculateMovementEffects($characterId);
+        $movementEffects = $this->calculateMovementEffects($playerId);
         
         $finalMovement = (int) round($baseDiceTotal * $movementEffects['movement_multiplier']);
         
@@ -191,10 +191,10 @@ class MovementService
         ];
     }
     
-    public function rollDiceWithEffects(int $characterId = null): array
+    public function rollDiceWithEffects(int $playerId = null): array
     {
-        $diceResult = $this->calculateDiceRoll($characterId);
-        $movementResult = $this->calculateActualMovement($diceResult['total'], $characterId);
+        $diceResult = $this->calculateDiceRoll($playerId);
+        $movementResult = $this->calculateActualMovement($diceResult['total'], $playerId);
         
         return [
             'dice' => $diceResult,
@@ -203,9 +203,9 @@ class MovementService
         ];
     }
     
-    public function getMovementInfo(int $characterId = null): array
+    public function getMovementInfo(int $playerId = null): array
     {
-        $effects = $this->calculateMovementEffects($characterId);
+        $effects = $this->calculateMovementEffects($playerId);
         
         $baseDiceCount = 2;
         $totalDiceCount = $baseDiceCount + $effects['extra_dice'];
