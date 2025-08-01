@@ -1,0 +1,580 @@
+/* Game Layout Optimized - Scroll-free Design */
+
+/* CSS Custom Properties from Design System */
+:root {
+  /* Colors */
+  --color-primary-50: #eff6ff;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f8fafc;
+  --color-background: #f9fafb;
+  --color-border: #e5e7eb;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  
+  /* Spacing */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  
+  /* Border Radius */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Base Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+/* Main Game Container - CSS Grid Layout */
+.game-layout {
+  display: grid;
+  min-height: 100vh;
+  max-height: 100vh;
+  grid-template-areas: 
+    "header header header"
+    "location-info main-actions quick-actions";
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 280px 1fr 240px;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2);
+  background: var(--color-background);
+  overflow: hidden;
+}
+
+/* Header Area */
+.game-header {
+  grid-area: header;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing-4);
+  border: 1px solid var(--color-border);
+}
+
+.game-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.game-header nav {
+  display: flex;
+  gap: var(--spacing-3);
+  align-items: center;
+}
+
+.game-header nav a {
+  padding: var(--spacing-2) var(--spacing-4);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  border: 1px solid var(--color-border);
+}
+
+.game-header nav a:hover {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-500);
+}
+
+/* Location Info Area */
+.location-info-area {
+  grid-area: location-info;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+  box-shadow: var(--shadow-sm);
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  max-height: calc(100vh - 120px);
+}
+
+.location-info-area h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-3);
+  color: var(--color-text-primary);
+}
+
+.location-info-area p {
+  margin-bottom: var(--spacing-2);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Progress Bar */
+.progress-bar {
+  width: 100%;
+  height: 24px;
+  background: #e5e7eb;
+  border-radius: 12px;
+  position: relative;
+  margin: var(--spacing-3) 0;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #3b82f6);
+  border-radius: 12px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  font-size: 0.75rem;
+}
+
+/* Shop Menu */
+.shop-menu {
+  background: #e0f7fa;
+  border: 1px solid #00acc1;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  margin: var(--spacing-3) 0;
+}
+
+.shop-menu h3 {
+  font-size: 1rem;
+  margin-bottom: var(--spacing-2);
+  color: #00695c;
+}
+
+.shop-menu .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: 0.75rem;
+}
+
+/* Main Actions Area */
+.main-actions-area {
+  grid-area: main-actions;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  border: 1px solid var(--color-border);
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+}
+
+.dice-container {
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-4);
+  text-align: center;
+}
+
+.dice-container h3 {
+  font-size: 1.125rem;
+  margin-bottom: var(--spacing-3);
+  color: var(--color-text-primary);
+}
+
+.movement-info {
+  background: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  margin-bottom: var(--spacing-4);
+  text-align: left;
+}
+
+.movement-info h4 {
+  color: #0ea5e9;
+  font-size: 0.875rem;
+  margin-bottom: var(--spacing-2);
+}
+
+.movement-info p {
+  margin: var(--spacing-1) 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.dice-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-4);
+  margin: var(--spacing-4) 0;
+  flex-wrap: wrap;
+}
+
+.dice-display {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-3);
+  margin: var(--spacing-3) 0;
+}
+
+.dice {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #333;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  background: white;
+}
+
+.step-indicator {
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  margin: var(--spacing-2) 0;
+}
+
+/* Quick Actions Area */
+.quick-actions-area {
+  grid-area: quick-actions;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  border: 1px solid var(--color-border);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* Movement Controls */
+.movement-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.next-location {
+  background: #e8f5e8;
+  border: 1px solid #4caf50;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  text-align: center;
+}
+
+.next-location p {
+  margin-bottom: var(--spacing-2);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Branch Selection */
+.branch-selection {
+  background: #fff3e0;
+  border: 1px solid #ff9800;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+}
+
+.branch-selection h3 {
+  color: #e65100;
+  font-size: 1rem;
+  margin-bottom: var(--spacing-2);
+}
+
+.branch-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.branch-options .btn {
+  text-align: left;
+  padding: var(--spacing-2);
+  font-size: 0.75rem;
+}
+
+/* Multiple Connections */
+.multiple-connections {
+  background: #e8f5e8;
+  border: 1px solid #4caf50;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+}
+
+.multiple-connections h3 {
+  color: #2e7d32;
+  font-size: 1rem;
+  margin-bottom: var(--spacing-2);
+}
+
+.connection-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+/* Button Styles */
+.btn {
+  padding: var(--spacing-2) var(--spacing-4);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-1);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: var(--color-primary-500);
+  color: white;
+  border-color: var(--color-primary-600);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-600);
+}
+
+.btn-success {
+  background: #10b981;
+  color: white;
+  border-color: #059669;
+}
+
+.btn-success:hover {
+  background: #059669;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+  border-color: #d97706;
+}
+
+.btn-warning:hover {
+  background: #d97706;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border-color: #dc2626;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-info {
+  background: #06b6d4;
+  color: white;
+  border-color: #0891b2;
+}
+
+.btn-info:hover {
+  background: #0891b2;
+}
+
+/* Utility Classes */
+.hidden {
+  display: none !important;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* Toggle Controls */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Road Actions */
+.road-actions {
+  margin-top: var(--spacing-3);
+}
+
+.road-actions h3 {
+  font-size: 1rem;
+  margin-bottom: var(--spacing-2);
+  color: var(--color-text-primary);
+}
+
+.gathering-section {
+  display: flex;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+}
+
+/* Mobile Responsive */
+@media (max-width: 1024px) {
+  .game-layout {
+    grid-template-areas: 
+      "header"
+      "main-actions"
+      "location-info"
+      "quick-actions";
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    max-height: 100vh;
+  }
+  
+  .location-info-area,
+  .main-actions-area,
+  .quick-actions-area {
+    max-height: none;
+  }
+  
+  .main-actions-area {
+    max-height: 40vh;
+  }
+  
+  .location-info-area {
+    max-height: 25vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .game-layout {
+    padding: var(--spacing-1);
+    gap: var(--spacing-1);
+  }
+  
+  .game-header,
+  .location-info-area,
+  .main-actions-area,
+  .quick-actions-area {
+    padding: var(--spacing-3);
+  }
+  
+  .game-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+  }
+  
+  .game-header h1 {
+    font-size: 1.25rem;
+  }
+  
+  .game-header nav {
+    gap: var(--spacing-2);
+  }
+  
+  .game-header nav a {
+    padding: var(--spacing-1) var(--spacing-3);
+    font-size: 0.75rem;
+  }
+  
+  .btn {
+    font-size: 0.75rem;
+    padding: var(--spacing-1) var(--spacing-3);
+  }
+  
+  .dice {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+  
+  .branch-options,
+  .connection-options {
+    flex-direction: column;
+  }
+  
+  .shop-menu .btn {
+    font-size: 0.675rem;
+    padding: var(--spacing-1) var(--spacing-2);
+  }
+}
+
+/* Custom Scrollbar */
+.location-info-area::-webkit-scrollbar,
+.main-actions-area::-webkit-scrollbar,
+.quick-actions-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.location-info-area::-webkit-scrollbar-track,
+.main-actions-area::-webkit-scrollbar-track,
+.quick-actions-area::-webkit-scrollbar-track {
+  background: var(--color-surface-secondary);
+  border-radius: 3px;
+}
+
+.location-info-area::-webkit-scrollbar-thumb,
+.main-actions-area::-webkit-scrollbar-thumb,
+.quick-actions-area::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.location-info-area::-webkit-scrollbar-thumb:hover,
+.main-actions-area::-webkit-scrollbar-thumb:hover,
+.quick-actions-area::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}

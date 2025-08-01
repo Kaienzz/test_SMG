@@ -167,6 +167,14 @@ class Item extends Model
                 'value' => 10,
             ],
             [
+                'name' => 'ヒールポーション',
+                'description' => 'HPを30回復するポーション',
+                'category' => ItemCategory::POTION->value,
+                'stack_limit' => 10,
+                'effects' => ['heal_hp' => 30],
+                'value' => 15,
+            ],
+            [
                 'name' => 'マナポーション',
                 'description' => 'MPを30回復するポーション',
                 'category' => ItemCategory::POTION->value,
