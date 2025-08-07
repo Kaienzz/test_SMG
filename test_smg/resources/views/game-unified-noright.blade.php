@@ -59,7 +59,7 @@
     @endif
 </head>
 <body>
-    <div class="game-unified-layout" 
+    <div class="game-unified-layout game-layout-noright" 
          data-game-state="{{ $gameState }}"
          data-location-id="{{ $currentLocation->id ?? 'town_a' }}"
          data-location-type="{{ $currentLocation->type ?? 'town' }}">
@@ -86,66 +86,36 @@
                     <a href="/inventory">インベントリー</a>
                     <a href="/skills">スキル</a>
                 @endif
-                
-                {{-- Layout Switcher --}}
-                <div class="layout-switcher">
-                    <button class="layout-btn" onclick="switchLayout('default')" title="従来レイアウト">
-                        <span class="layout-icon">📱</span>
-                    </button>
-                    <button class="layout-btn active" onclick="switchLayout('unified')" title="3カラムレイアウト">
-                        <span class="layout-icon">🖥️</span>
-                    </button>
-                    <button class="layout-btn" onclick="switchLayout('noright')" title="2カラムレイアウト">
-                        <span class="layout-icon">📺</span>
-                    </button>
-                </div>
-                
                 <a href="/">ホーム</a>
             </nav>
         </header>
 
-        {{-- Left Area --}}
+        {{-- Background Image Area --}}
+        <div class="unified-background-image">
+            {{-- Background images will be displayed here via CSS --}}
+        </div>
+
+        {{-- Left Area (Merged with Right content) --}}
         <aside class="unified-left-area">
             @if($gameState === 'town')
-                @include('game-states.town-left', [
+                @include('game-states-noright.town-left-merged', [
                     'player' => $player ?? $character,
                     'currentLocation' => $currentLocation
                 ])
             @elseif($gameState === 'road')
-                @include('game-states.road-left', [
+                @include('game-states-noright.road-left-merged', [
                     'player' => $player ?? $character,
                     'currentLocation' => $currentLocation,
                     'nextLocation' => $nextLocation ?? null,
                     'movementInfo' => $movementInfo ?? []
                 ])
             @elseif($gameState === 'battle')
-                @include('game-states.battle-left', [
+                @include('game-states-noright.battle-left-merged', [
                     'character' => $character ?? $player,
                     'monster' => $monster ?? []
                 ])
             @endif
         </aside>
-
-        {{-- Background Image Area --}}
-        <div class="unified-background-image">
-            {{-- Background images will be displayed here via CSS --}}
-            
-            {{-- Player Status Overlay --}}
-            <div class="background-player-status">
-                <div class="status-item-compact">
-                    <span class="stat-label">HP</span>
-                    <span class="stat-value hp">{{ $player->hp ?? $character['hp'] ?? 100 }}/{{ $player->max_hp ?? $character['max_hp'] ?? 100 }}</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="stat-label">MP</span>
-                    <span class="stat-value mp">{{ $player->mp ?? $character['mp'] ?? 20 }}/{{ $player->max_mp ?? $character['max_mp'] ?? 20 }}</span>
-                </div>
-                <div class="status-item-compact">
-                    <span class="stat-label">SP</span>
-                    <span class="stat-value sp">{{ $player->sp ?? $character['sp'] ?? 30 }}/{{ $player->max_sp ?? $character['max_sp'] ?? 30 }}</span>
-                </div>
-            </div>
-        </div>
 
         {{-- Main Area --}}
         <main class="unified-main-area">
@@ -169,29 +139,6 @@
                 ])
             @endif
         </main>
-
-        {{-- Right Area --}}
-        <aside class="unified-right-area">
-            @if($gameState === 'town')
-                @include('game-states.town-right', [
-                    'player' => $player ?? $character,
-                    'currentLocation' => $currentLocation
-                ])
-            @elseif($gameState === 'road')
-                @include('game-states.road-right', [
-                    'player' => $player ?? $character,
-                    'currentLocation' => $currentLocation,
-                    'nextLocation' => $nextLocation ?? null,
-                    'movementInfo' => $movementInfo ?? []
-                ])
-            @elseif($gameState === 'battle')
-                @include('game-states.battle-right', [
-                    'character' => $character ?? $player,
-                    'monster' => $monster ?? [],
-                    'battle' => $battle ?? []
-                ])
-            @endif
-        </aside>
     </div>
 
     {{-- Unified JavaScript --}}
@@ -232,7 +179,7 @@
         // Add transition effects when switching between states
         function addStateTransitionEffects() {
             const layout = document.querySelector('.game-unified-layout');
-            const areas = layout.querySelectorAll('.unified-left-area, .unified-background-image, .unified-main-area, .unified-right-area');
+            const areas = layout.querySelectorAll('.unified-left-area, .unified-background-image, .unified-main-area');
             
             // Add entrance animation
             areas.forEach((area, index) => {
@@ -436,8 +383,7 @@
         
         .state-changing .unified-left-area,
         .state-changing .unified-background-image,
-        .state-changing .unified-main-area,
-        .state-changing .unified-right-area {
+        .state-changing .unified-main-area {
             opacity: 0.7;
             transform: scale(0.98);
             transition: all var(--transition-normal);
