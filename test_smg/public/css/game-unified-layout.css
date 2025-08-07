@@ -180,6 +180,54 @@ html, body {
   color: var(--color-sp);
 }
 
+/* Layout Switcher */
+.layout-switcher {
+  display: flex;
+  gap: var(--spacing-1);
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-1);
+}
+
+.layout-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-1) var(--spacing-2);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--font-size-sm);
+}
+
+.layout-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+.layout-btn.active {
+  background: var(--color-primary-500);
+  border-color: var(--color-primary-600);
+  color: white;
+  font-weight: 600;
+}
+
+.layout-btn.active:hover {
+  background: var(--color-primary-600);
+}
+
+.layout-switcher.switching {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.layout-icon {
+  display: inline-block;
+  font-size: 14px;
+}
+
 /* Mobile responsive for background status */
 @media (max-width: 768px) {
   .background-player-status {
@@ -195,6 +243,21 @@ html, body {
   
   .status-item-compact .stat-label {
     min-width: 20px;
+  }
+  
+  /* Mobile layout switcher */
+  .layout-switcher {
+    padding: var(--spacing-1);
+    gap: 2px;
+  }
+  
+  .layout-btn {
+    padding: var(--spacing-1);
+    font-size: var(--font-size-xs);
+  }
+  
+  .layout-icon {
+    font-size: 12px;
   }
 }
 
@@ -1842,4 +1905,102 @@ html, body {
   .battle-status {
     align-items: flex-start;
   }
+}
+
+/* === Seamless Transition System === */
+
+/* 遷移アニメーションのベースコンテナ */
+.game-container,
+.main-content,
+.game-unified-layout {
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* 遷移開始時（フェードアウト） */
+.game-container.transition-out,
+.main-content.transition-out,
+.game-unified-layout.transition-out {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* 遷移完了時（フェードイン） */
+.game-container.transition-in,
+.main-content.transition-in,
+.game-unified-layout.transition-in {
+  opacity: 1;
+  transform: translateY(0);
+  animation: slideInFade 0.3s ease-out;
+}
+
+/* フェードイン・スライドインアニメーション */
+@keyframes slideInFade {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 状態遷移時のローディング表示 */
+.game-layout-noright.transitioning {
+  position: relative;
+}
+
+.game-layout-noright.transitioning::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+}
+
+.game-layout-noright.transitioning::after {
+  content: '遷移中...';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+/* スムーズな背景画像遷移 */
+.unified-background-image {
+  transition: opacity 0.5s ease-in-out;
+}
+
+.unified-background-image.transitioning {
+  opacity: 0.7;
+}
+
+/* ボタンの遷移時無効化表示 */
+.btn.transitioning {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* 遷移効果のパフォーマンス最適化 */
+.game-container,
+.main-content,
+.game-unified-layout,
+.unified-background-image {
+  will-change: transform, opacity;
+}
+
+/* 遷移完了後のwill-changeクリーンアップ用クラス */
+.transition-complete {
+  will-change: auto;
 }

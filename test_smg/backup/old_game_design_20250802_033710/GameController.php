@@ -22,100 +22,73 @@ class GameController extends Controller
     
     public function index(Request $request): View
     {
-        \Log::info('🚀 [DEBUG] =============== GameController@index START ===============');
-        \Log::info('🚀 [DEBUG] Request URL: ' . $request->fullUrl());
-        \Log::info('🚀 [DEBUG] User ID: ' . auth()->id());
-        
         // Database-First: 認証ユーザーのプレイヤーを取得または作成
         $player = $this->getOrCreatePlayer();
-        
-        // キャッシュ問題修正: DBから最新データを強制取得
-        $player->refresh();
-        \Log::info('🚀 [DEBUG] Player retrieved/created (after refresh):', [
-            'id' => $player->id,
-            'location_type' => $player->location_type,
-            'location_id' => $player->location_id, 
-            'game_position' => $player->game_position,
-            'updated_at' => $player->updated_at->toISOString()
-        ]);
-        
-        // セッション詳細分析: Phase 2 Task 2.1
-        \Log::info('🚀 [DEBUG] ======= DETAILED SESSION ANALYSIS (Phase 2) =======');
-        \Log::info('🚀 [DEBUG] Session basic info:', [
-            'session_id' => session()->getId(),
-            'all_session_keys' => array_keys(session()->all())
-        ]);
-        
-        // 個別セッションキーの値を詳細チェック
-        $sessionKeys = ['location_type', 'location_id', 'game_position', 'player_sp', 'player_gold'];
-        foreach ($sessionKeys as $key) {
-            if (session()->has($key)) {
-                \Log::info("🚀 [DEBUG] Session '{$key}':", ['value' => session($key), 'type' => gettype(session($key))]);
-            }
-        }
-        
-        // プレイヤー固有セッションキーをチェック
-        $userSessionKeys = [
-            "user_" . auth()->id() . "_game_data",
-            "player_" . $player->id . "_location",
-            "player_" . $player->id . "_state"
-        ];
-        foreach ($userSessionKeys as $key) {
-            if (session()->has($key)) {
-                \Log::info("🚀 [DEBUG] User session '{$key}':", ['data' => session($key)]);
-            }
-        }
-        
-        // セッション内の全データを出力（セキュリティ上問題ないかチェック）
-        $allSessionData = session()->all();
-        unset($allSessionData['_token']); // CSRFトークンは除外
-        \Log::info('🚀 [DEBUG] All session data (filtered):', $allSessionData);
         
         // セッション→DB移行: GameStateManagerに委譲
         $this->gameStateManager->migrateSessionToDatabase($player);
         
-        // 移行後のプレイヤー状態を確認
-        $player->refresh();
-        \Log::info('🚀 [DEBUG] Player state after migration:', [
-            'id' => $player->id,
-            'location_type' => $player->location_type,
-            'location_id' => $player->location_id,
-            'game_position' => $player->game_position,
-            'updated_at' => $player->updated_at->toISOString()
-        ]);
-        
-        // セッション状態の変化を確認
-        \Log::info('🚀 [DEBUG] ======= SESSION STATE AFTER MIGRATION =======');
-        $postMigrationKeys = array_keys(session()->all());
-        \Log::info('🚀 [DEBUG] Session keys after migration:', $postMigrationKeys);
-        
-        // 残っているセッションデータをチェック
-        foreach ($sessionKeys as $key) {
-            if (session()->has($key)) {
-                \Log::info("🚀 [DEBUG] Session '{$key}' still exists:", ['value' => session($key)]);
-            }
-        }
-        
         // GameDisplayService で View用データを統一準備（DTO使用）
         $gameViewDto = $this->gameDisplayService->prepareGameView($player);
         
-        // 直接統合レイアウト（noright）を使用
-        $viewData = $gameViewDto->toArray();
-        \Log::info('🚀 [DEBUG] GameDisplayService results:', [
-            'currentLocation' => $viewData['currentLocation'] ?? null,
-            'nextLocation' => $viewData['nextLocation'] ?? null,
-            'gameState' => $viewData['gameState'] ?? 'unknown'
-        ]);
+        // レイアウト選択機能
+        $layout = $this->getLayoutPreference($request);
         
-        $unifiedData = $this->prepareUnifiedLayoutData($viewData, $player);
-        $detectedGameState = $this->detectGameState($player);
-        \Log::info('🚀 [DEBUG] Detected game state: ' . $detectedGameState);
-        
-        \Log::info('🚀 [DEBUG] =============== GameController@index END ===============');
-        
-        return view('game-unified-noright', $unifiedData);
+        // レイアウトに応じてビューを選択
+        return $this->renderGameView($layout, $gameViewDto, $player);
     }
     
+    /**
+     * ユーザーのレイアウト設定を取得
+     */
+    private function getLayoutPreference(Request $request): string
+    {
+        // URLパラメータ優先
+        if ($request->has('layout')) {
+            $layout = $request->input('layout');
+            if (in_array($layout, ['default', 'unified', 'noright'])) {
+                // セッションに保存
+                session(['game_layout' => $layout]);
+                return $layout;
+            }
+        }
+        
+        // セッションから取得（デフォルトを 'noright' に変更）
+        return session('game_layout', 'noright');
+    }
+    
+    /**
+     * レイアウトに応じたビューをレンダリング
+     */
+    private function renderGameView(string $layout, $gameViewDto, $player): View
+    {
+        $viewData = $gameViewDto->toArray();
+        
+        switch ($layout) {
+            case 'unified':
+                return $this->renderUnifiedLayout($viewData, $player, false);
+                
+            case 'noright':
+                return $this->renderUnifiedLayout($viewData, $player, true);
+                
+            default:
+                // 従来のレイアウト（下位互換性）
+                return view('game.index', $viewData);
+        }
+    }
+    
+    /**
+     * 統合レイアウトをレンダリング
+     */
+    private function renderUnifiedLayout(array $viewData, $player, bool $noRight = false): View
+    {
+        // 統合レイアウト用のデータ変換
+        $unifiedData = $this->prepareUnifiedLayoutData($viewData, $player);
+        
+        $template = $noRight ? 'game-unified-noright' : 'game-unified';
+        
+        return view($template, $unifiedData);
+    }
     
     /**
      * 統合レイアウト用のデータ準備
@@ -124,12 +97,6 @@ class GameController extends Controller
     {
         // ゲーム状態の検出
         $gameState = $this->detectGameState($player);
-        
-        // 町の接続情報を追加（町にいる場合のみ）
-        $townConnections = null;
-        if ($player->location_type === 'town') {
-            $townConnections = $this->locationService->getTownConnections($player->location_id);
-        }
         
         return [
             'gameState' => $gameState,
@@ -140,7 +107,6 @@ class GameController extends Controller
             'movementInfo' => $viewData['movementInfo'] ?? [],
             'monster' => $viewData['monster'] ?? null,
             'battle' => $viewData['battle'] ?? null,
-            'townConnections' => $townConnections, // 町の実際の接続情報
         ];
     }
     
@@ -169,23 +135,9 @@ class GameController extends Controller
     public function rollDice(Request $request): JsonResponse
     {
         $player = $this->getOrCreatePlayer();
-        
-        // Check if player is on a road (can roll dice)
-        $locationType = $player->location_type ?? 'town';
-        if ($locationType !== 'road') {
-            return response()->json([
-                'success' => false,
-                'error' => '町にいるときはサイコロを振ることができません。道路に移動してください。',
-                'location_type' => $locationType
-            ], 400);
-        }
-        
         $diceResult = $this->gameStateManager->rollDice($player);
         
-        $response = $diceResult->toArray();
-        $response['success'] = true;
-        
-        return response()->json($response);
+        return response()->json($diceResult->toArray());
     }
     
     public function move(Request $request): JsonResponse
@@ -204,30 +156,7 @@ class GameController extends Controller
     public function moveToNext(Request $request): JsonResponse
     {
         $player = $this->getOrCreatePlayer();
-        
-        // セッション詳細分析: 移動処理前
-        \Log::info('🚀 [DEBUG] ======= SESSION BEFORE MOVE_TO_NEXT =======');
-        $sessionBeforeMove = session()->all();
-        unset($sessionBeforeMove['_token']);
-        \Log::info('🚀 [DEBUG] Session before movement:', $sessionBeforeMove);
-        
         $result = $this->gameStateManager->moveToNextLocation($player);
-        
-        // セッション詳細分析: 移動処理後
-        \Log::info('🚀 [DEBUG] ======= SESSION AFTER MOVE_TO_NEXT =======');
-        $sessionAfterMove = session()->all();
-        unset($sessionAfterMove['_token']);
-        \Log::info('🚀 [DEBUG] Session after movement:', $sessionAfterMove);
-        
-        // セッションの変化を検出
-        $addedKeys = array_diff(array_keys($sessionAfterMove), array_keys($sessionBeforeMove));
-        $removedKeys = array_diff(array_keys($sessionBeforeMove), array_keys($sessionAfterMove));
-        if (!empty($addedKeys) || !empty($removedKeys)) {
-            \Log::info('🚀 [DEBUG] Session changes detected:', [
-                'added_keys' => $addedKeys,
-                'removed_keys' => $removedKeys
-            ]);
-        }
         
         return response()->json($result->toArray());
     }

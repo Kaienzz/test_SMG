@@ -217,9 +217,9 @@ class Player extends Model
             'accuracy' => 90,
             'gold' => 500,
             'location_type' => 'town',
-            'location_id' => 'town_a',
+            'location_id' => 'town_prima',
             'game_position' => 0,
-            'last_visited_town' => 'town_a',
+            'last_visited_town' => 'town_prima',
         ]);
     }
 
@@ -247,9 +247,9 @@ class Player extends Model
                 'accuracy' => 90,
                 'gold' => 500,
                 'location_type' => 'town',
-                'location_id' => 'town_a',
+                'location_id' => 'town_prima',
                 'game_position' => 0,
-                'last_visited_town' => 'town_a',
+                'last_visited_town' => 'town_prima',
             ]
         );
     }

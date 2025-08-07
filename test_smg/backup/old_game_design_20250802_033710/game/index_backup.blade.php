@@ -182,7 +182,7 @@
         @if($nextLocation)
             <div class="next-location" id="next-location-info" style="display: none;">
                 <p>次の場所: <strong>{{ $nextLocation['name'] }}</strong></p>
-                <button class="btn btn-success" id="move-to-next">
+                <button class="btn btn-success" id="move-to-next" onclick="moveToNext()">
                     {{ $nextLocation['name'] }}に移動する
                 </button>
             </div>
@@ -204,7 +204,7 @@
                     @endif
                 </div>
                 
-                <button class="btn btn-primary" id="roll-dice">サイコロを振る</button>
+                <button class="btn btn-primary" id="roll-dice" onclick="rollDice()">サイコロを振る</button>
                 
                 <div class="dice-display hidden" id="dice-result">
                     <div id="all-dice"></div>
@@ -498,7 +498,7 @@
                             <p>最小移動距離: 6歩</p>
                             <p>最大移動距離: 21歩</p>
                         </div>
-                        <button class="btn btn-primary" id="roll-dice">サイコロを振る</button>
+                        <button class="btn btn-primary" id="roll-dice" onclick="rollDice()">サイコロを振る</button>
                         <div class="dice-display hidden" id="dice-result">
                             <div id="all-dice"></div>
                         </div>

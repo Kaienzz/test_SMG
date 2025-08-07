@@ -23,9 +23,9 @@
             <h4>次の場所</h4>
             <p class="destination-name">{{ $nextLocation->name ?? 'セカンダ町' }}</p>
         </div>
-        <button class="btn btn-success btn-large" id="move-to-next" onclick="moveToNext()">
+        <button class="btn btn-success btn-large" id="move-to-next">
             <span class="btn-icon">🚀</span>
-            {{ $nextLocation->name ?? 'セカンダ町' }}に移動
+            <span class="btn-text">{{ $nextLocation->name ?? 'セカンダ町' }}に移動</span>
         </button>
     </div>
 

@@ -635,16 +635,16 @@ class LocationService
                 'name' => $this->getLocationName($startConnection['type'], $startConnection['id'])
             ];
         } elseif ($position >= 100) {
-            // 道路の終点での接続
+            // 道路の終点での接続（論理的なマッピング）
             $endConnection = match($locationId) {
-                'road_1' => ['type' => 'road', 'id' => 'road_2'],
-                'road_2' => ['type' => 'road', 'id' => 'road_3'],
-                'road_3' => ['type' => 'town', 'id' => 'town_b'],
+                'road_1' => ['type' => 'road', 'id' => 'road_2'], // road_1 → road_2 への接続
+                'road_2' => ['type' => 'road', 'id' => 'road_3'], // road_2 → road_3 への接続
+                'road_3' => ['type' => 'town', 'id' => 'town_b'], // road_3 → town_b への接続
                 'road_4' => ['type' => null, 'id' => null], // 山道の終点（現在未接続）
                 'road_5' => ['type' => 'town', 'id' => 'elven_village'],
                 'road_6' => ['type' => 'town', 'id' => 'merchant_city'], 
                 'road_7' => ['type' => null, 'id' => null], // 北街道の終点（現在未接続）
-                default => $roadNumber === 3 ? ['type' => 'town', 'id' => 'town_b'] : ['type' => 'road', 'id' => 'road_' . ($roadNumber + 1)]
+                default => $roadNumber < 3 ? ['type' => 'road', 'id' => 'road_' . ($roadNumber + 1)] : ['type' => 'town', 'id' => 'town_b']
             };
             
             if ($endConnection['type'] === null) {

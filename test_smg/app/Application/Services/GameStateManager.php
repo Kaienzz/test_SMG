@@ -123,12 +123,13 @@ class GameStateManager
             );
         }
 
-        // 複数接続があるかチェック
-        if (!$this->locationService->hasMultipleConnections($player->location_id)) {
+        // 接続が存在するかチェック（複数でなくても単一接続があれば OK）
+        $connections = $this->locationService->getTownConnections($player->location_id);
+        if (!$connections || empty($connections)) {
             $currentLocationArray = $this->locationService->getCurrentLocation($player);
             $currentLocation = LocationData::fromArray($currentLocationArray);
             return MoveResult::failure(
-                error: 'この町には複数の接続がありません',
+                error: 'この町からは移動できません',
                 currentPosition: $player->game_position ?? 0,
                 currentLocation: $currentLocation
             );
@@ -288,9 +289,20 @@ class GameStateManager
      */
     public function moveToNextLocation(Player $player): MoveResult
     {
+        \Log::info('🚀 [DEBUG] =============== moveToNextLocation START ===============');
+        \Log::info('🚀 [DEBUG] Player state before moveToNext:', [
+            'id' => $player->id,
+            'location_type' => $player->location_type,
+            'location_id' => $player->location_id,
+            'game_position' => $player->game_position,
+            'updated_at' => $player->updated_at?->toISOString()
+        ]);
+        
         $nextLocation = $this->locationService->getNextLocation($player);
+        \Log::info('🚀 [DEBUG] Next location calculated:', $nextLocation);
         
         if (!$nextLocation) {
+            \Log::warning('🚀 [DEBUG] No next location found');
             $currentLocationArray = $this->locationService->getCurrentLocation($player);
             $currentLocation = LocationData::fromArray($currentLocationArray);
             return MoveResult::failure(
@@ -302,6 +314,7 @@ class GameStateManager
         
         // 現在の位置情報を取得
         $currentLocationArray = $this->locationService->getCurrentLocation($player);
+        \Log::info('🚀 [DEBUG] Current location array:', $currentLocationArray);
         
         // 移動方向に基づく開始位置を計算
         $newPosition = $this->locationService->calculateStartPosition(
@@ -310,32 +323,106 @@ class GameStateManager
             $nextLocation['type'],
             $nextLocation['id']
         );
+        \Log::info('🚀 [DEBUG] Calculated new position: ' . $newPosition);
         
-        $player->update([
+        \Log::info('🚀 [DEBUG] Updating player location in DB:', [
+            'from' => [
+                'location_type' => $player->location_type,
+                'location_id' => $player->location_id,
+                'game_position' => $player->game_position
+            ],
+            'to' => [
+                'location_type' => $nextLocation['type'],
+                'location_id' => $nextLocation['id'],
+                'game_position' => $newPosition
+            ]
+        ]);
+        
+        // DB更新前の詳細状態チェック
+        \Log::info('🚀 [DEBUG] Player state immediately before DB update:', [
+            'id' => $player->id,
+            'location_type' => $player->location_type,
+            'location_id' => $player->location_id,
+            'game_position' => $player->game_position,
+            'updated_at' => $player->updated_at?->toISOString(),
+            'exists' => $player->exists,
+            'isDirty' => $player->isDirty()
+        ]);
+        
+        $updateResult = $player->update([
             'location_type' => $nextLocation['type'],
             'location_id' => $nextLocation['id'],
             'game_position' => $newPosition,
         ]);
         
+        \Log::info('🚀 [DEBUG] DB update result:', [
+            'success' => $updateResult,
+            'attempted_values' => [
+                'location_type' => $nextLocation['type'],
+                'location_id' => $nextLocation['id'],
+                'game_position' => $newPosition
+            ]
+        ]);
+        
+        // 更新直後の状態確認（refresh前）
+        \Log::info('🚀 [DEBUG] Player state immediately after update (before refresh):', [
+            'location_type' => $player->location_type,
+            'location_id' => $player->location_id,
+            'game_position' => $player->game_position,
+            'updated_at' => $player->updated_at?->toISOString(),
+            'isDirty' => $player->isDirty()
+        ]);
+        
         // 町に入った場合、履歴を更新
         if ($nextLocation['type'] === 'town') {
             session(['last_visited_town' => $nextLocation['id']]);
+            \Log::info('🚀 [DEBUG] Updated last_visited_town session to: ' . $nextLocation['id']);
         }
+        
+        // セッションライフサイクル改善: 移動完了後の古いセッションデータクリーンアップ
+        $this->cleanupStaleSessionData($player->id);
+        \Log::info('🚀 [DEBUG] Post-movement session cleanup completed');
         
         // 最新情報を取得
         $player->refresh();
+        \Log::info('🚀 [DEBUG] Player state after DB update and refresh:', [
+            'location_type' => $player->location_type,
+            'location_id' => $player->location_id,
+            'game_position' => $player->game_position,
+            'updated_at' => $player->updated_at?->toISOString()
+        ]);
+        
+        // データベースから直接確認（別インスタンスで検証）
+        $freshPlayer = \App\Models\Player::find($player->id);
+        \Log::info('🚀 [DEBUG] Fresh player instance from DB:', [
+            'location_type' => $freshPlayer->location_type,
+            'location_id' => $freshPlayer->location_id,
+            'game_position' => $freshPlayer->game_position,
+            'updated_at' => $freshPlayer->updated_at?->toISOString()
+        ]);
+        
         $currentLocationArray = $this->locationService->getCurrentLocation($player);
         $newNextLocationArray = $this->locationService->getNextLocation($player);
         
         $currentLocation = LocationData::fromArray($currentLocationArray);
         $newNextLocation = $newNextLocationArray ? LocationData::fromArray($newNextLocationArray) : null;
         
-        return MoveResult::transition(
+        \Log::info('🚀 [DEBUG] Final result data:', [
+            'currentLocation' => $currentLocation->toArray(),
+            'nextLocation' => $newNextLocation?->toArray(),
+            'position' => $player->game_position ?? 0
+        ]);
+        
+        $result = MoveResult::transition(
             currentLocation: $currentLocation,
             nextLocation: $newNextLocation,
             position: $player->game_position ?? 0,
             message: '移動しました'
         );
+        
+        \Log::info('🚀 [DEBUG] =============== moveToNextLocation END ===============');
+        
+        return $result;
     }
 
     /**
@@ -441,49 +528,162 @@ class GameStateManager
      */
     public function migrateSessionToDatabase(Player $player): void
     {
+        \Log::info('🚀 [DEBUG] =============== migrateSessionToDatabase START ===============');
+        
         $userId = Auth::id();
         $sessionKey = "user_{$userId}_game_data";
         
+        \Log::info('🚀 [DEBUG] Migration check for user ID: ' . $userId);
+        \Log::info('🚀 [DEBUG] Player state before migration:', [
+            'location_type' => $player->location_type,
+            'location_id' => $player->location_id,
+            'game_position' => $player->game_position,
+            'updated_at' => $player->updated_at?->toISOString(),
+            'minutes_since_update' => $player->updated_at ? $player->updated_at->diffInMinutes(now()) : 'N/A'
+        ]);
+        
         // セッションデータが存在する場合はDBに移行
-        if (session()->has($sessionKey) || session()->has('location_type')) {
+        $hasSessionKey = session()->has($sessionKey);
+        $hasLocationData = session()->has('location_type');
+        
+        \Log::info('🚀 [DEBUG] Session check:', [
+            'has_session_key' => $hasSessionKey,
+            'has_location_type' => $hasLocationData,
+            'session_key' => $sessionKey
+        ]);
+        
+        if ($hasSessionKey || $hasLocationData) {
             $sessionData = session($sessionKey) ?? [];
+            
+            \Log::info('🚀 [DEBUG] Session data found:', [
+                'session_data' => $sessionData,
+                'individual_location_type' => session('location_type'),
+                'individual_location_id' => session('location_id'),
+                'individual_game_position' => session('game_position')
+            ]);
             
             // セッションからlocation情報を取得（フォールバック付き）
             $locationType = $sessionData['location_type'] ?? session('location_type', $player->location_type ?? 'town');
             $locationId = $sessionData['location_id'] ?? session('location_id', $player->location_id ?? 'town_a');
             $gamePosition = $sessionData['game_position'] ?? session('game_position', $player->game_position ?? 0);
             
+            \Log::info('🚀 [DEBUG] Extracted session values:', [
+                'location_type' => $locationType,
+                'location_id' => $locationId,
+                'game_position' => $gamePosition
+            ]);
+            
             // 戦闘が最近終了した場合（過去5分以内にPlayerが更新された場合）はlocation移行をスキップ
             $recentlyUpdated = $player->updated_at && $player->updated_at->diffInMinutes(now()) < 5;
             
-            // DBのlocation情報が初期値の場合のみセッションデータで更新
-            // ただし、戦闘終了直後など最近更新された場合は移行しない
-            if ((!$player->location_type || ($player->location_type === 'town' && !$recentlyUpdated)) && !$recentlyUpdated) {
+            \Log::info('🚀 [DEBUG] Recently updated check:', [
+                'recently_updated' => $recentlyUpdated,
+                'minutes_since_update' => $player->updated_at ? $player->updated_at->diffInMinutes(now()) : 'N/A'
+            ]);
+            
+            // 移行判定の改善: セッションデータがある場合は常にクリーンアップを実行
+            // ただし、DBへの移行は初期値の場合のみ
+            $hasSessionData = !empty($sessionData);
+            $shouldMigrateToDB = (!$player->location_type || $player->location_type === 'town') && !$recentlyUpdated;
+            $shouldCleanupSession = $hasSessionData; // セッションデータがあれば常にクリーンアップ
+            
+            \Log::info('🚀 [DEBUG] Migration decision:', [
+                'has_session_data' => $hasSessionData,
+                'should_migrate_to_db' => $shouldMigrateToDB,
+                'should_cleanup_session' => $shouldCleanupSession,
+                'no_location_type' => !$player->location_type,
+                'is_town' => ($player->location_type === 'town'),
+                'recently_updated' => $recentlyUpdated
+            ]);
+            
+            if ($shouldMigrateToDB) {
+                \Log::info('🚀 [DEBUG] Migrating location data from session to DB');
                 $player->updateLocation($locationType, $locationId, $gamePosition);
+                \Log::info('🚀 [DEBUG] Location migration completed');
+            } else {
+                \Log::info('🚀 [DEBUG] Location migration to DB skipped due to conditions');
             }
             
             // リソース情報も移行（SP, Gold）
             if (isset($sessionData['player_sp']) && $player->sp !== $sessionData['player_sp']) {
+                \Log::info('🚀 [DEBUG] Migrating SP from session:', ['from' => $player->sp, 'to' => $sessionData['player_sp']]);
                 $player->update(['sp' => $sessionData['player_sp']]);
             }
             if (isset($sessionData['player_gold']) && $player->gold !== $sessionData['player_gold']) {
+                \Log::info('🚀 [DEBUG] Migrating Gold from session:', ['from' => $player->gold, 'to' => $sessionData['player_gold']]);
                 $player->update(['gold' => $sessionData['player_gold']]);
             }
             
             // セッション個別キーも移行
             if (session()->has('player_sp') && $player->sp !== session('player_sp')) {
+                \Log::info('🚀 [DEBUG] Migrating SP from individual session key:', ['from' => $player->sp, 'to' => session('player_sp')]);
                 $player->update(['sp' => session('player_sp')]);
             }
             if (session()->has('player_gold') && $player->gold !== session('player_gold')) {
+                \Log::info('🚀 [DEBUG] Migrating Gold from individual session key:', ['from' => $player->gold, 'to' => session('player_gold')]);
                 $player->update(['gold' => session('player_gold')]);
             }
             
-            // セッションデータを削除（移行完了）
-            session()->forget([
-                $sessionKey, 
-                'location_type', 'location_id', 'game_position',
-                'player_sp', 'player_gold'
-            ]);
+            // セッションクリーンアップ: データがあれば常に実行
+            if ($shouldCleanupSession) {
+                $keysToForget = [
+                    $sessionKey, 
+                    'location_type', 'location_id', 'game_position',
+                    'player_sp', 'player_gold',
+                    'last_visited_town'  // 移動時に作成されるセッションキーも削除
+                ];
+                \Log::info('🚀 [DEBUG] Cleaning up session keys:', $keysToForget);
+                session()->forget($keysToForget);
+                \Log::info('🚀 [DEBUG] Session cleanup completed');
+            } else {
+                \Log::info('🚀 [DEBUG] Session cleanup skipped - no session data to clean');
+            }
+        } else {
+            \Log::info('🚀 [DEBUG] No session data found to migrate');
+        }
+        
+        \Log::info('🚀 [DEBUG] Player state after migration:', [
+            'location_type' => $player->location_type,
+            'location_id' => $player->location_id,
+            'game_position' => $player->game_position,
+            'updated_at' => $player->updated_at?->toISOString()
+        ]);
+        
+        \Log::info('🚀 [DEBUG] =============== migrateSessionToDatabase END ===============');
+    }
+    
+    /**
+     * 移動完了後の古いセッションデータクリーンアップ
+     * セッションとDBの一貫性を保つため、移動後に実行
+     */
+    private function cleanupStaleSessionData(int $playerId): void
+    {
+        \Log::info('🚀 [DEBUG] Starting post-movement session cleanup');
+        
+        // 移動処理で不要になった可能性のあるセッションキー
+        $potentialStaleKeys = [
+            'location_type',
+            'location_id', 
+            'game_position',
+            'player_sp',
+            'player_gold',
+            "player_{$playerId}_location",
+            "player_{$playerId}_state",
+            "user_" . auth()->id() . "_game_data"
+        ];
+        
+        $keysToCleanup = [];
+        foreach ($potentialStaleKeys as $key) {
+            if (session()->has($key)) {
+                $keysToCleanup[] = $key;
+            }
+        }
+        
+        if (!empty($keysToCleanup)) {
+            \Log::info('🚀 [DEBUG] Cleaning up stale session keys:', $keysToCleanup);
+            session()->forget($keysToCleanup);
+        } else {
+            \Log::info('🚀 [DEBUG] No stale session data found to cleanup');
         }
     }
 

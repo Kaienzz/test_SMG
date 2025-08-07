@@ -86,6 +86,20 @@
                     <a href="/inventory">インベントリー</a>
                     <a href="/skills">スキル</a>
                 @endif
+                
+                {{-- Layout Switcher --}}
+                <div class="layout-switcher">
+                    <button class="layout-btn" onclick="switchLayout('default')" title="従来レイアウト">
+                        <span class="layout-icon">📱</span>
+                    </button>
+                    <button class="layout-btn active" onclick="switchLayout('unified')" title="3カラムレイアウト">
+                        <span class="layout-icon">🖥️</span>
+                    </button>
+                    <button class="layout-btn" onclick="switchLayout('noright')" title="2カラムレイアウト">
+                        <span class="layout-icon">📺</span>
+                    </button>
+                </div>
+                
                 <a href="/">ホーム</a>
             </nav>
         </header>

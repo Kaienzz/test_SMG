@@ -92,7 +92,7 @@
                     </div>
                     
                     <div class="dice-controls">
-                        <button class="btn btn-primary" id="roll-dice">サイコロを振る</button>
+                        <button class="btn btn-primary" id="roll-dice" onclick="rollDice()">サイコロを振る</button>
                         
                         <div class="dice-toggle">
                             <label class="toggle-label">
@@ -207,7 +207,7 @@
             {{-- Next Location Button --}}
             <div class="next-location" id="next-location-info">
                 <p>次の場所: <strong>{{ $nextLocation->name ?? 'セカンダ町' }}</strong></p>
-                <button class="btn btn-success" id="move-to-next">
+                <button class="btn btn-success" id="move-to-next" onclick="moveToNext()">
                     {{ $nextLocation->name ?? 'セカンダ町' }}に移動する
                 </button>
             </div>

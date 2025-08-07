@@ -15,7 +15,7 @@
         </div>
         
         <div class="dice-controls">
-            <button class="btn btn-primary" id="roll-dice">サイコロを振る</button>
+            <button class="btn btn-primary" id="roll-dice" onclick="rollDice()">サイコロを振る</button>
             
             <div class="dice-toggle">
                 <label class="toggle-label">
