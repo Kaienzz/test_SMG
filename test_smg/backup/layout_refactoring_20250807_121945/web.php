@@ -58,7 +58,7 @@ Route::get('/layout_town', function () {
         'type' => 'town'
     ];
     
-    return view('game-3column', [
+    return view('game-unified', [
         'gameState' => 'town',
         'player' => $mockPlayer,
         'character' => $mockPlayer,
@@ -115,7 +115,7 @@ Route::get('/layout_road', function () {
         'max_possible_movement' => 14
     ];
     
-    return view('game-3column', [
+    return view('game-unified', [
         'gameState' => 'road',
         'player' => $mockPlayer,
         'character' => $mockPlayer,
@@ -170,7 +170,7 @@ Route::get('/layout_fight', function () {
         ]
     ];
     
-    return view('game-3column', [
+    return view('game-unified', [
         'gameState' => 'battle',
         'player' => (object)$mockCharacter,
         'character' => $mockCharacter,
@@ -212,7 +212,7 @@ Route::get('/layout_town_noright', function () {
         'type' => 'town'
     ];
     
-    return view('game', [
+    return view('game-unified-noright', [
         'gameState' => 'town',
         'player' => $mockPlayer,
         'character' => $mockPlayer,
@@ -268,7 +268,7 @@ Route::get('/layout_road_noright', function () {
         'max_possible_movement' => 14
     ];
     
-    return view('game', [
+    return view('game-unified-noright', [
         'gameState' => 'road',
         'player' => $mockPlayer,
         'character' => $mockPlayer,
@@ -319,7 +319,7 @@ Route::get('/layout_fight_noright', function () {
         ]
     ];
     
-    return view('game', [
+    return view('game-unified-noright', [
         'gameState' => 'battle',
         'player' => (object)$mockCharacter,
         'character' => $mockCharacter,

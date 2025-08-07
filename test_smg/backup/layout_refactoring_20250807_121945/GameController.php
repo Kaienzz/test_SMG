@@ -113,7 +113,7 @@ class GameController extends Controller
         
         \Log::info('🚀 [DEBUG] =============== GameController@index END ===============');
         
-        return view('game', $unifiedData);
+        return view('game-unified-noright', $unifiedData);
     }
     
     
