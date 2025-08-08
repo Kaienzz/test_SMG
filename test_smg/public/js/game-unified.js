@@ -1394,9 +1394,27 @@ class RoadStateManager {
         }, 2000);
     }
 
-    handleEncounter(encounter) {
-        if (encounter.type === 'battle') {
-            this.gameManager.showNotification('魔物が現れた！', 'warning');
+    handleEncounter(monster) {
+        console.log('🚀 [ENCOUNTER] Monster encountered:', monster);
+        
+        // モンスター情報をセッションに保存
+        if (this.gameManager && this.gameManager.makeRequest) {
+            // バトル開始の準備
+            this.gameManager.showNotification(`${monster.name}が現れた！`, 'warning');
+            
+            setTimeout(() => {
+                // バトル画面に遷移（新しいシームレス遷移システム使用）
+                const battleData = {
+                    gameState: 'battle',
+                    monster: monster,
+                    player: this.gameManager.gameData.player
+                };
+                
+                this.gameManager.transitionToState('battle', battleData);
+            }, 2000);
+        } else {
+            // フォールバック: 古い遷移方法
+            this.gameManager.showNotification(`${monster.name}が現れた！`, 'warning');
             setTimeout(() => {
                 window.location.href = '/battle';
             }, 2000);

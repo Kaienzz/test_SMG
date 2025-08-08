@@ -90,7 +90,23 @@ class GameStateManager
         $nextLocation = $nextLocationArray ? LocationData::fromArray($nextLocationArray) : null;
         
         // エンカウント判定
+        \Log::info('🚀 [ENCOUNTER] Checking encounter for player', [
+            'player_id' => $player->id,
+            'location_type' => $player->location_type,
+            'location_id' => $player->location_id,
+            'position' => $player->game_position
+        ]);
+        
         $encounter = $this->checkEncounter($player);
+        
+        if ($encounter) {
+            \Log::info('🚀 [ENCOUNTER] Encounter occurred!', [
+                'monster_name' => $encounter->name,
+                'monster_level' => $encounter->level
+            ]);
+        } else {
+            \Log::info('🚀 [ENCOUNTER] No encounter this time');
+        }
         
         return MoveResult::success(
             position: $moveResult['newPosition'],

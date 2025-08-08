@@ -16,6 +16,13 @@ class BattleService
         $encounterRate = 0.1; // 10%の確率
         $random = mt_rand() / mt_getrandmax();
         
+        \Log::debug('Encounter check', [
+            'road_id' => $roadId,
+            'encounter_rate' => $encounterRate,
+            'random' => $random,
+            'will_encounter' => $random <= $encounterRate
+        ]);
+        
         if ($random <= $encounterRate) {
             return Monster::getRandomMonsterForRoad($roadId);
         }
