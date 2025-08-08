@@ -232,12 +232,12 @@ class LocationService
         
         // 道路にいる場合
         if ($locationType === 'road') {
-            // 位置0または100にいる場合は直接移動可能
-            if ($position <= 0 || $position >= 100) {
+            // 位置0、50、100にいる場合は直接移動可能
+            if ($position === 0 || $position === 50 || $position === 100) {
                 return $this->getNextLocation($player) !== null;
             }
             
-            // 位置50で分岐がある場合は直接移動可能
+            // 位置50で分岐がある場合は直接移動可能（上記で既にチェック済みだが念のため）
             if ($position == 50 && $this->hasBranchAt($locationId, 50)) {
                 return true;
             }
@@ -297,8 +297,8 @@ class LocationService
                 }
             }
             
-            // 位置0または100にいる場合
-            if ($position <= 0 || $position >= 100) {
+            // 位置0、50、100にいる場合
+            if ($position === 0 || $position === 50 || $position === 100) {
                 $destination = $this->getNextLocation($player);
                 if ($destination) {
                     $startPosition = $this->calculateStartPosition($locationType, $locationId, $destination['type'], $destination['id']);

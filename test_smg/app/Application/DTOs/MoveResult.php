@@ -185,13 +185,13 @@ class MoveResult
     }
 
     /**
-     * 位置が境界（0または100）に達したかどうか
+     * 位置が境界（0、50、100）に達したかどうか
      *
      * @return bool
      */
     public function isAtBoundary(): bool
     {
-        return $this->position <= 0 || $this->position >= 100;
+        return $this->position === 0 || $this->position === 50 || $this->position === 100;
     }
 
     /**

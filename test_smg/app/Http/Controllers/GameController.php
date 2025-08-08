@@ -229,7 +229,15 @@ class GameController extends Controller
             ]);
         }
         
-        return response()->json($result->toArray());
+        // プレイヤー情報をレスポンスに追加
+        $response = $result->toArray();
+        $response['player'] = [
+            'game_position' => $player->game_position,
+            'location_type' => $player->location_type,
+            'location_id' => $player->location_id
+        ];
+        
+        return response()->json($response);
     }
     
     public function moveDirectly(Request $request): JsonResponse

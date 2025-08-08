@@ -17,8 +17,16 @@
         </button>
     </div>
 
-    {{-- Next Location --}}
-    <div class="next-location hidden" id="next-location-info">
+    {{-- Next Location (only show when at road boundaries) --}}
+    @php
+        $showNextLocation = false;
+        if (isset($player) && isset($nextLocation)) {
+            // 道路の境界（0、50、100）にいる場合のみ表示
+            $showNextLocation = ($player->game_position === 0 || $player->game_position === 50 || $player->game_position === 100);
+        }
+    @endphp
+    
+    <div class="next-location {{ $showNextLocation ? '' : 'hidden' }}" id="next-location-info">
         <div class="next-location-header">
             <h4>次の場所</h4>
             <p class="destination-name">{{ $nextLocation->name ?? 'セカンダ町' }}</p>

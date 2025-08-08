@@ -790,11 +790,12 @@ class RoadStateManager {
         console.log('Road initialization - Player position:', position);
         console.log('Road initialization - Next location data:', gameData.nextLocation);
         
-        if (position >= 100 || position <= 0) {
-            console.log('Player at boundary position, showing next location button');
+        if (position === 0 || position === 50 || position === 100) {
+            console.log('Player at boundary position (' + position + '), showing next location button');
             this.showNextLocationButton(gameData.nextLocation);
         } else {
-            console.log('Player in middle of road, hiding next location button');
+            console.log('Player in middle of road (position: ' + position + '), hiding next location button');
+            this.hideNextLocationButton();
         }
     }
 
@@ -1038,9 +1039,9 @@ class RoadStateManager {
                     return;
                 }
                 
-                // Check if reached next location (end points)
-                if (data.position >= 100 || data.position <= 0) {
-                    console.log('Reached location boundary, showing next location button');
+                // Check if reached next location (boundary positions: 0, 50, 100)
+                if (data.position === 0 || data.position === 50 || data.position === 100) {
+                    console.log('Reached boundary position (' + data.position + '), showing next location button');
                     this.showNextLocationButton(data.nextLocation);
                     
                     // Hide movement controls when at boundary
@@ -1050,13 +1051,16 @@ class RoadStateManager {
                     // Still in the middle of the road, keep controls visible for next dice roll
                     console.log('Still on road, position:', data.position);
                     
+                    // Hide next location button when not at boundary
+                    this.hideNextLocationButton();
+                    
                     // Hide dice result but keep movement controls for next roll
                     this.hideDiceResult();
                     // Don't hide movement controls immediately, wait for next dice roll
                 }
                 
                 // 移動成功の通知 - 境界到達時は通知しない（moveToNext()で統一）
-                if ((data.position < 100 && data.position > 0) && this.gameManager && this.gameManager.showNotification) {
+                if ((data.position !== 0 && data.position !== 50 && data.position !== 100) && this.gameManager && this.gameManager.showNotification) {
                     this.gameManager.showNotification('移動しました', 'success');
                 }
             } else {
@@ -1244,6 +1248,19 @@ class RoadStateManager {
                     }
                 }
             }
+        } else {
+            console.error('next-location-info element not found in DOM!');
+        }
+    }
+
+    hideNextLocationButton() {
+        console.log('hideNextLocationButton called');
+        const nextLocation = document.getElementById('next-location-info');
+        if (nextLocation) {
+            console.log('Hiding next location button');
+            nextLocation.classList.add('hidden');
+            nextLocation.style.display = 'none';
+            console.log('Next location button hidden');
         } else {
             console.error('next-location-info element not found in DOM!');
         }
@@ -1450,8 +1467,10 @@ class RoadStateManager {
         
         // 境界位置チェック
         const position = gameData.player?.game_position || 0;
-        if (position >= 100 || position <= 0) {
+        if (position === 0 || position === 50 || position === 100) {
             this.showNextLocationButton(gameData.nextLocation);
+        } else {
+            this.hideNextLocationButton();
         }
         
         // ボタンの有効化

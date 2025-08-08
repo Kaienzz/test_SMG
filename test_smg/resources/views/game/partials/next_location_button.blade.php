@@ -13,8 +13,8 @@
                 // 町にいるときは（同じ町でなければ）常に表示
                 $showButton = true;
             } elseif ($player->location_type === 'road') {
-                // 道路の端にいるときのみ表示
-                $showButton = ($player->game_position <= 0 || $player->game_position >= 100);
+                // 道路の境界（0、50、100）にいるときのみ表示
+                $showButton = ($player->game_position === 0 || $player->game_position === 50 || $player->game_position === 100);
             }
         }
         
