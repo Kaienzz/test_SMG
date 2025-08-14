@@ -72,9 +72,10 @@ class IsAdmin
      */
     private function isValidAdminAccount($user): bool
     {
-        // アクティブ状態チェック
-        if (!$user->admin_activated_at) {
-            return false;
+        // アクティブ状態チェック（admin_activated_atが設定されていない場合は自動で有効とする）
+        if (!$user->admin_activated_at && $user->admin_level) {
+            // 初回管理者アクセスの場合は自動でアクティベート
+            $user->update(['admin_activated_at' => now()]);
         }
 
         // 管理者ロールの確認

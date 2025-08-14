@@ -16,7 +16,7 @@ use App\Http\Controllers\Admin\AdminMonsterController;
 |
 */
 
-Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     
     // ダッシュボード
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');

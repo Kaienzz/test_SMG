@@ -39,7 +39,11 @@ class AdminPermissionService
             $permissions = [];
 
             // ユーザー個別権限
-            $userPermissions = json_decode($user->admin_permissions ?? '[]', true);
+            $userPermissions = $user->admin_permissions ?? [];
+            // admin_permissionsは既にUserモデルでarray型にキャストされている
+            if (is_string($userPermissions)) {
+                $userPermissions = json_decode($userPermissions, true) ?? [];
+            }
             $permissions = array_merge($permissions, $userPermissions);
 
             // ロール権限

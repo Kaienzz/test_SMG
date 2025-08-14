@@ -46,12 +46,6 @@ class DashboardController extends AdminController
         return view('admin.dashboard.index', [
             'dashboardData' => $dashboardData,
             'breadcrumb' => $breadcrumb,
-            // 権限チェック変数を明示的に渡す
-            'canManageUsers' => $this->hasPermission('users.view'),
-            'canManageGameData' => $this->hasPermission('items.view') || $this->hasPermission('monsters.view') || $this->hasPermission('shops.view'),
-            'canAccessAnalytics' => $this->hasPermission('analytics.view'),
-            'canManageSystem' => $this->hasPermission('system.view') || $this->hasPermission('admin.roles') || $this->user->admin_level === 'super',
-            'adminUser' => $this->user,
         ]);
     }
 

@@ -41,16 +41,26 @@ abstract class AdminController extends Controller
     protected function initializeView(): void
     {
         if ($this->user) {
+            // Calculate permission values
+            $canAccessAnalytics = $this->hasPermission('analytics.view');
+            $canManageUsers = $this->hasPermission('users.view');
+            $canManageItems = $this->hasPermission('items.view');
+            $canManageMonsters = $this->hasPermission('monsters.view');
+            $canManageShops = $this->hasPermission('shops.view');
+            $canManageGameData = $canManageItems || $canManageMonsters || $canManageShops;
+            $canManageSystem = $this->hasPermission('system.view') || $this->hasPermission('admin.roles') || $this->user->admin_level === 'super';
+
+
             View::share([
                 'adminUser' => $this->user,
                 'userPermissions' => $this->permissionService->getUserPermissions($this->user),
-                'canAccessAnalytics' => $this->hasPermission('analytics.view'),
-                'canManageUsers' => $this->hasPermission('users.view'),
-                'canManageItems' => $this->hasPermission('items.view'),
-                'canManageMonsters' => $this->hasPermission('monsters.view'),
-                'canManageShops' => $this->hasPermission('shops.view'),
-                'canManageGameData' => $this->hasPermission('items.view') || $this->hasPermission('monsters.view') || $this->hasPermission('shops.view'),
-                'canManageSystem' => $this->hasPermission('system.view') || $this->hasPermission('admin.roles') || $this->user->admin_level === 'super',
+                'canAccessAnalytics' => $canAccessAnalytics,
+                'canManageUsers' => $canManageUsers,
+                'canManageItems' => $canManageItems,
+                'canManageMonsters' => $canManageMonsters,
+                'canManageShops' => $canManageShops,
+                'canManageGameData' => $canManageGameData,
+                'canManageSystem' => $canManageSystem,
             ]);
         }
     }

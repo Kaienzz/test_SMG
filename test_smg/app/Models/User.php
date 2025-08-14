@@ -53,7 +53,34 @@ class User extends Authenticatable
             'password' => 'hashed',
             'last_active_at' => 'datetime',
             'session_data' => 'array',
+            'admin_permissions' => 'array',
+            'admin_activated_at' => 'datetime',
+            'admin_last_login_at' => 'datetime',
         ];
+    }
+
+    // 管理者権限関連メソッド
+    public function getIsAdminAttribute(): bool
+    {
+        return !empty($this->admin_level);
+    }
+
+    public function hasAdminLevel(string $level): bool
+    {
+        if (!$this->is_admin) {
+            return false;
+        }
+
+        $levels = ['basic', 'admin', 'super'];
+        $userLevel = array_search($this->admin_level, $levels);
+        $requiredLevel = array_search($level, $levels);
+
+        return $userLevel !== false && $requiredLevel !== false && $userLevel >= $requiredLevel;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->admin_level === 'super';
     }
 
     // リレーション

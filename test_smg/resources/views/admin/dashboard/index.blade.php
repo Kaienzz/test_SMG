@@ -257,7 +257,7 @@
         </div>
         <div class="admin-card-body">
             <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                @if($canManageUsers)
+                @if($canManageUsers || (isset($adminUser) && $adminUser->admin_level === 'super'))
                 <a href="{{ route('admin.users.index') }}" class="admin-btn admin-btn-primary">
                     👥 ユーザー管理
                 </a>
@@ -266,16 +266,19 @@
                 </a>
                 @endif
                 
-                @if($canManageGameData)
+                @if($canManageGameData || (isset($adminUser) && $adminUser->admin_level === 'super'))
                 <a href="{{ route('admin.items.index') }}" class="admin-btn admin-btn-success">
                     🛡️ アイテム管理
+                </a>
+                <a href="{{ route('admin.monsters.index') }}" class="admin-btn admin-btn-info">
+                    🐉 モンスター管理
                 </a>
                 <a href="{{ route('admin.shops.index') }}" class="admin-btn admin-btn-warning">
                     🏪 ショップ管理
                 </a>
                 @endif
                 
-                @if($canAccessAnalytics)
+                @if($canAccessAnalytics || (isset($adminUser) && $adminUser->admin_level === 'super'))
                 <a href="{{ route('admin.analytics.index') }}" class="admin-btn admin-btn-info">
                     📊 詳細分析
                 </a>
@@ -284,7 +287,7 @@
                 </a>
                 @endif
                 
-                @if($canManageSystem)
+                @if($canManageSystem || (isset($adminUser) && $adminUser->admin_level === 'super'))
                 <a href="{{ route('admin.system.config') }}" class="admin-btn admin-btn-danger">
                     ⚙️ システム設定
                 </a>

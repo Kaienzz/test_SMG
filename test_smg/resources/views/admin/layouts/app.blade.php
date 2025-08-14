@@ -456,7 +456,7 @@
                     </div>
 
                     <!-- ユーザー管理 -->
-                    @if(isset($canManageUsers) && $canManageUsers)
+                    @if((isset($canManageUsers) && $canManageUsers) || (isset($adminUser) && $adminUser->admin_level === 'super'))
                     <div class="admin-nav-section">
                         <div class="admin-nav-title">ユーザー管理</div>
                         <a href="{{ route('admin.users.index') }}" class="admin-nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
@@ -475,7 +475,7 @@
                     @endif
 
                     <!-- ゲームデータ管理 -->
-                    @if(isset($canManageGameData) && $canManageGameData)
+                    @if((isset($canManageGameData) && $canManageGameData) || (isset($adminUser) && $adminUser->admin_level === 'super'))
                     <div class="admin-nav-section">
                         <div class="admin-nav-title">ゲームデータ</div>
                         <a href="{{ route('admin.items.index') }}" class="admin-nav-item {{ request()->routeIs('admin.items.*') ? 'active' : '' }}">
@@ -500,7 +500,7 @@
                     @endif
 
                     <!-- 分析・監視 -->
-                    @if(isset($canAccessAnalytics) && $canAccessAnalytics)
+                    @if((isset($canAccessAnalytics) && $canAccessAnalytics) || (isset($adminUser) && $adminUser->admin_level === 'super'))
                     <div class="admin-nav-section">
                         <div class="admin-nav-title">分析・監視</div>
                         <a href="{{ route('admin.analytics.index') }}" class="admin-nav-item {{ request()->routeIs('admin.analytics.*') ? 'active' : '' }}">
@@ -519,7 +519,7 @@
                     @endif
 
                     <!-- システム管理 -->
-                    @if(isset($canManageSystem) && $canManageSystem)
+                    @if((isset($canManageSystem) && $canManageSystem) || (isset($adminUser) && $adminUser->admin_level === 'super'))
                     <div class="admin-nav-section">
                         <div class="admin-nav-title">システム管理</div>
                         <a href="{{ route('admin.system.config') }}" class="admin-nav-item {{ request()->routeIs('admin.system.*') ? 'active' : '' }}">
