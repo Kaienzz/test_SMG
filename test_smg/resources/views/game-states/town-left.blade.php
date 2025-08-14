@@ -1,21 +1,54 @@
-{{-- Town State - Left Area: Town Facilities and Player Status --}}
+{{-- Town State - Left Area: Movement Selection and Town Facilities --}}
 
-{{-- Player Quick Status --}}
-<div class="player-quick-status">
-    <h3>{{ $player->name ?? 'プレイヤー' }}</h3>
-    <div class="quick-stats">
-        <div class="stat-item">
-            <span class="stat-label">Lv</span>
-            <span class="stat-value">{{ $player->level ?? 1 }}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">所持金</span>
-            <span class="stat-value gold">{{ number_format($player->gold ?? 1000) }}G</span>
-        </div>
+{{-- 1. Movement Options --}}
+<div class="movement-section">
+    <h3>移動先選択</h3>
+    
+    {{-- Actual Town Connections from LocationService --}}
+    <div class="connection-options">
+        @if(isset($townConnections) && !empty($townConnections))
+            @foreach($townConnections as $direction => $connection)
+                @php
+                    $directionIcons = [
+                        'north' => '⬆️',
+                        'south' => '⬇️', 
+                        'east' => '➡️',
+                        'west' => '⬅️'
+                    ];
+                    $icon = $directionIcons[$direction] ?? '🚪';
+                @endphp
+                <button 
+                    class="connection-btn"
+                    onclick="moveToDirection('{{ $direction }}')"
+                    title="{{ $connection['name'] ?? 'Unknown destination' }}"
+                    data-direction="{{ $direction }}"
+                >
+                    <span class="direction-icon">{{ $icon }}</span>
+                    <div class="direction-info">
+                        <span class="direction-label">{{ $connection['direction_label'] ?? ucfirst($direction) }}</span>
+                        <span class="destination-name">{{ $connection['name'] ?? 'Unknown' }}</span>
+                    </div>
+                </button>
+            @endforeach
+        @else
+            <div class="no-connections">
+                <p class="help-text">
+                    <span class="help-icon">🚫</span>
+                    この町からは移動できません
+                </p>
+            </div>
+        @endif
+    </div>
+
+    <div class="movement-help">
+        <p class="help-text">
+            <span class="help-icon">💡</span>
+            道を選択して冒険に出発しましょう！
+        </p>
     </div>
 </div>
 
-{{-- Town Facilities --}}
+{{-- 2. Town Facilities --}}
 <div class="town-facilities">
     <h4>町の施設</h4>
     @php
@@ -58,21 +91,3 @@
     </div>
 </div>
 
-{{-- Quick Links --}}
-<div class="quick-links">
-    <h4>クイックアクセス</h4>
-    <div class="link-list">
-        <a href="/inventory" class="quick-link">
-            <span class="link-icon">🎒</span>
-            <span class="link-text">インベントリ</span>
-        </a>
-        <a href="/player" class="quick-link">
-            <span class="link-icon">👤</span>
-            <span class="link-text">ステータス</span>
-        </a>
-        <a href="/skills" class="quick-link">
-            <span class="link-icon">✨</span>
-            <span class="link-text">スキル</span>
-        </a>
-    </div>
-</div>

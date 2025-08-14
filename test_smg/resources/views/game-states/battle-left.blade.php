@@ -4,7 +4,6 @@
 <div class="player-battle-status">
     <div class="character-header">
         <h3>{{ $character['name'] ?? 'プレイヤー' }}</h3>
-        <div class="character-level">Lv.{{ $character['level'] ?? 5 }}</div>
     </div>
 
     {{-- HP/MP Bars --}}

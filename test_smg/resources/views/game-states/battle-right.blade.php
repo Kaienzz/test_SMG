@@ -89,13 +89,3 @@
     </div>
 </div>
 
-{{-- Emergency Actions --}}
-<div class="emergency-section">
-    <h4>緊急時</h4>
-    <div class="emergency-buttons">
-        <button class="btn btn-danger btn-sm" onclick="forfeitBattle()" title="戦闘を放棄します">
-            <span class="btn-icon">🏳️</span>
-            戦闘放棄
-        </button>
-    </div>
-</div>

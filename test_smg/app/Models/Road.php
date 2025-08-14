@@ -21,12 +21,12 @@ class Road extends Model
     
     public function isStart(int $position): bool
     {
-        return $position <= 0;
+        return $position === 0;
     }
     
     public function isEnd(int $position): bool
     {
-        return $position >= 100;
+        return $position === 100;
     }
     
     public function getPreviousLocation(): ?array

@@ -38,32 +38,4 @@
     </div>
 </div>
 
-{{-- Quick Actions --}}
-<div class="quick-actions-section">
-    <h4>クイックアクション</h4>
-    <div class="action-buttons">
-        <button class="btn btn-warning btn-sm" onclick="openMap()">
-            <span class="btn-icon">🗺️</span>
-            地図を見る
-        </button>
-        <button class="btn btn-info btn-sm" onclick="checkWeather()">
-            <span class="btn-icon">🌤️</span>
-            天気確認
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="openSettings()">
-            <span class="btn-icon">⚙️</span>
-            設定
-        </button>
-    </div>
-</div>
 
-{{-- Emergency Actions --}}
-<div class="emergency-section">
-    <h4>緊急時</h4>
-    <div class="emergency-buttons">
-        <button class="btn btn-danger btn-sm" onclick="resetGame()" title="ゲームをリセットします">
-            <span class="btn-icon">🔄</span>
-            ゲームリセット
-        </button>
-    </div>
-</div>

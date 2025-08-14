@@ -50,55 +50,13 @@
     </div>
 </div>
 
-{{-- Quick Actions --}}
-<div class="quick-actions-section">
-    <h4>クイックアクション</h4>
-    <div class="action-buttons">
-        <button class="btn btn-warning btn-sm" onclick="openMap()">
-            <span class="btn-icon">🗺️</span>
-            地図を見る
-        </button>
-        <button class="btn btn-info btn-sm" onclick="checkWeather()">
-            <span class="btn-icon">🌤️</span>
-            天気確認
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="openSettings()">
-            <span class="btn-icon">⚙️</span>
-            設定
-        </button>
-    </div>
-</div>
 
-{{-- Emergency Actions --}}
-<div class="emergency-section">
-    <h4>緊急時</h4>
-    <div class="emergency-buttons">
-        <button class="btn btn-danger btn-sm" onclick="resetGame()" title="ゲームをリセットします">
-            <span class="btn-icon">🔄</span>
-            ゲームリセット
-        </button>
-    </div>
-</div>
 
 {{-- === SEPARATOR === --}}
 <hr class="content-separator">
 
 {{-- === LEFT BAR CONTENT (Second) === --}}
 
-{{-- Player Quick Status --}}
-<div class="player-quick-status">
-    <h3>{{ $player->name ?? 'プレイヤー' }}</h3>
-    <div class="quick-stats">
-        <div class="stat-item">
-            <span class="stat-label">Lv</span>
-            <span class="stat-value">{{ $player->level ?? 1 }}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">所持金</span>
-            <span class="stat-value gold">{{ number_format($player->gold ?? 1000) }}G</span>
-        </div>
-    </div>
-</div>
 
 {{-- Town Facilities --}}
 <div class="town-facilities">
@@ -143,21 +101,3 @@
     </div>
 </div>
 
-{{-- Quick Links --}}
-<div class="quick-links">
-    <h4>クイックアクセス</h4>
-    <div class="link-list">
-        <a href="/inventory" class="quick-link">
-            <span class="link-icon">🎒</span>
-            <span class="link-text">インベントリ</span>
-        </a>
-        <a href="/player" class="quick-link">
-            <span class="link-icon">👤</span>
-            <span class="link-text">ステータス</span>
-        </a>
-        <a href="/skills" class="quick-link">
-            <span class="link-icon">✨</span>
-            <span class="link-text">スキル</span>
-        </a>
-    </div>
-</div>

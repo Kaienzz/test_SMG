@@ -73,58 +73,224 @@ class DummyDataService
         ];
     }
 
+    /**
+     * ゲーム標準アイテムマスターデータ
+     * 管理画面での確認・バランス調整用
+     */
+    public static function getStandardItems(): array
+    {
+        return [
+            // ポーション類
+            [
+                'id' => 'std_1',
+                'name' => '薬草',
+                'description' => 'HPを5回復する基本的な薬草',
+                'category' => 'potion',
+                'category_name' => 'ポーション',
+                'effects' => ['heal_hp' => 5],
+                'value' => 10,
+                'sell_price' => 5,
+                'stack_limit' => 99,
+                'max_durability' => null,
+                'rarity_name' => 'コモン',
+                'rarity_color' => '#9ca3af',
+                'is_equippable' => false,
+                'is_usable' => true,
+                'weapon_type' => null,
+                'is_standard' => true,
+            ],
+            [
+                'id' => 'std_2',
+                'name' => 'ポーション',
+                'description' => 'HPを15回復する標準的なポーション',
+                'category' => 'potion',
+                'category_name' => 'ポーション',
+                'effects' => ['heal_hp' => 15],
+                'value' => 50,
+                'sell_price' => 25,
+                'stack_limit' => 50,
+                'max_durability' => null,
+                'rarity_name' => 'コモン',
+                'rarity_color' => '#9ca3af',
+                'is_equippable' => false,
+                'is_usable' => true,
+                'weapon_type' => null,
+                'is_standard' => true,
+            ],
+            [
+                'id' => 'std_3',
+                'name' => 'エーテル',
+                'description' => 'SPを10回復する魔法薬',
+                'category' => 'potion',
+                'category_name' => 'ポーション',
+                'effects' => ['heal_sp' => 10],
+                'value' => 80,
+                'sell_price' => 40,
+                'stack_limit' => 50,
+                'max_durability' => null,
+                'rarity_name' => 'コモン',
+                'rarity_color' => '#9ca3af',
+                'is_equippable' => false,
+                'is_usable' => true,
+                'weapon_type' => null,
+                'is_standard' => true,
+            ],
+            
+            // 武器類
+            [
+                'id' => 'std_4',
+                'name' => '鉄の剣',
+                'description' => '攻撃力+5の基本的な剣',
+                'category' => 'weapon',
+                'category_name' => '武器',
+                'effects' => ['attack' => 5],
+                'value' => 200,
+                'sell_price' => 100,
+                'stack_limit' => 1,
+                'max_durability' => 100,
+                'rarity_name' => 'コモン',
+                'rarity_color' => '#9ca3af',
+                'is_equippable' => true,
+                'is_usable' => false,
+                'weapon_type' => 'physical',
+                'is_standard' => true,
+            ],
+            [
+                'id' => 'std_5',
+                'name' => '鋼の剣',
+                'description' => '攻撃力+8の優秀な剣',
+                'category' => 'weapon',
+                'category_name' => '武器',
+                'effects' => ['attack' => 8],
+                'value' => 450,
+                'sell_price' => 225,
+                'stack_limit' => 1,
+                'max_durability' => 120,
+                'rarity_name' => 'アンコモン',
+                'rarity_color' => '#10b981',
+                'is_equippable' => true,
+                'is_usable' => false,
+                'weapon_type' => 'physical',
+                'is_standard' => true,
+            ],
+            [
+                'id' => 'std_6',
+                'name' => '魔導の杖',
+                'description' => '魔法攻撃力+6の杖',
+                'category' => 'weapon',
+                'category_name' => '武器',
+                'effects' => ['magic_attack' => 6],
+                'value' => 380,
+                'sell_price' => 190,
+                'stack_limit' => 1,
+                'max_durability' => 80,
+                'rarity_name' => 'アンコモン',
+                'rarity_color' => '#10b981',
+                'is_equippable' => true,
+                'is_usable' => false,
+                'weapon_type' => 'magical',
+                'is_standard' => true,
+            ],
+            
+            // 防具類
+            [
+                'id' => 'std_7',
+                'name' => '革の鎧',
+                'description' => '防御力+3の基本的な鎧',
+                'category' => 'body_equipment',
+                'category_name' => '胴体装備',
+                'effects' => ['defense' => 3],
+                'value' => 150,
+                'sell_price' => 75,
+                'stack_limit' => 1,
+                'max_durability' => 80,
+                'rarity_name' => 'コモン',
+                'rarity_color' => '#9ca3af',
+                'is_equippable' => true,
+                'is_usable' => false,
+                'weapon_type' => null,
+                'is_standard' => true,
+            ],
+            [
+                'id' => 'std_8',
+                'name' => '疾風のブーツ',
+                'description' => '素早さ+8、移動サイコロ+1の風の靴',
+                'category' => 'foot_equipment',
+                'category_name' => '靴装備',
+                'effects' => ['agility' => 8, 'extra_dice' => 1],
+                'value' => 320,
+                'sell_price' => 160,
+                'stack_limit' => 1,
+                'max_durability' => 70,
+                'rarity_name' => 'レア',
+                'rarity_color' => '#3b82f6',
+                'is_equippable' => true,
+                'is_usable' => false,
+                'weapon_type' => null,
+                'is_standard' => true,
+            ],
+            [
+                'id' => 'std_9',
+                'name' => '木の盾',
+                'description' => '防御力+2の簡素な盾',
+                'category' => 'shield',
+                'category_name' => '盾',
+                'effects' => ['defense' => 2],
+                'value' => 80,
+                'sell_price' => 40,
+                'stack_limit' => 1,
+                'max_durability' => 90,
+                'rarity_name' => 'コモン',
+                'rarity_color' => '#9ca3af',
+                'is_equippable' => true,
+                'is_usable' => false,
+                'weapon_type' => null,
+                'is_standard' => true,
+            ],
+            
+            // 素材類
+            [
+                'id' => 'std_10',
+                'name' => '鉄鉱石',
+                'description' => '武器作成に使用する基本素材',
+                'category' => 'material',
+                'category_name' => '素材',
+                'effects' => [],
+                'value' => 25,
+                'sell_price' => 12,
+                'stack_limit' => 99,
+                'max_durability' => null,
+                'rarity_name' => 'コモン',
+                'rarity_color' => '#9ca3af',
+                'is_equippable' => false,
+                'is_usable' => false,
+                'weapon_type' => null,
+                'is_standard' => true,
+            ],
+        ];
+    }
+
     public static function getInventory(int $playerId = 1): array
     {
+        // 標準アイテムから抜粋してインベントリ用に変換
+        $standardItems = self::getStandardItems();
         $items = [
-                [
-                    'item' => [
-                        'id' => 1,
-                        'name' => '薬草',
-                        'description' => 'HPを5回復する薬草',
-                        'category' => 'potion',
-                        'category_name' => 'ポーション',
-                        'effects' => ['heal_hp' => 5],
-                            'rarity_name' => 'コモン',
-                        'rarity_color' => '#9ca3af',
-                        'is_equippable' => false,
-                        'is_usable' => true,
-                    ],
-                    'quantity' => 5,
-                    'slot' => 0,
-                ],
-                [
-                    'item' => [
-                        'id' => 2,
-                        'name' => '鉄の剣',
-                        'description' => '攻撃力+5の基本的な剣',
-                        'category' => 'weapon',
-                        'category_name' => '武器',
-                        'effects' => ['attack' => 5],
-                            'rarity_name' => 'コモン',
-                        'rarity_color' => '#9ca3af',
-                        'is_equippable' => true,
-                        'is_usable' => false,
-                    ],
-                    'quantity' => 1,
-                    'slot' => 1,
-                ],
-                [
-                    'item' => [
-                        'id' => 3,
-                        'name' => '疾風のブーツ',
-                        'description' => '素早さ+8、移動サイコロ+1の風の靴',
-                        'category' => 'foot_equipment',
-                        'category_name' => '靴装備',
-                        'effects' => ['agility' => 8, 'extra_dice' => 1],
-                            'rarity_name' => 'レア',
-                        'rarity_color' => '#3b82f6',
-                        'is_equippable' => true,
-                        'is_usable' => false,
-                    ],
-                    'quantity' => 1,
-                    'slot' => 2,
-                ],
-            ];
+            [
+                'item' => $standardItems[0], // 薬草
+                'quantity' => 5,
+                'slot' => 0,
+            ],
+            [
+                'item' => $standardItems[3], // 鉄の剣
+                'quantity' => 1,
+                'slot' => 1,
+            ],
+            [
+                'item' => $standardItems[7], // 疾風のブーツ
+                'quantity' => 1,
+                'slot' => 2,
+            ],
+        ];
         
         $maxSlots = 20;
         $usedSlots = count($items);
@@ -294,13 +460,13 @@ class DummyDataService
         } elseif ($player['current_location_type'] === 'road') {
             $roadNumber = (int) str_replace('road_', '', $player['current_location_id']);
             
-            if ($player['position'] <= 0) {
+            if ($player['position'] === 0) {
                 if ($roadNumber === 1) {
                     return ['type' => 'town', 'id' => 'town_a', 'name' => 'A町', 'direction' => 'backward'];
                 } else {
                     return ['type' => 'road', 'id' => 'road_' . ($roadNumber - 1), 'name' => '道路' . ($roadNumber - 1), 'direction' => 'backward'];
                 }
-            } elseif ($player['position'] >= 100) {
+            } elseif ($player['position'] === 100) {
                 if ($roadNumber === 3) {
                     return ['type' => 'town', 'id' => 'town_b', 'name' => 'B町', 'direction' => 'forward'];
                 } else {

@@ -130,8 +130,12 @@
         <div class="unified-background-image">
             {{-- Background images will be displayed here via CSS --}}
             
-            {{-- Player Status Overlay --}}
+            {{-- Player Status Overlay - One Line Display --}}
             <div class="background-player-status">
+                <div class="status-item-compact">
+                    <span class="stat-label">Lv</span>
+                    <span class="stat-value level">{{ $player->level ?? $character['level'] ?? 1 }}</span>
+                </div>
                 <div class="status-item-compact">
                     <span class="stat-label">HP</span>
                     <span class="stat-value hp">{{ $player->hp ?? $character['hp'] ?? 100 }}/{{ $player->max_hp ?? $character['max_hp'] ?? 100 }}</span>
@@ -143,6 +147,10 @@
                 <div class="status-item-compact">
                     <span class="stat-label">SP</span>
                     <span class="stat-value sp">{{ $player->sp ?? $character['sp'] ?? 30 }}/{{ $player->max_sp ?? $character['max_sp'] ?? 30 }}</span>
+                </div>
+                <div class="status-item-compact">
+                    <span class="stat-label">所持金</span>
+                    <span class="stat-value gold">{{ number_format($player->gold ?? $character['gold'] ?? 1000) }}G</span>
                 </div>
             </div>
         </div>

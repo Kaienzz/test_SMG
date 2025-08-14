@@ -69,17 +69,3 @@
     </div>
 </div>
 
-{{-- Emergency Actions --}}
-<div class="emergency-section">
-    <h4>緊急時</h4>
-    <div class="emergency-buttons">
-        <button class="btn btn-danger btn-sm" onclick="returnToTown()" title="最寄りの町に戻ります">
-            <span class="btn-icon">🏃</span>
-            町に戻る
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="callForHelp()" title="助けを呼びます">
-            <span class="btn-icon">📢</span>
-            助けを呼ぶ
-        </button>
-    </div>
-</div>

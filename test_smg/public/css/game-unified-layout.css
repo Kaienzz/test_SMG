@@ -141,7 +141,7 @@ html, body {
   top: var(--spacing-3);
   right: var(--spacing-3);
   display: flex;
-  gap: var(--spacing-3);
+  gap: var(--spacing-2);
   z-index: 10;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(5px);
@@ -178,6 +178,16 @@ html, body {
 
 .status-item-compact .stat-value.sp {
   color: var(--color-sp);
+}
+
+.status-item-compact .stat-value.level {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.status-item-compact .stat-value.gold {
+  color: var(--color-warning, #f59e0b);
+  font-weight: 600;
 }
 
 /* Layout Switcher */
@@ -242,7 +252,7 @@ html, body {
   }
   
   .status-item-compact .stat-label {
-    min-width: 20px;
+    min-width: 18px;
   }
   
   /* Mobile layout switcher */

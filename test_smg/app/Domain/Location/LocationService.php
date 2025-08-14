@@ -34,6 +34,7 @@ class LocationService
      * @var array<string, string>
      */
     private array $townNames = [
+        'town_a' => 'A町',
         'town_prima' => 'プリマ',
         'town_b' => 'B町',
         'town_c' => 'C町',
@@ -81,6 +82,9 @@ class LocationService
      * @var array<string, array<string, array<string, string>>>
      */
     private array $townConnections = [
+        'town_a' => [
+            'east' => ['type' => 'road', 'id' => 'road_1'],
+        ],
         'town_prima' => [
             'east' => ['type' => 'road', 'id' => 'road_1'],
         ],
@@ -238,7 +242,7 @@ class LocationService
             }
             
             // 位置50で分岐がある場合は直接移動可能（上記で既にチェック済みだが念のため）
-            if ($position == 50 && $this->hasBranchAt($locationId, 50)) {
+            if ($position === 50 && $this->hasBranchAt($locationId, 50)) {
                 return true;
             }
         }
@@ -284,7 +288,7 @@ class LocationService
         // 道路にいる場合
         if ($locationType === 'road') {
             // 位置50で分岐がある場合
-            if ($position == 50 && $this->hasBranchAt($locationId, 50) && $direction) {
+            if ($position === 50 && $this->hasBranchAt($locationId, 50) && $direction) {
                 $destination = $this->getNextLocationFromBranch($locationId, $position, $direction);
                 if ($destination) {
                     $startPosition = $this->calculateStartPosition($locationType, $locationId, $destination['type'], $destination['id']);
@@ -616,7 +620,7 @@ class LocationService
     {
         $roadNumber = (int) str_replace('road_', '', $locationId);
         
-        if ($position <= 0) {
+        if ($position === 0) {
             // 道路の始点での接続
             $startConnection = match($locationId) {
                 'road_1' => ['type' => 'town', 'id' => 'town_prima'],
@@ -634,7 +638,7 @@ class LocationService
                 'id' => $startConnection['id'],
                 'name' => $this->getLocationName($startConnection['type'], $startConnection['id'])
             ];
-        } elseif ($position >= 100) {
+        } elseif ($position === 100) {
             // 道路の終点での接続（論理的なマッピング）
             $endConnection = match($locationId) {
                 'road_1' => ['type' => 'road', 'id' => 'road_2'], // road_1 → road_2 への接続
