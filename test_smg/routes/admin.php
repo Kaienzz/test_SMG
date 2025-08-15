@@ -58,25 +58,35 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     
     // ゲームデータ管理（権限チェック付き）
     Route::middleware(['admin.permission:items.view'])->group(function () {
-        // アイテム管理
+        // カスタムアイテム管理
         Route::get('/items', [AdminItemController::class, 'index'])->name('items.index');
         Route::get('/items/{item}', [AdminItemController::class, 'show'])->name('items.show');
         Route::get('/items/create', [AdminItemController::class, 'create'])->name('items.create');
         Route::get('/items/{item}/edit', [AdminItemController::class, 'edit'])->name('items.edit');
         
-        // アイテム作成・編集（追加権限チェック）
+        // 標準アイテム管理
+        Route::get('/items/standard', [AdminItemController::class, 'standardItems'])->name('items.standard');
+        Route::get('/items/standard/create', [AdminItemController::class, 'createStandardItem'])->name('items.standard.create');
+        Route::get('/items/standard/{itemId}', [AdminItemController::class, 'showStandardItem'])->name('items.standard.show');
+        Route::get('/items/standard/{itemId}/edit', [AdminItemController::class, 'editStandardItem'])->name('items.standard.edit');
+        
+        // カスタムアイテム作成・編集（追加権限チェック）
         Route::middleware(['admin.permission:items.create'])->group(function () {
             Route::post('/items', [AdminItemController::class, 'store'])->name('items.store');
+            Route::post('/items/standard', [AdminItemController::class, 'storeStandardItem'])->name('items.standard.store');
         });
         
         Route::middleware(['admin.permission:items.edit'])->group(function () {
             Route::put('/items/{item}', [AdminItemController::class, 'update'])->name('items.update');
+            Route::put('/items/standard/{itemId}', [AdminItemController::class, 'updateStandardItem'])->name('items.standard.update');
             Route::post('/items/bulk-action', [AdminItemController::class, 'bulkAction'])->name('items.bulk_action');
+            Route::post('/items/standard/backup', [AdminItemController::class, 'backupStandardItems'])->name('items.standard.backup');
         });
         
         // アイテム削除（特別権限）
         Route::middleware(['admin.permission:items.delete'])->group(function () {
             Route::delete('/items/{item}', [AdminItemController::class, 'destroy'])->name('items.destroy');
+            Route::delete('/items/standard/{itemId}', [AdminItemController::class, 'deleteStandardItem'])->name('items.standard.delete');
         });
         
         // モンスター管理

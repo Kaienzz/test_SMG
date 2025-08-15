@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Skill extends Model
 {
     protected $fillable = [
-        'character_id',
         'player_id',
         'skill_type',
         'skill_name',
@@ -21,7 +20,6 @@ class Skill extends Model
     ];
 
     protected $casts = [
-        'character_id' => 'integer',
         'player_id' => 'integer',
         'level' => 'integer',
         'experience' => 'integer',
@@ -30,11 +28,6 @@ class Skill extends Model
         'duration' => 'integer',
         'is_active' => 'boolean',
     ];
-
-    public function character(): BelongsTo
-    {
-        return $this->belongsTo(Character::class);
-    }
 
     public function player(): BelongsTo
     {
@@ -244,10 +237,10 @@ class Skill extends Model
         return $leveledUp;
     }
 
-    public static function createForCharacter(int $characterId, string $skillType, string $skillName, array $effects = [], int $spCost = 10, int $duration = 5): self
+    public static function createForPlayer(int $playerId, string $skillType, string $skillName, array $effects = [], int $spCost = 10, int $duration = 5): self
     {
         $skill = self::create([
-            'character_id' => $characterId,
+            'player_id' => $playerId,
             'skill_type' => $skillType,
             'skill_name' => $skillName,
             'level' => 1,

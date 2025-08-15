@@ -12,7 +12,7 @@ class GameState extends Model
     protected $fillable = [
         'user_id',
         'player_name',
-        'character_id',
+        'player_id',
         'current_location_type',
         'current_location_id',
         'position',
@@ -33,7 +33,7 @@ class GameState extends Model
     {
         return new Player([
             'name' => $this->player_name,
-            'character_id' => $this->character_id,
+            'player_id' => $this->player_id,
             'current_location_type' => $this->current_location_type,
             'current_location_id' => $this->current_location_id,
             'position' => $this->position,
@@ -50,7 +50,7 @@ class GameState extends Model
     public function rollDice(): array
     {
         $movementService = new MovementService();
-        $result = $movementService->rollDiceWithEffects($this->character_id);
+        $result = $movementService->rollDiceWithEffects($this->player_id);
         
         $diceData = $result['dice'];
         $movementData = $result['movement'];
@@ -122,9 +122,9 @@ class GameState extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function character(): BelongsTo
+    public function player(): BelongsTo
     {
-        return $this->belongsTo(Character::class);
+        return $this->belongsTo(Player::class);
     }
 
     // Game analysis methods

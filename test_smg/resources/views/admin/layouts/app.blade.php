@@ -131,6 +131,43 @@
             flex-shrink: 0;
         }
 
+        /* サブメニューのスタイル */
+        .admin-nav-submenu {
+            background-color: #f9fafb;
+            border-left: 2px solid #e5e7eb;
+            margin-left: 1.5rem;
+        }
+
+        .admin-nav-subitem {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            color: #6b7280;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+            font-size: 0.9rem;
+        }
+
+        .admin-nav-subitem:hover {
+            background-color: #f3f4f6;
+            color: var(--admin-primary);
+            border-left-color: var(--admin-primary);
+        }
+
+        .admin-nav-subitem.active {
+            background-color: #eff6ff;
+            color: var(--admin-primary);
+            border-left-color: var(--admin-primary);
+            font-weight: 600;
+        }
+
+        .admin-nav-subitem .admin-nav-icon {
+            width: 1rem;
+            height: 1rem;
+            margin-right: 0.5rem;
+        }
+
         /* コンテンツエリア */
         .admin-content {
             flex: 1;
@@ -478,12 +515,26 @@
                     @if((isset($canManageGameData) && $canManageGameData) || (isset($adminUser) && $adminUser->admin_level === 'super'))
                     <div class="admin-nav-section">
                         <div class="admin-nav-title">ゲームデータ</div>
-                        <a href="{{ route('admin.items.index') }}" class="admin-nav-item {{ request()->routeIs('admin.items.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.items.index') }}" class="admin-nav-item {{ request()->routeIs('admin.items.index') || request()->routeIs('admin.items.show') || request()->routeIs('admin.items.edit') || request()->routeIs('admin.items.create') ? 'active' : '' }}">
                             <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                             </svg>
                             アイテム管理
                         </a>
+                        <div class="admin-nav-submenu">
+                            <a href="{{ route('admin.items.standard') }}" class="admin-nav-subitem {{ request()->routeIs('admin.items.standard*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+                                </svg>
+                                標準アイテム管理
+                            </a>
+                            <a href="{{ route('admin.items.standard.create') }}" class="admin-nav-subitem {{ request()->routeIs('admin.items.standard.create') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                                </svg>
+                                標準アイテム追加
+                            </a>
+                        </div>
                         <a href="{{ route('admin.monsters.index') }}" class="admin-nav-item {{ request()->routeIs('admin.monsters.*') ? 'active' : '' }}">
                             <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>

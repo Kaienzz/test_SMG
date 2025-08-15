@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Equipment extends Model
 {
     protected $fillable = [
-        'character_id',
         'player_id',
         'weapon_id',
         'body_armor_id',
@@ -19,7 +18,6 @@ class Equipment extends Model
     ];
 
     protected $casts = [
-        'character_id' => 'integer',
         'player_id' => 'integer',
         'weapon_id' => 'integer',
         'body_armor_id' => 'integer',
@@ -28,11 +26,6 @@ class Equipment extends Model
         'boots_id' => 'integer',
         'accessory_id' => 'integer',
     ];
-
-    public function character(): BelongsTo
-    {
-        return $this->belongsTo(Character::class);
-    }
 
     public function player(): BelongsTo
     {
@@ -230,13 +223,6 @@ class Equipment extends Model
         ];
 
         return $slotColumnMap[$slot] ?? null;
-    }
-
-    public static function createForCharacter(int $characterId): self
-    {
-        return self::create([
-            'character_id' => $characterId,
-        ]);
     }
 
     public static function createForPlayer(int $playerId): self

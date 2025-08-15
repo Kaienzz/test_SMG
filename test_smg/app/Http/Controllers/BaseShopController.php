@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Shop;
-use App\Models\Character;
 use App\Enums\ShopType;
 use App\Contracts\ShopServiceInterface;
 use Illuminate\Http\Request;

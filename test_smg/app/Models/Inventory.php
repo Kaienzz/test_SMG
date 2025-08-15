@@ -23,11 +23,6 @@ class Inventory extends Model
 
     public const DEFAULT_MAX_SLOTS = 10;
 
-    public function character()
-    {
-        return $this->belongsTo(Character::class);
-    }
-
     public function player()
     {
         return $this->belongsTo(Player::class);
@@ -197,6 +192,8 @@ class Inventory extends Model
                     'category' => $item->category ? $item->category->value : '',
                     'category_name' => $item->category ? $item->category->getDisplayName() : '',
                     'effects' => $item->effects ?? [],
+                    'value' => $item->value ?? 0,
+                    'sell_price' => $item->sell_price ?? ($item->value ? (int)($item->value * 0.5) : 0),
                     'is_equippable' => $item->isEquippable() ?? false,
                     'is_usable' => $item->isUsable() ?? false,
                     'max_durability' => $item->max_durability ?? (method_exists($item, 'getMaxDurability') ? $item->getMaxDurability() : 100),
@@ -259,7 +256,7 @@ class Inventory extends Model
         ];
     }
 
-    public function useItem(int $slotIndex, Character $character): array
+    public function useItem(int $slotIndex, Player $character): array
     {
         $slots = $this->getSlotData();
         
@@ -446,17 +443,6 @@ class Inventory extends Model
         }
         
         return $message;
-    }
-
-    public static function createForCharacter(int $characterId): self
-    {
-        return self::firstOrCreate(
-            ['character_id' => $characterId],
-            [
-                'slot_data' => [],
-                'max_slots' => self::DEFAULT_MAX_SLOTS,
-            ]
-        );
     }
 
     public static function createForPlayer(int $playerId): self

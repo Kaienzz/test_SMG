@@ -155,101 +155,6 @@ class Item extends Model
         ];
     }
 
-    public static function createSampleItems(): array
-    {
-        return [
-            [
-                'name' => '薬草',
-                'description' => 'HPを5回復する薬草',
-                'category' => ItemCategory::POTION->value,
-                'stack_limit' => 50,
-                'effects' => ['heal_hp' => 5],
-                'value' => 10,
-            ],
-            [
-                'name' => 'ヒールポーション',
-                'description' => 'HPを30回復するポーション',
-                'category' => ItemCategory::POTION->value,
-                'stack_limit' => 10,
-                'effects' => ['heal_hp' => 30],
-                'value' => 15,
-            ],
-            [
-                'name' => 'マナポーション',
-                'description' => 'MPを30回復するポーション',
-                'category' => ItemCategory::POTION->value,
-                'stack_limit' => 50,
-                'effects' => ['heal_mp' => 30],
-                'value' => 15,
-            ],
-            [
-                'name' => '鉄の剣',
-                'description' => '攻撃力+5の基本的な剣',
-                'category' => ItemCategory::WEAPON->value,
-                'max_durability' => 100,
-                'effects' => ['attack' => 5],
-                'value' => 100,
-                'weapon_type' => self::WEAPON_TYPE_PHYSICAL,
-            ],
-            [
-                'name' => 'ファイヤーロッド',
-                'description' => '魔法攻撃力+6、ファイヤー魔法を使える杖',
-                'category' => ItemCategory::WEAPON->value,
-                'max_durability' => 80,
-                'effects' => ['magic_attack' => 6],
-                'value' => 150,
-                'weapon_type' => self::WEAPON_TYPE_MAGICAL,
-                'battle_skill_id' => 'fire_magic',
-            ],
-            [
-                'name' => 'アイスワンド',
-                'description' => '魔法攻撃力+5、アイス魔法を使える杖',
-                'category' => ItemCategory::WEAPON->value,
-                'max_durability' => 80,
-                'effects' => ['magic_attack' => 5],
-                'value' => 140,
-                'weapon_type' => self::WEAPON_TYPE_MAGICAL,
-                'battle_skill_id' => 'ice_magic',
-            ],
-            [
-                'name' => '革の鎧',
-                'description' => '防御力+3の軽装鎧',
-                'category' => ItemCategory::BODY_EQUIPMENT->value,
-                'max_durability' => 80,
-                'effects' => ['defense' => 3],
-                'value' => 80,
-            ],
-            [
-                'name' => '木の盾',
-                'description' => '防御力+2の基本的な盾',
-                'category' => ItemCategory::SHIELD,
-                'max_durability' => 90,
-                'effects' => ['defense' => 2],
-                'value' => 60,
-            ],
-            [
-                'name' => '鉄鉱石',
-                'description' => '武器や防具の素材となる鉱石',
-                'category' => ItemCategory::MATERIAL,
-                'stack_limit' => 99,
-                'value' => 5,
-            ],
-            [
-                'name' => '小さな袋',
-                'description' => 'インベントリを2枠拡張する袋',
-                'category' => ItemCategory::BAG,
-                'max_durability' => 120,
-                'effects' => ['inventory_slots' => 2],
-                'value' => 200,
-            ],
-        ];
-    }
-
-    public static function getItemsByCategory(ItemCategory $category): array
-    {
-        $sampleItems = self::createSampleItems();
-        return array_filter($sampleItems, fn($item) => $item['category'] === $category);
-    }
 
     public static function createItemInstance(array $itemData): self
     {
@@ -258,8 +163,7 @@ class Item extends Model
 
     public static function findSampleItem(string $name): ?self
     {
-        $sampleItems = self::createSampleItems();
-        $itemData = collect($sampleItems)->firstWhere('name', $name);
+        $itemData = self::findStandardItemData($name);
         
         if ($itemData) {
             $item = new self($itemData);
@@ -268,6 +172,48 @@ class Item extends Model
         }
         
         return null;
+    }
+    
+    /**
+     * 標準アイテムデータを検索（JSON固定）
+     */
+    private static function findStandardItemData(string $name): ?array
+    {
+        try {
+            $standardItemService = app(\App\Services\StandardItem\StandardItemService::class);
+            $itemData = $standardItemService->findByName($name);
+            
+            if ($itemData) {
+                return self::convertJsonToItemFormat($itemData);
+            }
+            
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('Failed to find standard item', [
+                'name' => $name,
+                'error' => $e->getMessage()
+            ]);
+            
+            return null;
+        }
+    }
+    
+    /**
+     * JSONデータをItemモデル形式に変換
+     */
+    private static function convertJsonToItemFormat(array $jsonData): array
+    {
+        return [
+            'name' => $jsonData['name'],
+            'description' => $jsonData['description'],
+            'category' => $jsonData['category'],
+            'stack_limit' => $jsonData['stack_limit'],
+            'max_durability' => $jsonData['max_durability'],
+            'effects' => $jsonData['effects'],
+            'value' => $jsonData['value'],
+            'sell_price' => $jsonData['sell_price'] ?? null,
+            'weapon_type' => $jsonData['weapon_type'] ?? null,
+        ];
     }
 
     /**

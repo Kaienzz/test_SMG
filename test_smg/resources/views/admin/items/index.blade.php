@@ -127,7 +127,7 @@
     <!-- アイテム一覧 -->
     <div class="admin-card">
         <div class="admin-card-header">
-            <h3 class="admin-card-title">アイテム一覧 ({{ $items->total() }}件)</h3>
+            <h3 class="admin-card-title">アイテム一覧 ({{ $pagination['total'] ?? $items->count() }}件)</h3>
             <div style="display: flex; gap: 0.5rem;">
                 <!-- ソート -->
                 <select onchange="updateSort(this.value)" class="admin-select" style="width: auto;">
@@ -190,19 +190,19 @@
                         <tr>
                             @if(auth()->user()->can('items.edit'))
                             <td>
-                                <input type="checkbox" class="item-checkbox" value="{{ $item->id }}" style="display: none;">
+                                <input type="checkbox" class="item-checkbox" value="{{ $item['id'] }}" style="display: none;">
                             </td>
                             @endif
                             <td>
                                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                                     <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--admin-primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">
-                                        {{ $item->emoji ?? '📦' }}
+                                        {{ $item['emoji'] ?? '📦' }}
                                     </div>
                                     <div>
-                                        <div style="font-weight: 500;">{{ $item->name }}</div>
-                                        @if($item->description)
+                                        <div style="font-weight: 500;">{{ $item['name'] }}</div>
+                                        @if($item['description'])
                                         <div style="font-size: 0.875rem; color: var(--admin-secondary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                            {{ $item->description }}
+                                            {{ $item['description'] }}
                                         </div>
                                         @endif
                                     </div>
@@ -210,27 +210,27 @@
                             </td>
                             <td>
                                 <span class="admin-badge admin-badge-info">
-                                    {{ $item->category->name ?? $item->category }}
+                                    {{ $item['category'] }}
                                 </span>
-                                @if($item->weapon_type)
+                                @if($item['weapon_type'])
                                     <div style="margin-top: 0.25rem;">
                                         <span class="admin-badge admin-badge-secondary" style="font-size: 0.75rem;">
-                                            {{ $item->weapon_type === 'physical' ? '物理' : '魔法' }}
+                                            {{ $item['weapon_type'] === 'physical' ? '物理' : '魔法' }}
                                         </span>
                                     </div>
                                 @endif
                             </td>
                             <td>
-                                @if($item->effects && count($item->effects) > 0)
+                                @if($item['effects'] && count($item['effects']) > 0)
                                     <div style="font-size: 0.875rem;">
-                                        @foreach(array_slice($item->effects, 0, 3) as $effect => $value)
+                                        @foreach(array_slice($item['effects'], 0, 3) as $effect => $value)
                                         <div style="margin-bottom: 0.25rem;">
                                             <strong>{{ $effect }}:</strong> +{{ $value }}
                                         </div>
                                         @endforeach
-                                        @if(count($item->effects) > 3)
+                                        @if(count($item['effects']) > 3)
                                         <div style="color: var(--admin-secondary); font-size: 0.75rem;">
-                                            他{{ count($item->effects) - 3 }}件
+                                            他{{ count($item['effects']) - 3 }}件
                                         </div>
                                         @endif
                                     </div>
@@ -240,16 +240,16 @@
                             </td>
                             <td>
                                 <div style="font-size: 0.875rem;">
-                                    <div><strong>{{ number_format($item->value) }}G</strong></div>
-                                    @if($item->sell_price)
-                                    <div style="color: var(--admin-secondary);">売却: {{ number_format($item->sell_price) }}G</div>
+                                    <div><strong>{{ number_format($item['value']) }}G</strong></div>
+                                    @if($item['sell_price'])
+                                    <div style="color: var(--admin-secondary);">売却: {{ number_format($item['sell_price']) }}G</div>
                                     @endif
                                 </div>
                             </td>
                             <td>
-                                @if($item->max_durability)
+                                @if($item['max_durability'])
                                     <div style="font-size: 0.875rem;">
-                                        <strong>{{ $item->max_durability }}</strong>
+                                        <strong>{{ $item['max_durability'] }}</strong>
                                     </div>
                                 @else
                                     <span style="color: var(--admin-secondary);">-</span>
@@ -257,11 +257,11 @@
                             </td>
                             <td>
                                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                    <a href="{{ route('admin.items.show', $item) }}" class="admin-btn admin-btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                    <a href="{{ route('admin.items.show', $item['id']) }}" class="admin-btn admin-btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                         詳細
                                     </a>
                                     @if(auth()->user()->can('items.edit'))
-                                    <a href="{{ route('admin.items.edit', $item) }}" class="admin-btn admin-btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                    <a href="{{ route('admin.items.edit', $item['id']) }}" class="admin-btn admin-btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                         編集
                                     </a>
                                     @endif
@@ -282,9 +282,28 @@
     </div>
 
     <!-- ページネーション -->
-    @if($items->hasPages())
+    @if($pagination['last_page'] > 1)
     <div style="margin-top: 2rem;">
-        {{ $items->links() }}
+        <nav style="display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+            @if($pagination['current_page'] > 1)
+                <a href="{{ request()->fullUrlWithQuery(['page' => $pagination['current_page'] - 1]) }}" 
+                   class="admin-btn admin-btn-secondary" style="padding: 0.5rem 0.75rem;">前へ</a>
+            @endif
+            
+            @for($i = max(1, $pagination['current_page'] - 2); $i <= min($pagination['last_page'], $pagination['current_page'] + 2); $i++)
+                @if($i == $pagination['current_page'])
+                    <span class="admin-btn admin-btn-primary" style="padding: 0.5rem 0.75rem;">{{ $i }}</span>
+                @else
+                    <a href="{{ request()->fullUrlWithQuery(['page' => $i]) }}" 
+                       class="admin-btn admin-btn-secondary" style="padding: 0.5rem 0.75rem;">{{ $i }}</a>
+                @endif
+            @endfor
+            
+            @if($pagination['current_page'] < $pagination['last_page'])
+                <a href="{{ request()->fullUrlWithQuery(['page' => $pagination['current_page'] + 1]) }}" 
+                   class="admin-btn admin-btn-secondary" style="padding: 0.5rem 0.75rem;">次へ</a>
+            @endif
+        </nav>
     </div>
     @endif
 </div>

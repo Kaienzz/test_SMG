@@ -6,6 +6,7 @@ use App\Models\Player;
 use App\Models\Inventory;
 use App\Models\Item;
 use App\Enums\ItemCategory;
+use App\Services\StandardItem\StandardItemService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
@@ -24,24 +25,21 @@ class InventoryController extends Controller
         
         $inventoryData = $inventory->getInventoryData();
         
-        // ダミーサンプルアイテム（カテゴリは文字列として扱う）
-        $sampleItems = [
-            [
-                'name' => '薬草',
-                'category' => 'potion',
-                'category_name' => 'ポーション',
-            ],
-            [
-                'name' => '鉄の剣',
-                'category' => 'weapon',
-                'category_name' => '武器',
-            ],
-            [
-                'name' => '革の鎧',
-                'category' => 'body_equipment',
-                'category_name' => '胴体装備',
-            ],
-        ];
+        // 標準アイテムを取得
+        $standardItemService = new StandardItemService();
+        $standardItems = $standardItemService->getStandardItems();
+        
+        // インベントリ画面用にフォーマット
+        $sampleItems = collect($standardItems)->map(function($item) {
+            return [
+                'name' => $item['name'],
+                'category' => $item['category'],
+                'category_name' => $this->getCategoryDisplayName($item['category']),
+                'description' => $item['description'] ?? '',
+                'emoji' => $item['emoji'] ?? '📦',
+                'value' => $item['value'] ?? 0,
+            ];
+        })->toArray();
         
         return view('inventory.index', [
             'player' => $player,
@@ -58,7 +56,20 @@ class InventoryController extends Controller
         
         return response()->json([
             'inventory' => $inventory->getInventoryData(),
-            'character' => $player->getStatusSummary(),
+            'character' => [
+                'name' => $player->name,
+                'level' => $player->level ?? 1,
+                'hp' => $player->hp,
+                'max_hp' => $player->max_hp,
+                'mp' => $player->mp,
+                'max_mp' => $player->max_mp,
+                'sp' => $player->sp,
+                'max_sp' => $player->max_sp,
+                'hp_percentage' => $player->getHpPercentage(),
+                'sp_percentage' => $player->getSpPercentage(),
+                'mp_percentage' => $player->getMpPercentage(),
+                'is_alive' => $player->isAlive(),
+            ],
         ]);
     }
 
@@ -147,9 +158,10 @@ class InventoryController extends Controller
         $slotIndex = $request->input('slot_index');
         $result = $inventory->useItem($slotIndex, $player);
         
-        // Save inventory state to database after modification
+        // Save inventory state and player state to database after modification
         if ($result['success']) {
             $inventory->save();
+            $player->save(); // プレイヤーのHP/MP/SPステータスを保存
         }
 
         return response()->json([
@@ -157,7 +169,20 @@ class InventoryController extends Controller
             'message' => $result['message'],
             'effects' => $result['effects'] ?? [],
             'inventory' => $inventory->getInventoryData(),
-            'character' => $result['character'] ?? $player->getStatusSummary(),
+            'character' => [
+                'name' => $player->name,
+                'level' => $player->level ?? 1,
+                'hp' => $player->hp,
+                'max_hp' => $player->max_hp,
+                'mp' => $player->mp,
+                'max_mp' => $player->max_mp,
+                'sp' => $player->sp,
+                'max_sp' => $player->max_sp,
+                'hp_percentage' => $player->getHpPercentage(),
+                'sp_percentage' => $player->getSpPercentage(),
+                'mp_percentage' => $player->getMpPercentage(),
+                'is_alive' => $player->isAlive(),
+            ],
         ]);
     }
 
@@ -172,6 +197,7 @@ class InventoryController extends Controller
         
         $additionalSlots = $request->input('additional_slots');
         $inventory->expandSlots($additionalSlots);
+        $inventory->save(); // データベースに保存
 
         return response()->json([
             'success' => true,
@@ -211,6 +237,7 @@ class InventoryController extends Controller
         $inventory = Inventory::createForPlayer($player->id);
         
         $inventory->addSampleItems();
+        $inventory->save(); // データベースに保存
 
         return response()->json([
             'success' => true,
@@ -225,6 +252,7 @@ class InventoryController extends Controller
         $inventory = Inventory::createForPlayer($player->id);
         
         $inventory->setSlotData([]);
+        $inventory->save(); // データベースに保存
 
         return response()->json([
             'success' => true,
@@ -294,12 +322,33 @@ class InventoryController extends Controller
         }
 
         $inventory->setSlotData($slots);
+        $inventory->save(); // データベースに保存
 
         return response()->json([
             'success' => true,
             'message' => 'アイテムを移動しました',
             'inventory' => $inventory->getInventoryData(),
         ]);
+    }
+
+    /**
+     * カテゴリー表示名を取得
+     */
+    private function getCategoryDisplayName(string $category): string
+    {
+        $categoryMap = [
+            'potion' => 'ポーション',
+            'weapon' => '武器',
+            'body_equipment' => '胴体装備',
+            'head_equipment' => '頭装備',
+            'leg_equipment' => '脚装備',
+            'accessory' => 'アクセサリー',
+            'material' => '素材',
+            'tool' => '道具',
+            'other' => 'その他',
+        ];
+        
+        return $categoryMap[$category] ?? 'その他';
     }
 
     /**
@@ -323,37 +372,5 @@ class InventoryController extends Controller
             }
         }
         
-        // Database-First: 初期インベントリデータ設定（空の場合のみ）
-        if (empty($inventory->getSlotData())) {
-            // 基本的な初期アイテムを設定
-            $initialItems = [
-                ['slot' => 1, 'name' => '薬草', 'quantity' => 3, 'type' => 'consumable'],
-                ['slot' => 2, 'name' => '毒消し草', 'quantity' => 2, 'type' => 'consumable'],
-            ];
-            
-            // Convert to the format expected by the Inventory model
-            $slotData = [];
-            foreach ($initialItems as $item) {
-                $slotData[$item['slot']] = [
-                    'item_name' => $item['name'],
-                    'quantity' => $item['quantity'],
-                    'item_info' => [
-                        'name' => $item['name'],
-                        'type' => $item['type'],
-                        'description' => $item['name'] === '薬草' ? 'HPを回復する' : '毒を治す',
-                        'effect' => $item['name'] === '薬草' ? 'heal' : 'cure_poison',
-                        'value' => $item['name'] === '薬草' ? 30 : 0,
-                        'is_usable' => $item['type'] === 'consumable',
-                        'is_equippable' => false,
-                        'max_durability' => null,
-                    ],
-                ];
-            }
-            
-            if (!empty($slotData)) {
-                $inventory->setSlotData($slotData);
-                $inventory->save();
-            }
-        }
     }
 }
