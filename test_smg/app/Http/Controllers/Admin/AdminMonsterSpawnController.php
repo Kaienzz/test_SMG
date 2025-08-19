@@ -2,24 +2,25 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\AdminController;
 use App\Services\Monster\MonsterConfigService;
 use App\Services\Location\LocationConfigService;
+use App\Services\Admin\AdminAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 
-class AdminMonsterSpawnController extends Controller
+class AdminMonsterSpawnController extends AdminController
 {
-    use \App\Http\Controllers\Admin\Traits\HasAdminBase;
-
     private MonsterConfigService $monsterConfigService;
     private LocationConfigService $locationConfigService;
 
     public function __construct(
+        AdminAuditService $auditService,
         MonsterConfigService $monsterConfigService,
         LocationConfigService $locationConfigService
     ) {
+        parent::__construct($auditService);
         $this->monsterConfigService = $monsterConfigService;
         $this->locationConfigService = $locationConfigService;
     }
@@ -30,8 +31,8 @@ class AdminMonsterSpawnController extends Controller
     public function index(Request $request)
     {
         $this->initializeForRequest();
-        $this->checkPermission('locations.view');
-        $this->trackPageAccess('locations.monster_spawns');
+        $this->checkPermission('monsters.view');
+        $this->trackPageAccess('monsters.spawn_lists.index');
 
         $filters = $request->only(['search', 'pathway_id', 'sort_by', 'sort_direction']);
 
@@ -66,7 +67,7 @@ class AdminMonsterSpawnController extends Controller
                 ];
             }
 
-            return view('admin.monster_spawns.index', [
+            return view('admin.monsters.spawn_lists.index', [
                 'pathwaySpawns' => $pathwaySpawns,
                 'filters' => $filters,
                 'pathways' => $locationConfig['pathways'] ?? [],
@@ -85,7 +86,7 @@ class AdminMonsterSpawnController extends Controller
     public function pathwaySpawns(Request $request, string $pathwayId)
     {
         $this->initializeForRequest();
-        $this->checkPermission('locations.view');
+        $this->checkPermission('monsters.view');
 
         try {
             $locationConfig = $this->locationConfigService->loadUnifiedConfig();
@@ -100,7 +101,7 @@ class AdminMonsterSpawnController extends Controller
             $monsters = $this->monsterConfigService->getActiveMonsters();
             $validation = $this->monsterConfigService->validatePathwaySpawns($pathwayId);
 
-            return view('admin.monster_spawns.pathway', [
+            return view('admin.monsters.spawn_lists.pathway', [
                 'pathwayId' => $pathwayId,
                 'pathway' => $pathway,
                 'spawns' => $spawns,
@@ -119,7 +120,7 @@ class AdminMonsterSpawnController extends Controller
     public function saveSpawns(Request $request, string $pathwayId)
     {
         $this->initializeForRequest();
-        $this->checkPermission('locations.edit');
+        $this->checkPermission('monsters.edit');
 
         $rules = [
             'spawns' => 'required|array',
@@ -227,7 +228,7 @@ class AdminMonsterSpawnController extends Controller
     public function removeSpawn(Request $request, string $pathwayId, string $monsterId)
     {
         $this->initializeForRequest();
-        $this->checkPermission('locations.edit');
+        $this->checkPermission('monsters.edit');
 
         try {
             $locationConfig = $this->locationConfigService->loadUnifiedConfig();
@@ -280,7 +281,7 @@ class AdminMonsterSpawnController extends Controller
     public function validateAll(Request $request)
     {
         $this->initializeForRequest();
-        $this->checkPermission('locations.view');
+        $this->checkPermission('monsters.view');
 
         try {
             $results = $this->monsterConfigService->validateAllPathwaySpawns();
@@ -304,7 +305,7 @@ class AdminMonsterSpawnController extends Controller
     public function testSpawn(Request $request, string $pathwayId)
     {
         $this->initializeForRequest();
-        $this->checkPermission('locations.view');
+        $this->checkPermission('monsters.view');
 
         try {
             $monster = $this->monsterConfigService->getRandomMonsterForPathway($pathwayId);

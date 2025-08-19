@@ -103,7 +103,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
             Route::post('/monsters/balance-adjustment', [AdminMonsterController::class, 'balanceAdjustment'])->name('monsters.balance_adjustment');
         });
         
-        // モンスタースポーン管理
+    });
+    
+    // モンスタースポーン管理（権限チェック付き）
+    Route::middleware(['admin.permission:monsters.view'])->group(function () {
         Route::get('/monsters/spawn-lists', [AdminMonsterSpawnController::class, 'index'])->name('monsters.spawn-lists.index');
         Route::get('/monsters/spawn-lists/pathway/{pathwayId}', [AdminMonsterSpawnController::class, 'pathwaySpawns'])->name('monsters.spawn-lists.pathway');
         Route::get('/monsters/spawn-lists/validate-all', [AdminMonsterSpawnController::class, 'validateAll'])->name('monsters.spawn-lists.validate');
@@ -114,7 +117,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
             Route::post('/monsters/spawn-lists/pathway/{pathwayId}', [AdminMonsterSpawnController::class, 'saveSpawns'])->name('monsters.spawn-lists.save');
             Route::delete('/monsters/spawn-lists/pathway/{pathwayId}/monster/{monsterId}', [AdminMonsterSpawnController::class, 'removeSpawn'])->name('monsters.spawn-lists.remove');
         });
+    });
         
+    Route::middleware(['admin.permission:shops.view'])->group(function () {
         Route::get('/shops', function () {
             return view('admin.shops.index', [
                 'breadcrumb' => [
