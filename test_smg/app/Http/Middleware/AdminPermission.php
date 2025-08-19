@@ -173,10 +173,23 @@ class AdminPermission
             return false; // 存在しない権限は拒否
         }
 
+        // super権限ユーザーは詳細権限チェックをスキップ
+        if ($user->admin_level === 'super') {
+            return true;
+        }
+
         // 権限レベルチェック
         $userRole = $this->getUserRole($user->admin_role_id);
         if ($userRole && $userRole->level < $permissionData->required_level) {
             return false;
+        }
+
+        // admin_role_idがnullの場合は基本的な権限レベルチェック
+        if (!$user->admin_role_id) {
+            // admin_levelが設定されている場合は最低限の権限があるとみなす
+            if ($user->admin_level && $permissionData->required_level <= 1) {
+                return true;
+            }
         }
 
         // リソース制約チェック（将来拡張用）
