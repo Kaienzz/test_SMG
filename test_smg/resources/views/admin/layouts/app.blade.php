@@ -9,6 +9,11 @@
     <!-- Modern Light Theme - 既存スタイルとの統一 -->
     <link href="{{ asset('css/game-unified-layout.css') }}" rel="stylesheet">
     
+    <!-- FontAwesome アイコン -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
     <!-- 管理画面専用スタイル -->
     <style>
         :root {
@@ -136,6 +141,12 @@
             background-color: #f9fafb;
             border-left: 2px solid #e5e7eb;
             margin-left: 1.5rem;
+        }
+
+        .admin-nav-submenu hr {
+            border: 0;
+            border-top: 1px solid #e5e7eb;
+            margin: 0.5rem 1rem;
         }
 
         .admin-nav-subitem {
@@ -447,6 +458,527 @@
         .items-center { align-items: center; }
         .gap-2 { gap: 0.5rem; }
         .w-full { width: 100%; }
+
+        /* Bootstrap互換クラス */
+        .container-fluid { width: 100%; max-width: none; }
+        .row { display: flex; flex-wrap: wrap; margin: 0 -0.75rem; }
+        .col, .col-md-2, .col-md-3, .col-md-4, .col-md-6, .col-md-8, .col-lg-8, .col-xl-3 {
+            padding: 0 0.75rem;
+            flex: 1;
+        }
+        .col-md-2 { flex: 0 0 16.666667%; max-width: 16.666667%; }
+        .col-md-3 { flex: 0 0 25%; max-width: 25%; }
+        .col-md-4 { flex: 0 0 33.333333%; max-width: 33.333333%; }
+        .col-md-6 { flex: 0 0 50%; max-width: 50%; }
+        .col-md-8 { flex: 0 0 66.666667%; max-width: 66.666667%; }
+        .col-lg-8 { flex: 0 0 66.666667%; max-width: 66.666667%; }
+        .col-xl-3 { flex: 0 0 25%; max-width: 25%; }
+        .mb-3 { margin-bottom: 0.75rem; }
+        .mb-4 { margin-bottom: 1rem; }
+
+        /* カード（Bootstrap互換） */
+        .card { 
+            background: var(--admin-content-bg);
+            border: 1px solid var(--admin-border);
+            border-radius: 8px;
+            box-shadow: var(--admin-shadow);
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .card-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--admin-border);
+            background: #f9fafb;
+        }
+        .card-body {
+            padding: 1.5rem;
+        }
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+
+        /* アラート（Bootstrap互換） */
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+        }
+        .alert-success {
+            background-color: #f0fdf4;
+            border-color: var(--admin-success);
+            color: #166534;
+        }
+        .alert-warning {
+            background-color: #fffbeb;
+            border-color: var(--admin-warning);
+            color: #92400e;
+        }
+        .alert-danger {
+            background-color: #fef2f2;
+            border-color: var(--admin-danger);
+            color: #991b1b;
+        }
+        .alert-info {
+            background-color: #f0f9ff;
+            border-color: var(--admin-info);
+            color: #1e40af;
+        }
+
+        /* フォーム（Bootstrap互換） */
+        .form-group { margin-bottom: 1.5rem; }
+        .form-label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        .form-control, .form-select {
+            display: block;
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--admin-border);
+            border-radius: 6px;
+            background-color: white;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        .is-invalid {
+            border-color: var(--admin-danger);
+        }
+        .invalid-feedback {
+            color: var(--admin-danger);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        /* ボタン（Bootstrap互換） */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            gap: 0.375rem;
+            line-height: 1.5;
+            font-family: inherit;
+            font-size: 0.875rem;
+        }
+        .btn i {
+            font-size: 1em;
+        }
+        .btn i:only-child {
+            margin: 0;
+        }
+        .btn-primary {
+            background-color: var(--admin-primary);
+            color: white;
+            border-color: var(--admin-primary);
+        }
+        .btn-primary:hover {
+            background-color: var(--admin-primary-dark);
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+            border-color: #6b7280;
+        }
+        .btn-outline-primary {
+            background-color: transparent;
+            color: var(--admin-primary);
+            border-color: var(--admin-primary);
+        }
+        .btn-outline-primary:hover {
+            background-color: var(--admin-primary);
+            color: white;
+        }
+        .btn-outline-secondary {
+            background-color: transparent;
+            color: #6b7280;
+            border-color: #6b7280;
+        }
+        .btn-outline-danger {
+            background-color: transparent;
+            color: var(--admin-danger);
+            border-color: var(--admin-danger);
+        }
+        .btn-outline-danger:hover {
+            background-color: var(--admin-danger);
+            color: white;
+        }
+        .btn-outline-info {
+            background-color: transparent;
+            color: var(--admin-info);
+            border-color: var(--admin-info);
+        }
+        .btn-outline-info:hover {
+            background-color: var(--admin-info);
+            color: white;
+        }
+        .btn-outline-success {
+            background-color: transparent;
+            color: var(--admin-success);
+            border-color: var(--admin-success);
+        }
+        .btn-outline-success:hover {
+            background-color: var(--admin-success);
+            color: white;
+        }
+        .btn-outline-warning {
+            background-color: transparent;
+            color: var(--admin-warning);
+            border-color: var(--admin-warning);
+        }
+        .btn-outline-warning:hover {
+            background-color: var(--admin-warning);
+            color: white;
+        }
+        .btn-success {
+            background-color: var(--admin-success);
+            color: white;
+            border-color: var(--admin-success);
+        }
+        .btn-success:hover {
+            background-color: #059669;
+            color: white;
+        }
+        .btn-warning {
+            background-color: var(--admin-warning);
+            color: white;
+            border-color: var(--admin-warning);
+        }
+        .btn-warning:hover {
+            background-color: #d97706;
+            color: white;
+        }
+        .btn-danger {
+            background-color: var(--admin-danger);
+            color: white;
+            border-color: var(--admin-danger);
+        }
+        .btn-danger:hover {
+            background-color: #dc2626;
+            color: white;
+        }
+        .btn-info {
+            background-color: var(--admin-info);
+            color: white;
+            border-color: var(--admin-info);
+        }
+        .btn-info:hover {
+            background-color: #0891b2;
+            color: white;
+        }
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        .btn-lg {
+            padding: 0.75rem 1.5rem;
+            font-size: 1.125rem;
+        }
+        .btn:disabled,
+        .btn.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn:disabled:hover,
+        .btn.disabled:hover {
+            background-color: initial;
+            border-color: initial;
+            color: initial;
+        }
+        .btn-group {
+            display: inline-flex;
+            vertical-align: middle;
+        }
+        .btn-group .btn {
+            position: relative;
+            flex: 1 1 auto;
+        }
+        .btn-group .btn:not(:last-child) {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            margin-right: -1px;
+        }
+        .btn-group .btn:not(:first-child) {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        .btn-group .btn:hover,
+        .btn-group .btn:focus,
+        .btn-group .btn:active {
+            z-index: 1;
+        }
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            border-radius: 4px;
+        }
+        .btn-group-lg .btn {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            border-radius: 8px;
+        }
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+
+        /* バッジ（Bootstrap互換） */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .bg-primary { background-color: var(--admin-primary); color: white; }
+        .bg-success { background-color: var(--admin-success); color: white; }
+        .bg-warning { background-color: var(--admin-warning); color: white; }
+        .bg-danger { background-color: var(--admin-danger); color: white; }
+        .bg-info { background-color: var(--admin-info); color: white; }
+        .bg-secondary { background-color: #6b7280; color: white; }
+        .bg-light { background-color: #f8f9fa; color: #1f2937; }
+        .bg-dark { background-color: #1f2937; color: white; }
+
+        /* テーブル（Bootstrap互換） */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--admin-content-bg);
+        }
+        .table thead th {
+            background-color: #f9fafb;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 1px solid var(--admin-border);
+        }
+        .table tbody td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--admin-border);
+        }
+        .table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+        .table-bordered {
+            border: 1px solid var(--admin-border);
+        }
+        .table-bordered th,
+        .table-bordered td {
+            border: 1px solid var(--admin-border);
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        /* ページネーション */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+        .breadcrumb-item {
+            color: var(--admin-secondary);
+            text-decoration: none;
+        }
+        .breadcrumb-item:hover {
+            color: var(--admin-primary);
+        }
+        .breadcrumb-item.active {
+            color: #1f2937;
+            font-weight: 500;
+        }
+
+        /* タブ（Bootstrap互換） */
+        .nav {
+            display: flex;
+            flex-wrap: wrap;
+            padding-left: 0;
+            margin-bottom: 0;
+            list-style: none;
+        }
+        .nav-tabs {
+            border-bottom: 1px solid var(--admin-border);
+        }
+        .nav-tabs .nav-item {
+            margin-bottom: -1px;
+        }
+        .nav-tabs .nav-link {
+            border: 1px solid transparent;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin-right: 2px;
+            text-decoration: none;
+            color: var(--admin-secondary);
+            background-color: transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-tabs .nav-link:hover {
+            border-color: var(--admin-border) var(--admin-border) var(--admin-border);
+            color: var(--admin-primary);
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--admin-primary);
+            background-color: var(--admin-content-bg);
+            border-color: var(--admin-border) var(--admin-border) var(--admin-content-bg);
+            font-weight: 600;
+        }
+        .nav-item {
+            list-style: none;
+        }
+        .tab-content {
+            margin-top: 1rem;
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active,
+        .tab-pane.show {
+            display: block;
+        }
+        .fade {
+            transition: opacity 0.15s linear;
+        }
+        .fade:not(.show) {
+            opacity: 0;
+        }
+
+        /* タイポグラフィ */
+        .h1, .h2, .h3, .h4, .h5, .h6,
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            line-height: 1.2;
+            color: #1f2937;
+        }
+        .h1, h1 { font-size: 2.5rem; }
+        .h2, h2 { font-size: 2rem; }
+        .h3, h3 { font-size: 1.75rem; }
+        .h4, h4 { font-size: 1.5rem; }
+        .h5, h5 { font-size: 1.25rem; }
+        .h6, h6 { font-size: 1rem; }
+
+        /* テキストカラー */
+        .text-muted { color: var(--admin-secondary); }
+        .text-primary { color: var(--admin-primary); }
+        .text-secondary { color: #6b7280; }
+        .text-success { color: var(--admin-success); }
+        .text-warning { color: var(--admin-warning); }
+        .text-danger { color: var(--admin-danger); }
+        .text-info { color: var(--admin-info); }
+        .text-gray-800 { color: #1f2937; }
+        .text-gray-600 { color: #4b5563; }
+        .text-gray-500 { color: #6b7280; }
+        .text-gray-400 { color: #9ca3af; }
+        .text-gray-300 { color: #d1d5db; }
+        .text-white { color: white; }
+        .text-dark { color: #1f2937; }
+
+        /* フォントウェイト */
+        .font-weight-normal { font-weight: 400; }
+        .font-weight-bold { font-weight: 600; }
+        .font-weight-bolder { font-weight: 700; }
+
+        /* マージン・パディング */
+        .m-0 { margin: 0; }
+        .mt-0 { margin-top: 0; }
+        .mb-0 { margin-bottom: 0; }
+        .ml-0 { margin-left: 0; }
+        .mr-0 { margin-right: 0; }
+        .mt-1 { margin-top: 0.25rem; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .mt-2 { margin-top: 0.5rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mt-3 { margin-top: 0.75rem; }
+        .mb-3 { margin-bottom: 0.75rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mt-5 { margin-top: 1.25rem; }
+        .mb-5 { margin-bottom: 1.25rem; }
+        .mr-2 { margin-right: 0.5rem; }
+        .me-2 { margin-right: 0.5rem; }
+        .ml-2 { margin-left: 0.5rem; }
+        .ms-2 { margin-left: 0.5rem; }
+        .me-1 { margin-right: 0.25rem; }
+        .ms-1 { margin-left: 0.25rem; }
+        .me-3 { margin-right: 0.75rem; }
+        .ms-3 { margin-left: 0.75rem; }
+
+        .p-0 { padding: 0; }
+        .pt-0 { padding-top: 0; }
+        .pb-0 { padding-bottom: 0; }
+        .pl-0 { padding-left: 0; }
+        .pr-0 { padding-right: 0; }
+        .pt-1 { padding-top: 0.25rem; }
+        .pb-1 { padding-bottom: 0.25rem; }
+        .pt-2 { padding-top: 0.5rem; }
+        .pb-2 { padding-bottom: 0.5rem; }
+        .pt-3 { padding-top: 0.75rem; }
+        .pb-3 { padding-bottom: 0.75rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .py-3 { padding-top: 1rem; padding-bottom: 1rem; }
+
+        /* Display・Flex */
+        .d-none { display: none; }
+        .d-block { display: block; }
+        .d-inline { display: inline; }
+        .d-inline-block { display: inline-block; }
+        .d-flex { display: flex; }
+        .d-inline-flex { display: inline-flex; }
+        .justify-content-start { justify-content: flex-start; }
+        .justify-content-center { justify-content: center; }
+        .justify-content-end { justify-content: flex-end; }
+        .justify-content-between { justify-content: space-between; }
+        .justify-content-around { justify-content: space-around; }
+        .align-items-start { align-items: flex-start; }
+        .align-items-center { align-items: center; }
+        .align-items-end { align-items: flex-end; }
+        .gap-1 { gap: 0.25rem; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+
+        /* その他のユーティリティ */
+        .shadow { box-shadow: var(--admin-shadow); }
+        .h-100 { height: 100%; }
+        .w-100 { width: 100%; }
+        .text-uppercase { text-transform: uppercase; }
+        .text-lowercase { text-transform: lowercase; }
+        .text-capitalize { text-transform: capitalize; }
+        .text-decoration-none { text-decoration: none; }
+        .border { border: 1px solid var(--admin-border); }
+        .border-0 { border: 0; }
+        .rounded { border-radius: 6px; }
+        .rounded-0 { border-radius: 0; }
+        .position-relative { position: relative; }
+        .position-absolute { position: absolute; }
+        .overflow-hidden { overflow: hidden; }
+        .overflow-auto { overflow: auto; }
     </style>
 
     @stack('styles')
@@ -535,18 +1067,65 @@
                                 標準アイテム追加
                             </a>
                         </div>
-                        <a href="{{ route('admin.monsters.index') }}" class="admin-nav-item {{ request()->routeIs('admin.monsters.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.monsters.index') }}" class="admin-nav-item {{ request()->routeIs('admin.monsters.index') || request()->routeIs('admin.monsters.show') || request()->routeIs('admin.monsters.edit') || request()->routeIs('admin.monsters.create') ? 'active' : '' }}">
                             <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                             </svg>
                             モンスター管理
                         </a>
+                        <div class="admin-nav-submenu">
+                            <a href="{{ route('admin.monsters.spawn-lists.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.monsters.spawn-lists.*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clip-rule="evenodd"></path>
+                                </svg>
+                                モンスタースポーン管理
+                            </a>
+                        </div>
                         <a href="{{ route('admin.shops.index') }}" class="admin-nav-item {{ request()->routeIs('admin.shops.*') ? 'active' : '' }}">
                             <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 2L3 7v11a2 2 0 002 2h10a2 2 0 002-2V7l-7-5zM8 15a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"></path>
                             </svg>
                             ショップ管理
                         </a>
+                        <a href="{{ route('admin.locations.index') }}" class="admin-nav-item {{ request()->routeIs('admin.locations.*') ? 'active' : '' }}">
+                            <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                            </svg>
+                            マップ管理
+                        </a>
+                        <div class="admin-nav-submenu">
+                            <a href="{{ route('admin.locations.pathways') }}" class="admin-nav-subitem {{ request()->routeIs('admin.locations.pathways*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path>
+                                </svg>
+                                道・ダンジョン管理
+                            </a>
+                            <a href="{{ route('admin.locations.towns') }}" class="admin-nav-subitem {{ request()->routeIs('admin.locations.towns*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 2L3 7v11a2 2 0 002 2h10a2 2 0 002-2V7l-7-5zM8 15a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                                </svg>
+                                町管理
+                            </a>
+                            <a href="{{ route('admin.locations.connections') }}" class="admin-nav-subitem {{ request()->routeIs('admin.locations.connections*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"></path>
+                                </svg>
+                                マップ接続管理
+                            </a>
+                            <hr class="border-top my-2 mx-3">
+                            <a href="{{ route('admin.locations.roads') }}" class="admin-nav-subitem {{ request()->routeIs('admin.locations.roads*') && !request()->routeIs('admin.locations.pathways*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                                道管理（旧）
+                            </a>
+                            <a href="{{ route('admin.locations.dungeons') }}" class="admin-nav-subitem {{ request()->routeIs('admin.locations.dungeons*') && !request()->routeIs('admin.locations.pathways*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                ダンジョン管理（旧）
+                            </a>
+                        </div>
                     </div>
                     @endif
 
@@ -708,6 +1287,43 @@
                 }, 5000);
             }
         };
+
+        // タブ機能
+        function initializeTabs() {
+            const tabButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const targetId = this.getAttribute('data-bs-target');
+                    const target = document.querySelector(targetId);
+                    
+                    if (!target) return;
+                    
+                    // 全てのタブボタンからactiveクラスを削除
+                    const allButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
+                    allButtons.forEach(btn => btn.classList.remove('active'));
+                    
+                    // 全てのタブペインを非表示
+                    const allPanes = document.querySelectorAll('.tab-pane');
+                    allPanes.forEach(pane => {
+                        pane.classList.remove('active', 'show');
+                    });
+                    
+                    // クリックされたボタンをアクティブに
+                    this.classList.add('active');
+                    
+                    // 対象のタブペインを表示
+                    target.classList.add('active', 'show');
+                });
+            });
+        }
+
+        // DOMContentLoaded時にタブを初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTabs();
+        });
     </script>
 
     @stack('scripts')

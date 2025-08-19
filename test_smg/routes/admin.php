@@ -5,6 +5,8 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminItemController;
 use App\Http\Controllers\Admin\AdminMonsterController;
+use App\Http\Controllers\Admin\AdminMonsterSpawnController;
+use App\Http\Controllers\Admin\AdminLocationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -101,6 +103,18 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
             Route::post('/monsters/balance-adjustment', [AdminMonsterController::class, 'balanceAdjustment'])->name('monsters.balance_adjustment');
         });
         
+        // モンスタースポーン管理
+        Route::get('/monsters/spawn-lists', [AdminMonsterSpawnController::class, 'index'])->name('monsters.spawn-lists.index');
+        Route::get('/monsters/spawn-lists/pathway/{pathwayId}', [AdminMonsterSpawnController::class, 'pathwaySpawns'])->name('monsters.spawn-lists.pathway');
+        Route::get('/monsters/spawn-lists/validate-all', [AdminMonsterSpawnController::class, 'validateAll'])->name('monsters.spawn-lists.validate');
+        Route::get('/monsters/spawn-lists/test/{pathwayId}', [AdminMonsterSpawnController::class, 'testSpawn'])->name('monsters.spawn-lists.test');
+        
+        // モンスタースポーン編集（追加権限チェック）
+        Route::middleware(['admin.permission:monsters.edit'])->group(function () {
+            Route::post('/monsters/spawn-lists/pathway/{pathwayId}', [AdminMonsterSpawnController::class, 'saveSpawns'])->name('monsters.spawn-lists.save');
+            Route::delete('/monsters/spawn-lists/pathway/{pathwayId}/monster/{monsterId}', [AdminMonsterSpawnController::class, 'removeSpawn'])->name('monsters.spawn-lists.remove');
+        });
+        
         Route::get('/shops', function () {
             return view('admin.shops.index', [
                 'breadcrumb' => [
@@ -109,6 +123,84 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
                 ]
             ]);
         })->name('shops.index');
+    });
+    
+    // ロケーション管理（権限チェック付き）
+    Route::middleware(['admin.permission:locations.view'])->group(function () {
+        // ロケーション管理トップページ
+        Route::get('/locations', [AdminLocationController::class, 'index'])->name('locations.index');
+        
+        // 道路・ダンジョン統合管理
+        Route::get('/locations/pathways', [AdminLocationController::class, 'pathways'])->name('locations.pathways');
+        Route::get('/locations/pathways/create', [AdminLocationController::class, 'pathwayForm'])->name('locations.pathways.create');
+        Route::get('/locations/pathways/{pathwayId}', [AdminLocationController::class, 'pathwayForm'])->name('locations.pathways.edit');
+        Route::get('/locations/pathways/{pathwayId}/details', [AdminLocationController::class, 'pathwayDetails'])->name('locations.pathways.details');
+        
+        // 道路管理（後方互換性）
+        Route::get('/locations/roads', [AdminLocationController::class, 'roads'])->name('locations.roads');
+        Route::get('/locations/roads/create', [AdminLocationController::class, 'roadForm'])->name('locations.roads.create');
+        Route::get('/locations/roads/{roadId}', [AdminLocationController::class, 'roadForm'])->name('locations.roads.edit');
+        Route::get('/locations/roads/{roadId}/details', [AdminLocationController::class, 'roadDetails'])->name('locations.roads.details');
+        
+        // 町管理
+        Route::get('/locations/towns', [AdminLocationController::class, 'towns'])->name('locations.towns');
+        Route::get('/locations/towns/create', [AdminLocationController::class, 'townForm'])->name('locations.towns.create');
+        Route::get('/locations/towns/{townId}', [AdminLocationController::class, 'townForm'])->name('locations.towns.edit');
+        Route::get('/locations/towns/{townId}/details', [AdminLocationController::class, 'townDetails'])->name('locations.towns.details');
+        
+        // ダンジョン管理（後方互換性）
+        Route::get('/locations/dungeons', [AdminLocationController::class, 'dungeons'])->name('locations.dungeons');
+        Route::get('/locations/dungeons/create', [AdminLocationController::class, 'dungeonForm'])->name('locations.dungeons.create');
+        Route::get('/locations/dungeons/{dungeonId}', [AdminLocationController::class, 'dungeonForm'])->name('locations.dungeons.edit');
+        Route::get('/locations/dungeons/{dungeonId}/details', [AdminLocationController::class, 'dungeonDetails'])->name('locations.dungeons.details');
+        
+        // 接続関係管理
+        Route::get('/locations/connections', [AdminLocationController::class, 'connections'])->name('locations.connections');
+        Route::get('/locations/connections/{locationId}/details', [AdminLocationController::class, 'connectionDetails'])->name('locations.connections.details');
+        Route::get('/locations/connections/validate', [AdminLocationController::class, 'validateConnections'])->name('locations.connections.validate');
+        
+        // エクスポート機能（追加権限不要）
+        Route::middleware(['admin.permission:locations.export'])->group(function () {
+            Route::get('/locations/export', [AdminLocationController::class, 'exportConfig'])->name('locations.export');
+        });
+
+        // データ移行機能
+        Route::get('/locations/migration/status', [AdminLocationController::class, 'migrationStatus'])->name('locations.migration.status');
+        Route::middleware(['admin.permission:locations.edit'])->group(function () {
+            Route::post('/locations/migration/execute', [AdminLocationController::class, 'executeMigration'])->name('locations.migration.execute');
+        });
+        
+        // 編集・作成・インポート機能（追加権限チェック）
+        Route::middleware(['admin.permission:locations.edit'])->group(function () {
+            // 道路・ダンジョン統合管理の保存・削除
+            Route::post('/locations/pathways', [AdminLocationController::class, 'savePathway'])->name('locations.pathways.store');
+            Route::put('/locations/pathways/{pathwayId}', [AdminLocationController::class, 'savePathway'])->name('locations.pathways.update');
+            Route::delete('/locations/pathways/{pathwayId}', [AdminLocationController::class, 'deletePathway'])->name('locations.pathways.destroy');
+            
+            // 道路の保存・削除（後方互換性）
+            Route::post('/locations/roads', [AdminLocationController::class, 'saveRoad'])->name('locations.roads.store');
+            Route::put('/locations/roads/{roadId}', [AdminLocationController::class, 'saveRoad'])->name('locations.roads.update');
+            Route::delete('/locations/roads/{roadId}', [AdminLocationController::class, 'deleteRoad'])->name('locations.roads.destroy');
+            
+            // 町の保存・削除
+            Route::post('/locations/towns', [AdminLocationController::class, 'saveTown'])->name('locations.towns.store');
+            Route::put('/locations/towns/{townId}', [AdminLocationController::class, 'saveTown'])->name('locations.towns.update');
+            Route::delete('/locations/towns/{townId}', [AdminLocationController::class, 'deleteTown'])->name('locations.towns.destroy');
+            
+            // ダンジョンの保存・削除（後方互換性）
+            Route::post('/locations/dungeons', [AdminLocationController::class, 'saveDungeon'])->name('locations.dungeons.store');
+            Route::put('/locations/dungeons/{dungeonId}', [AdminLocationController::class, 'saveDungeon'])->name('locations.dungeons.update');
+            Route::delete('/locations/dungeons/{dungeonId}', [AdminLocationController::class, 'deleteDungeon'])->name('locations.dungeons.destroy');
+            
+            // バックアップ機能
+            Route::post('/locations/backup', [AdminLocationController::class, 'createBackup'])->name('locations.backup');
+            Route::post('/locations/restore', [AdminLocationController::class, 'restoreBackup'])->name('locations.restore');
+        });
+        
+        // インポート機能（特別権限）
+        Route::middleware(['admin.permission:locations.import'])->group(function () {
+            Route::post('/locations/import', [AdminLocationController::class, 'importConfig'])->name('locations.import');
+        });
     });
     
     // 分析・監視（権限チェック付き）

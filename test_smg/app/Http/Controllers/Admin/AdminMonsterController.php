@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\Monster;
 use App\Services\Admin\AdminAuditService;
+use App\Services\Monster\MonsterConfigService;
 use App\Http\Controllers\Admin\AdminController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -12,9 +13,12 @@ use Illuminate\Support\Facades\Validator;
 
 class AdminMonsterController extends AdminController
 {
-    public function __construct(AdminAuditService $auditService)
+    private MonsterConfigService $monsterConfigService;
+
+    public function __construct(AdminAuditService $auditService, MonsterConfigService $monsterConfigService)
     {
         parent::__construct($auditService);
+        $this->monsterConfigService = $monsterConfigService;
         // Laravel 11では、コンストラクタ内でのmiddleware()は使用できません
         // 各メソッド内で権限チェックを実行します
     }
@@ -29,8 +33,8 @@ class AdminMonsterController extends AdminController
         
         $filters = $request->only(['search', 'road', 'min_level', 'max_level', 'sort_by', 'sort_direction']);
         
-        // 動的データの取得（ファイルベース）
-        $allMonsters = Monster::getDummyMonsters();
+        // 動的データの取得（JSONベース）
+        $allMonsters = $this->monsterConfigService->getActiveMonsters();
         
         // フィルタリング処理
         $filteredMonsters = collect($allMonsters);
@@ -107,7 +111,7 @@ class AdminMonsterController extends AdminController
     {
         $this->checkPermission('monsters.view');
         
-        $allMonsters = Monster::getDummyMonsters();
+        $allMonsters = $this->monsterConfigService->getActiveMonsters();
         $monster = collect($allMonsters)->firstWhere('name', $monsterId) 
                   ?? collect($allMonsters)->where('id', $monsterId)->first();
         
@@ -145,7 +149,7 @@ class AdminMonsterController extends AdminController
     {
         $this->checkPermission('monsters.edit');
         
-        $allMonsters = Monster::getDummyMonsters();
+        $allMonsters = $this->monsterConfigService->getActiveMonsters();
         $monster = collect($allMonsters)->firstWhere('name', $monsterId) 
                   ?? collect($allMonsters)->where('id', $monsterId)->first();
         
@@ -269,7 +273,7 @@ class AdminMonsterController extends AdminController
             $adjustments = $request->stat_adjustments;
             $method = $request->adjustment_method;
             
-            $allMonsters = Monster::getDummyMonsters();
+            $allMonsters = $this->monsterConfigService->getActiveMonsters();
             $affectedMonsters = [];
             
             // 対象モンスターの特定

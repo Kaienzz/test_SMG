@@ -1,0 +1,220 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-08-19T02:00:00Z",
+  "description": "Monster spawn list configurations - each list contains multiple monsters with spawn rates",
+  "spawn_lists": {
+    "spawn_road_1": {
+      "id": "spawn_road_1",
+      "name": "プリマ街道モンスター出現リスト",
+      "description": "プリマ街道で出現するモンスターの設定",
+      "is_active": true,
+      "monsters": {
+        "slime": {
+          "monster_id": "slime",
+          "spawn_rate": 0.4,
+          "priority": 1,
+          "min_level": null,
+          "max_level": null,
+          "is_active": true
+        },
+        "goblin": {
+          "monster_id": "goblin", 
+          "spawn_rate": 0.3,
+          "priority": 2,
+          "min_level": null,
+          "max_level": null,
+          "is_active": true
+        },
+        "wolf": {
+          "monster_id": "wolf",
+          "spawn_rate": 0.2,
+          "priority": 3,
+          "min_level": null,
+          "max_level": null,
+          "is_active": true
+        },
+        "orc": {
+          "monster_id": "orc",
+          "spawn_rate": 0.1,
+          "priority": 4,
+          "min_level": null,
+          "max_level": null,
+          "is_active": true
+        }
+      },
+      "tags": ["road", "basic"],
+      "created_at": "2025-08-19T02:00:00Z",
+      "updated_at": "2025-08-19T02:00:00Z"
+    },
+    "spawn_road_2": {
+      "id": "spawn_road_2",
+      "name": "中央大通りモンスター出現リスト",
+      "description": "中央大通りで出現するモンスターの設定",
+      "is_active": true,
+      "monsters": {
+        "poison_spider": {
+          "monster_id": "poison_spider",
+          "spawn_rate": 0.3,
+          "priority": 1,
+          "min_level": 3,
+          "max_level": null,
+          "is_active": true
+        },
+        "skeleton": {
+          "monster_id": "skeleton",
+          "spawn_rate": 0.4,
+          "priority": 2,
+          "min_level": 4,
+          "max_level": null,
+          "is_active": true
+        },
+        "bandit": {
+          "monster_id": "bandit",
+          "spawn_rate": 0.2,
+          "priority": 3,
+          "min_level": 5,
+          "max_level": null,
+          "is_active": true
+        },
+        "troll": {
+          "monster_id": "troll",
+          "spawn_rate": 0.1,
+          "priority": 4,
+          "min_level": 6,
+          "max_level": null,
+          "is_active": true
+        }
+      },
+      "tags": ["road", "intermediate"],
+      "created_at": "2025-08-19T02:00:00Z",
+      "updated_at": "2025-08-19T02:00:00Z"
+    },
+    "spawn_road_3": {
+      "id": "spawn_road_3",
+      "name": "港湾道路モンスター出現リスト",
+      "description": "港湾道路で出現するモンスターの設定",
+      "is_active": true,
+      "monsters": {
+        "dark_knight": {
+          "monster_id": "dark_knight",
+          "spawn_rate": 0.3,
+          "priority": 1,
+          "min_level": 7,
+          "max_level": null,
+          "is_active": true
+        },
+        "dragonling": {
+          "monster_id": "dragonling",
+          "spawn_rate": 0.2,
+          "priority": 2,
+          "min_level": 8,
+          "max_level": null,
+          "is_active": true
+        },
+        "shadow_assassin": {
+          "monster_id": "shadow_assassin",
+          "spawn_rate": 0.3,
+          "priority": 3,
+          "min_level": 9,
+          "max_level": null,
+          "is_active": true
+        },
+        "ancient_beast": {
+          "monster_id": "ancient_beast",
+          "spawn_rate": 0.2,
+          "priority": 4,
+          "min_level": 11,
+          "max_level": null,
+          "is_active": true
+        }
+      },
+      "tags": ["road", "advanced"],
+      "created_at": "2025-08-19T02:00:00Z",
+      "updated_at": "2025-08-19T02:00:00Z"
+    },
+    "spawn_dungeon_1": {
+      "id": "spawn_dungeon_1",
+      "name": "古の洞窟モンスター出現リスト",
+      "description": "古の洞窟で出現するモンスターの設定",
+      "is_active": true,
+      "monsters": {
+        "slime": {
+          "monster_id": "slime",
+          "spawn_rate": 0.3,
+          "priority": 1,
+          "min_level": null,
+          "max_level": 5,
+          "is_active": true
+        },
+        "goblin": {
+          "monster_id": "goblin",
+          "spawn_rate": 0.4,
+          "priority": 2,
+          "min_level": null,
+          "max_level": 7,
+          "is_active": true
+        },
+        "skeleton": {
+          "monster_id": "skeleton",
+          "spawn_rate": 0.3,
+          "priority": 3,
+          "min_level": 3,
+          "max_level": 10,
+          "is_active": true
+        }
+      },
+      "tags": ["dungeon", "cave"],
+      "created_at": "2025-08-19T02:00:00Z",
+      "updated_at": "2025-08-19T02:00:00Z"
+    },
+    "spawn_dungeon_2": {
+      "id": "spawn_dungeon_2",
+      "name": "忘れられた遺跡モンスター出現リスト",
+      "description": "忘れられた遺跡で出現するモンスターの設定",
+      "is_active": true,
+      "monsters": {
+        "dark_knight": {
+          "monster_id": "dark_knight",
+          "spawn_rate": 0.2,
+          "priority": 1,
+          "min_level": 8,
+          "max_level": null,
+          "is_active": true
+        },
+        "skeleton": {
+          "monster_id": "skeleton",
+          "spawn_rate": 0.3,
+          "priority": 2,
+          "min_level": 6,
+          "max_level": null,
+          "is_active": true
+        },
+        "ancient_beast": {
+          "monster_id": "ancient_beast",
+          "spawn_rate": 0.3,
+          "priority": 3,
+          "min_level": 10,
+          "max_level": null,
+          "is_active": true
+        },
+        "shadow_assassin": {
+          "monster_id": "shadow_assassin",
+          "spawn_rate": 0.2,
+          "priority": 4,
+          "min_level": 9,
+          "max_level": null,
+          "is_active": true
+        }
+      },
+      "tags": ["dungeon", "ruins"],
+      "created_at": "2025-08-19T02:00:00Z",
+      "updated_at": "2025-08-19T02:00:00Z"
+    }
+  },
+  "metadata": {
+    "total_spawn_lists": 5,
+    "total_monster_entries": 19,
+    "creation_date": "2025-08-19",
+    "schema_version": "1.0"
+  }
+}

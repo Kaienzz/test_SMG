@@ -1,0 +1,276 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-08-15T00:00:00Z",
+  "description": "Location configuration for test_smg game",
+  "roads": {
+    "road_1": {
+      "name": "プリマ街道",
+      "description": "プリマの町と中央大通りを結ぶ主要街道",
+      "length": 100,
+      "difficulty": "easy",
+      "encounter_rate": 0.1,
+      "connections": {
+        "start": {"type": "town", "id": "town_prima"},
+        "end": {"type": "road", "id": "road_2"}
+      }
+    },
+    "road_2": {
+      "name": "中央大通り",
+      "description": "王国の中央を貫く大通り",
+      "length": 100,
+      "difficulty": "normal",
+      "encounter_rate": 0.15,
+      "connections": {
+        "start": {"type": "road", "id": "road_1"},
+        "end": {"type": "road", "id": "road_3"}
+      },
+      "branches": {
+        "50": {
+          "straight": {"type": "road", "id": "road_3"},
+          "right": {"type": "road", "id": "road_4"}
+        }
+      },
+      "special_actions": {
+        "25": {
+          "type": "merchant_stand",
+          "name": "行商人の屋台",
+          "condition": "none",
+          "action": "shop_access",
+          "data": {
+            "items": ["health_potion", "mana_potion", "travel_supplies"]
+          }
+        }
+      }
+    },
+    "road_3": {
+      "name": "港湾道路",
+      "description": "港へと続く商業道路",
+      "length": 100,
+      "difficulty": "normal",
+      "encounter_rate": 0.12,
+      "connections": {
+        "start": {"type": "road", "id": "road_2"},
+        "end": {"type": "town", "id": "town_b"}
+      }
+    },
+    "road_4": {
+      "name": "山道",
+      "description": "山間部を通る険しい道",
+      "length": 100,
+      "difficulty": "hard",
+      "encounter_rate": 0.2,
+      "connections": {
+        "start": {"type": "road", "id": "road_2"},
+        "end": {"type": "dungeon", "id": "dungeon_2"}
+      },
+      "special_actions": {
+        "80": {
+          "type": "rest_spot",
+          "name": "山小屋",
+          "condition": "none",
+          "action": "rest_recovery",
+          "data": {
+            "hp_recovery": 50,
+            "sp_recovery": 30
+          }
+        }
+      }
+    },
+    "road_5": {
+      "name": "森林道路",
+      "description": "深い森を抜ける自然の道",
+      "length": 100,
+      "difficulty": "normal",
+      "encounter_rate": 0.18,
+      "connections": {
+        "start": {"type": "town", "id": "town_c"},
+        "end": {"type": "town", "id": "elven_village"}
+      }
+    },
+    "road_6": {
+      "name": "商業街道",
+      "description": "商業都市へと続く賑やかな街道",
+      "length": 100,
+      "difficulty": "easy",
+      "encounter_rate": 0.08,
+      "connections": {
+        "start": {"type": "town", "id": "town_c"},
+        "end": {"type": "town", "id": "merchant_city"}
+      }
+    },
+    "road_7": {
+      "name": "北街道",
+      "description": "北方へと続く長い街道",
+      "length": 100,
+      "difficulty": "normal",
+      "encounter_rate": 0.14,
+      "connections": {
+        "start": {"type": "town", "id": "town_c"},
+        "end": null
+      }
+    }
+  },
+  "towns": {
+    "town_a": {
+      "name": "A町",
+      "description": "小さな田舎町",
+      "type": "small_town",
+      "services": ["shop", "inn"],
+      "connections": {
+        "east": {"type": "road", "id": "road_1"}
+      }
+    },
+    "town_prima": {
+      "name": "プリマ",
+      "description": "冒険者の拠点となる美しい町",
+      "type": "starter_town",
+      "services": ["shop", "inn", "blacksmith"],
+      "connections": {
+        "east": {"type": "road", "id": "road_1"}
+      }
+    },
+    "town_b": {
+      "name": "B町",
+      "description": "港に近い商業都市",
+      "type": "port_town",
+      "services": ["shop", "inn", "blacksmith", "shipyard"],
+      "connections": {
+        "west": {"type": "road", "id": "road_3"}
+      }
+    },
+    "town_c": {
+      "name": "C町",
+      "description": "三方向への分岐点となる重要な商業都市",
+      "type": "hub_town",
+      "services": ["shop", "inn", "blacksmith", "tavern"],
+      "connections": {
+        "east": {"type": "road", "id": "road_5"},
+        "south": {"type": "road", "id": "road_6"},
+        "north": {"type": "road", "id": "road_7"}
+      }
+    },
+    "elven_village": {
+      "name": "エルフの村",
+      "description": "森の奥深くに隠された神秘的な村",
+      "type": "elven_settlement",
+      "services": ["shop", "inn", "magic_shop"],
+      "connections": {
+        "west": {"type": "road", "id": "road_5"}
+      }
+    },
+    "merchant_city": {
+      "name": "商業都市",
+      "description": "様々な商人が集まる大きな商業都市",
+      "type": "commercial_city",
+      "services": ["shop", "inn", "blacksmith", "bank", "auction"],
+      "connections": {
+        "north": {"type": "road", "id": "road_6"}
+      }
+    }
+  },
+  "dungeons": {
+    "dungeon_1": {
+      "name": "古の洞窟",
+      "description": "古代の秘密が眠る深い洞窟",
+      "length": 100,
+      "difficulty": "normal",
+      "encounter_rate": 0.25,
+      "connections": {
+        "start": {"type": "town", "id": "town_prima"},
+        "end": {"type": "town", "id": "town_prima"}
+      },
+      "special_actions": {
+        "75": {
+          "type": "boss_battle",
+          "name": "洞窟の守護者",
+          "condition": "none",
+          "action": "boss_fight",
+          "data": {
+            "boss": "Cave Guardian",
+            "min_level": 5,
+            "rewards": ["ancient_artifacts", "gems", "rare_materials"]
+          }
+        },
+        "25": {
+          "type": "treasure_chest",
+          "name": "古い宝箱",
+          "condition": "none",
+          "action": "get_treasure",
+          "data": {
+            "items": ["healing_potion", "gold_100"]
+          }
+        }
+      }
+    },
+    "dungeon_2": {
+      "name": "忘れられた遺跡",
+      "description": "失われた文明の遺跡",
+      "length": 100,
+      "difficulty": "hard",
+      "encounter_rate": 0.3,
+      "connections": {
+        "start": {"type": "road", "id": "road_4"},
+        "end": {"type": "road", "id": "road_4"}
+      },
+      "branches": {
+        "50": {
+          "straight": {"type": "road", "id": "road_4"},
+          "left": {"type": "dungeon", "id": "dungeon_secret_room"}
+        }
+      },
+      "special_actions": {
+        "90": {
+          "type": "boss_battle",
+          "name": "古代のゴーレム",
+          "condition": "key_required",
+          "action": "boss_fight",
+          "data": {
+            "boss": "Ancient Golem",
+            "min_level": 10,
+            "required_item": "ancient_key",
+            "rewards": ["magical_items", "ancient_scrolls", "precious_metals"]
+          }
+        },
+        "30": {
+          "type": "warp_portal",
+          "name": "脱出ポータル",
+          "condition": "none",
+          "action": "teleport",
+          "data": {
+            "destination_type": "town",
+            "destination_id": "town_prima"
+          }
+        }
+      }
+    },
+    "dungeon_secret_room": {
+      "name": "隠し部屋",
+      "description": "遺跡の奥に隠された秘密の部屋",
+      "length": 50,
+      "difficulty": "easy",
+      "encounter_rate": 0.0,
+      "connections": {
+        "start": {"type": "dungeon", "id": "dungeon_2"},
+        "end": {"type": "dungeon", "id": "dungeon_2"}
+      },
+      "special_actions": {
+        "25": {
+          "type": "treasure_chest",
+          "name": "伝説の宝箱",
+          "condition": "none",
+          "action": "get_treasure",
+          "data": {
+            "items": ["legendary_sword", "gold_1000", "rare_gem"]
+          }
+        }
+      }
+    }
+  },
+  "metadata": {
+    "total_roads": 7,
+    "total_towns": 6,
+    "total_dungeons": 2,
+    "creation_date": "2025-08-15",
+    "schema_version": "1.0"
+  }
+}
