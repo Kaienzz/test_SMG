@@ -2,300 +2,190 @@
 
 namespace App\Services\Monster;
 
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use App\Services\Location\LocationConfigService;
+use App\Models\Monster;
+use App\Models\MonsterSpawnList;
+use App\Models\Route;
+// LocationConfigService removed - using SQLite only
 
 /**
- * モンスター設定管理サービス
+ * モンスター設定管理サービス (SQLite対応・統合版)
  * 
- * monsters.jsonとlocations.jsonのmonster_spawns部分を管理
+ * SQLiteデータベースのmonsters, monster_spawn_lists, routesテーブルを管理
+ * 新しい統合されたスポーンシステムを使用
  */
 class MonsterConfigService
 {
-    private string $monstersConfigPath;
-    private string $spawnConfigsPath;
-    private string $spawnListsPath;
-    private LocationConfigService $locationConfigService;
-    private ?array $monstersCache = null;
-    private ?array $spawnConfigsCache = null;
-    private ?array $spawnListsCache = null;
-
-    public function __construct(LocationConfigService $locationConfigService = null)
+    public function __construct()
     {
-        $this->monstersConfigPath = config_path('monsters/monsters.json');
-        $this->spawnConfigsPath = config_path('monsters/monster_spawn_configs.json');
-        $this->spawnListsPath = config_path('monsters/monster_spawn_lists.json');
-        $this->locationConfigService = $locationConfigService ?? new LocationConfigService();
+        // SQLite only - no JSON dependencies
     }
 
     /**
-     * モンスター設定を読み込み
+     * モンスター設定を読み込み (SQLite版)
      * 
      * @return array
      */
     public function loadMonsters(): array
     {
-        if ($this->monstersCache !== null) {
-            return $this->monstersCache;
-        }
-
         try {
-            if (!File::exists($this->monstersConfigPath)) {
-                Log::error('Monsters config file not found', ['path' => $this->monstersConfigPath]);
-                return [];
-            }
-
-            $content = File::get($this->monstersConfigPath);
-            $monsters = json_decode($content, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('Invalid JSON in monsters config', [
-                    'error' => json_last_error_msg(),
-                    'path' => $this->monstersConfigPath
-                ]);
-                return [];
-            }
-
-            $this->monstersCache = $monsters ?? [];
-            return $this->monstersCache;
-
+            $monsters = Monster::all()->keyBy('id')->toArray();
+            return $monsters;
         } catch (\Exception $e) {
-            Log::error('Failed to load monsters config', [
-                'error' => $e->getMessage(),
-                'path' => $this->monstersConfigPath
+            Log::error('Failed to load monsters from database', [
+                'error' => $e->getMessage()
             ]);
             return [];
         }
     }
 
     /**
-     * モンスター設定を保存
-     * 
-     * @param array $monsters
-     * @return bool
-     */
-    public function saveMonsters(array $monsters): bool
-    {
-        try {
-            $content = json_encode($monsters, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-            
-            if (!File::put($this->monstersConfigPath, $content)) {
-                throw new \Exception('Failed to write to file');
-            }
-
-            $this->monstersCache = $monsters;
-            Log::info('Monsters config saved successfully', ['path' => $this->monstersConfigPath]);
-            
-            return true;
-
-        } catch (\Exception $e) {
-            Log::error('Failed to save monsters config', [
-                'error' => $e->getMessage(),
-                'path' => $this->monstersConfigPath
-            ]);
-            return false;
-        }
-    }
-
-    /**
-     * 特定のモンスターを取得
+     * 特定のモンスターを取得 (SQLite版)
      * 
      * @param string $monsterId
      * @return array|null
      */
     public function getMonster(string $monsterId): ?array
     {
-        $monsters = $this->loadMonsters();
-        return $monsters[$monsterId] ?? null;
+        try {
+            $monster = Monster::find($monsterId);
+            return $monster ? $monster->toArray() : null;
+        } catch (\Exception $e) {
+            Log::error('Failed to get monster from database', [
+                'monster_id' => $monsterId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
     }
 
     /**
-     * 有効なモンスター一覧を取得
+     * 有効なモンスター一覧を取得 (SQLite版)
      * 
      * @return array
      */
     public function getActiveMonsters(): array
     {
-        $monsters = $this->loadMonsters();
-        return array_filter($monsters, function($monster) {
-            return $monster['is_active'] ?? true;
-        });
-    }
-
-    /**
-     * spawn config設定を読み込み
-     * 
-     * @return array
-     */
-    public function loadSpawnConfigs(): array
-    {
-        if ($this->spawnConfigsCache !== null) {
-            return $this->spawnConfigsCache;
-        }
-
         try {
-            if (!File::exists($this->spawnConfigsPath)) {
-                Log::error('Spawn configs file not found', ['path' => $this->spawnConfigsPath]);
-                return [];
-            }
-
-            $content = File::get($this->spawnConfigsPath);
-            $configs = json_decode($content, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('Invalid JSON in spawn configs', [
-                    'error' => json_last_error_msg(),
-                    'path' => $this->spawnConfigsPath
-                ]);
-                return [];
-            }
-
-            $this->spawnConfigsCache = $configs['spawn_configs'] ?? [];
-            return $this->spawnConfigsCache;
-
+            $monsters = Monster::where('is_active', true)->get()->keyBy('id')->toArray();
+            return $monsters;
         } catch (\Exception $e) {
-            Log::error('Failed to load spawn configs', [
-                'error' => $e->getMessage(),
-                'path' => $this->spawnConfigsPath
+            Log::error('Failed to get active monsters from database', [
+                'error' => $e->getMessage()
             ]);
             return [];
         }
     }
 
     /**
-     * spawn config設定を保存
+     * Location別のスポーン設定を読み込み (統合版SQLite)
      * 
-     * @param array $spawnConfigs
-     * @return bool
+     * @return array
      */
-    public function saveSpawnConfigs(array $spawnConfigs): bool
+    public function loadLocationSpawnConfigs(): array
     {
         try {
-            $existingData = [];
-            if (File::exists($this->spawnConfigsPath)) {
-                $content = File::get($this->spawnConfigsPath);
-                $existingData = json_decode($content, true) ?? [];
-            }
-
-            $data = array_merge($existingData, [
-                'spawn_configs' => $spawnConfigs,
-                'last_updated' => now()->toISOString(),
-                'metadata' => array_merge($existingData['metadata'] ?? [], [
-                    'total_configs' => count($spawnConfigs)
-                ])
-            ]);
-
-            $content = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-            
-            if (!File::put($this->spawnConfigsPath, $content)) {
-                throw new \Exception('Failed to write to file');
-            }
-
-            $this->spawnConfigsCache = $spawnConfigs;
-            Log::info('Spawn configs saved successfully', ['path' => $this->spawnConfigsPath]);
-            
-            return true;
-
+            $locations = Route::whereIn('category', ['road', 'dungeon'])
+                                   ->with(['monsterSpawns.monster'])
+                                   ->get()
+                                   ->keyBy('id')
+                                   ->map(function ($location) {
+                                       $monsters = [];
+                                       foreach ($location->monsterSpawns as $spawn) {
+                                           if ($spawn->monster) {
+                                               $monsters[$spawn->monster_id] = [
+                                                   'monster_id' => $spawn->monster_id,
+                                                   'spawn_rate' => (float) $spawn->spawn_rate,
+                                                   'priority' => $spawn->priority,
+                                                   'min_level' => $spawn->min_level,
+                                                   'max_level' => $spawn->max_level,
+                                                   'is_active' => $spawn->is_active,
+                                               ];
+                                           }
+                                       }
+                                       
+                                       return [
+                                           'id' => $location->id,
+                                           'name' => $location->name,
+                                           'description' => $location->description,
+                                           'category' => $location->category,
+                                           'spawn_description' => $location->spawn_description,
+                                           'spawn_tags' => $location->spawn_tags ?? [],
+                                           'monsters' => $monsters,
+                                       ];
+                                   })
+                                   ->toArray();
+                                   
+            return $locations;
         } catch (\Exception $e) {
-            Log::error('Failed to save spawn configs', [
-                'error' => $e->getMessage(),
-                'path' => $this->spawnConfigsPath
+            Log::error('Failed to load location spawn configs from database', [
+                'error' => $e->getMessage()
             ]);
-            return false;
+            return [];
         }
     }
 
     /**
-     * モンスター出現リスト設定を読み込み
+     * 互換性のため: loadSpawnLists()のエイリアス
      * 
      * @return array
+     * @deprecated Use loadLocationSpawnConfigs() instead
      */
     public function loadSpawnLists(): array
     {
-        if ($this->spawnListsCache !== null) {
-            return $this->spawnListsCache;
-        }
-
-        try {
-            if (!File::exists($this->spawnListsPath)) {
-                Log::error('Spawn lists file not found', ['path' => $this->spawnListsPath]);
-                return [];
-            }
-
-            $content = File::get($this->spawnListsPath);
-            $lists = json_decode($content, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('Invalid JSON in spawn lists', [
-                    'error' => json_last_error_msg(),
-                    'path' => $this->spawnListsPath
-                ]);
-                return [];
-            }
-
-            $this->spawnListsCache = $lists['spawn_lists'] ?? [];
-            return $this->spawnListsCache;
-
-        } catch (\Exception $e) {
-            Log::error('Failed to load spawn lists', [
-                'error' => $e->getMessage(),
-                'path' => $this->spawnListsPath
-            ]);
-            return [];
-        }
+        return $this->loadLocationSpawnConfigs();
     }
 
     /**
-     * 指定されたpathwayのmonster spawn設定を取得（新構造対応）
+     * 指定されたpathwayのmonster spawn設定を取得 (統合版SQLite)
      * 
      * @param string $pathwayId
      * @return array
      */
     public function getMonsterSpawnsForPathway(string $pathwayId): array
     {
-        $locationConfig = $this->locationConfigService->loadUnifiedConfig();
-        
-        // 新構造: spawn_list_idを使用（グループ化されたモンスターリスト）
-        if (isset($locationConfig['pathways'][$pathwayId]['spawn_list_id'])) {
-            $spawnListId = $locationConfig['pathways'][$pathwayId]['spawn_list_id'];
-            $spawnLists = $this->loadSpawnLists();
-            
-            if (isset($spawnLists[$spawnListId])) {
-                return $spawnLists[$spawnListId]['monsters'] ?? [];
+        try {
+            // 新しい統合構造を使用してLocationから直接スポーン設定を取得
+            $location = Route::with(['monsterSpawns.monster'])
+                                   ->find($pathwayId);
+                                   
+            if (!$location) {
+                Log::warning('Location not found in SQLite', [
+                    'pathway_id' => $pathwayId
+                ]);
+                
+                return [];
             }
-            
-            Log::warning('Spawn list not found', [
-                'pathway_id' => $pathwayId,
-                'spawn_list_id' => $spawnListId
-            ]);
-            return [];
-        }
-        
-        // 互換性: spawn_config_idsを使用
-        if (isset($locationConfig['pathways'][$pathwayId]['spawn_config_ids'])) {
-            $spawnConfigIds = $locationConfig['pathways'][$pathwayId]['spawn_config_ids'];
-            $spawnConfigs = $this->loadSpawnConfigs();
-            
-            $spawns = [];
-            foreach ($spawnConfigIds as $configId) {
-                if (isset($spawnConfigs[$configId])) {
-                    $spawns[$configId] = $spawnConfigs[$configId];
+
+            $monsters = [];
+            foreach ($location->monsterSpawns as $spawn) {
+                if ($spawn->monster && $spawn->is_active) {
+                    $monsters[$spawn->monster_id] = [
+                        'monster_id' => $spawn->monster_id,
+                        'spawn_rate' => (float) $spawn->spawn_rate,
+                        'priority' => $spawn->priority,
+                        'min_level' => $spawn->min_level,
+                        'max_level' => $spawn->max_level,
+                        'is_active' => $spawn->is_active,
+                    ];
                 }
             }
-            return $spawns;
-        }
-        
-        // 後方互換性: 古いmonster_spawns構造
-        if (isset($locationConfig['pathways'][$pathwayId]['monster_spawns'])) {
-            return $locationConfig['pathways'][$pathwayId]['monster_spawns'];
-        }
 
-        return [];
+            return $monsters;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to get monster spawns for pathway from SQLite', [
+                'pathway_id' => $pathwayId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return [];
+        }
     }
 
+
     /**
-     * 指定されたpathwayのmonster spawn設定を保存
+     * 指定されたpathwayのmonster spawn設定を保存 (統合版SQLite)
      * 
      * @param string $pathwayId
      * @param array $spawns
@@ -304,18 +194,43 @@ class MonsterConfigService
     public function saveMonsterSpawnsForPathway(string $pathwayId, array $spawns): bool
     {
         try {
-            $locationConfig = $this->locationConfigService->loadUnifiedConfig();
+            $location = Route::find($pathwayId);
             
-            if (!isset($locationConfig['pathways'][$pathwayId])) {
-                Log::error('Pathway not found for monster spawns update', ['pathway_id' => $pathwayId]);
+            if (!$location) {
+                Log::error('Location not found for monster spawns update', ['pathway_id' => $pathwayId]);
                 return false;
             }
 
-            $locationConfig['pathways'][$pathwayId]['monster_spawns'] = $spawns;
+            // 新しい統合構造を使用してスポーン設定を保存
+            \DB::beginTransaction();
             
-            return $this->locationConfigService->saveConfig($locationConfig);
+            // 既存のスポーン設定を削除
+            MonsterSpawnList::where('location_id', $pathwayId)->delete();
+            
+            // 新しいスポーン設定を追加
+            foreach ($spawns as $monsterId => $spawnData) {
+                MonsterSpawnList::create([
+                    'location_id' => $pathwayId,
+                    'monster_id' => $monsterId,
+                    'spawn_rate' => $spawnData['spawn_rate'] ?? 0,
+                    'priority' => $spawnData['priority'] ?? 0,
+                    'min_level' => $spawnData['min_level'] ?? null,
+                    'max_level' => $spawnData['max_level'] ?? null,
+                    'is_active' => $spawnData['is_active'] ?? true,
+                ]);
+            }
+            
+            \DB::commit();
+            
+            Log::info('Monster spawns saved for pathway', [
+                'pathway_id' => $pathwayId,
+                'spawns_count' => count($spawns)
+            ]);
+            
+            return true;
 
         } catch (\Exception $e) {
+            \DB::rollback();
             Log::error('Failed to save monster spawns for pathway', [
                 'pathway_id' => $pathwayId,
                 'error' => $e->getMessage()
@@ -325,208 +240,324 @@ class MonsterConfigService
     }
 
     /**
-     * 指定されたpathwayでランダムにモンスターを選択（新構造対応）
+     * 指定されたpathwayでランダムにモンスターを選択 (統合版SQLite)
      * 
      * @param string $pathwayId
+     * @param int|null $playerLevel プレイヤーレベル（レベル制限適用）
      * @return array|null
      */
-    public function getRandomMonsterForPathway(string $pathwayId): ?array
+    public function getRandomMonsterForPathway(string $pathwayId, ?int $playerLevel = null): ?array
     {
-        $spawns = $this->getMonsterSpawnsForPathway($pathwayId);
-        $monsters = $this->loadMonsters();
-        
-        if (empty($spawns)) {
-            Log::warning('No monster spawns found for pathway', ['pathway_id' => $pathwayId]);
-            return null;
-        }
+        try {
+            // 新しい統合構造を使用してLocationから直接スポーン設定を取得
+            $location = Route::with(['monsterSpawns.monster'])
+                                   ->find($pathwayId);
+            
+            if (!$location) {
+                Log::warning('No location found for pathway', ['pathway_id' => $pathwayId]);
+                return null;
+            }
 
-        // 有効なspawnのみフィルタ
-        $activeSpawns = array_filter($spawns, function($spawn) {
-            return $spawn['is_active'] ?? true;
-        });
+            // アクティブなモンスタースポーンのみ取得、レベル制限も適用
+            $activeSpawns = $location->monsterSpawns()
+                                   ->where('is_active', true)
+                                   ->whereHas('monster', function($query) {
+                                       $query->where('is_active', true);
+                                   })
+                                   ->when($playerLevel, function($query) use ($playerLevel) {
+                                       return $query->where(function($q) use ($playerLevel) {
+                                           $q->where(function($levelQuery) use ($playerLevel) {
+                                               // min_levelとmax_levelの両方がnullの場合、制限なし
+                                               $levelQuery->whereNull('min_level')
+                                                         ->whereNull('max_level');
+                                           })
+                                           ->orWhere(function($levelQuery) use ($playerLevel) {
+                                               // min_levelのみ設定されている場合
+                                               $levelQuery->whereNotNull('min_level')
+                                                         ->whereNull('max_level')
+                                                         ->where('min_level', '<=', $playerLevel);
+                                           })
+                                           ->orWhere(function($levelQuery) use ($playerLevel) {
+                                               // max_levelのみ設定されている場合  
+                                               $levelQuery->whereNull('min_level')
+                                                         ->whereNotNull('max_level')
+                                                         ->where('max_level', '>=', $playerLevel);
+                                           })
+                                           ->orWhere(function($levelQuery) use ($playerLevel) {
+                                               // 両方設定されている場合
+                                               $levelQuery->whereNotNull('min_level')
+                                                         ->whereNotNull('max_level')
+                                                         ->where('min_level', '<=', $playerLevel)
+                                                         ->where('max_level', '>=', $playerLevel);
+                                           });
+                                       });
+                                   })
+                                   ->with('monster')
+                                   ->get();
 
-        if (empty($activeSpawns)) {
-            Log::warning('No active monster spawns found for pathway', ['pathway_id' => $pathwayId]);
-            return null;
-        }
+            if ($activeSpawns->isEmpty()) {
+                Log::warning('No active monster spawns found for pathway', [
+                    'pathway_id' => $pathwayId,
+                    'player_level' => $playerLevel
+                ]);
+                return null;
+            }
 
-        // 出現率の合計を計算
-        $totalRate = array_sum(array_column($activeSpawns, 'spawn_rate'));
-        if ($totalRate <= 0) {
-            Log::warning('Total spawn rate is zero for pathway', ['pathway_id' => $pathwayId]);
-            return null;
-        }
+            // 出現率の合計を計算
+            $totalRate = $activeSpawns->sum('spawn_rate');
+            if ($totalRate <= 0) {
+                Log::warning('Total spawn rate is zero for pathway', ['pathway_id' => $pathwayId]);
+                return null;
+            }
 
-        // ランダム選択
-        $random = mt_rand() / mt_getrandmax() * $totalRate;
-        $cumulativeRate = 0;
+            // ランダム選択（重み付け）
+            $random = mt_rand() / mt_getrandmax() * $totalRate;
+            $cumulativeRate = 0;
 
-        foreach ($activeSpawns as $spawnId => $spawn) {
-            $cumulativeRate += $spawn['spawn_rate'];
-            if ($random <= $cumulativeRate) {
-                $monsterId = $spawn['monster_id'];
-                $monster = $monsters[$monsterId] ?? null;
-                if ($monster) {
-                    Log::debug('Monster selected for encounter via spawn config', [
+            foreach ($activeSpawns as $spawn) {
+                $cumulativeRate += $spawn->spawn_rate;
+                if ($random <= $cumulativeRate && $spawn->monster) {
+                    $monster = $spawn->monster->toArray();
+                    
+                    Log::debug('Monster selected for encounter via integrated system', [
                         'pathway_id' => $pathwayId,
-                        'spawn_config_id' => $spawnId,
-                        'monster_id' => $monsterId,
-                        'monster_name' => $monster['name']
+                        'location_name' => $location->name,
+                        'monster_id' => $monster['id'],
+                        'monster_name' => $monster['name'],
+                        'spawn_rate' => $spawn->spawn_rate,
+                        'player_level' => $playerLevel,
+                        'spawn_min_level' => $spawn->min_level,
+                        'spawn_max_level' => $spawn->max_level
                     ]);
+                    
                     return $monster;
                 }
             }
-        }
 
-        // フォールバック: 最初のmonsterを返す
-        $firstSpawn = reset($activeSpawns);
-        $monsterId = $firstSpawn['monster_id'];
-        $monster = $monsters[$monsterId] ?? null;
-        if ($monster) {
-            Log::debug('Fallback monster selected via spawn config', [
+            // フォールバック: 最初のモンスターを返す
+            $firstSpawn = $activeSpawns->first();
+            if ($firstSpawn && $firstSpawn->monster) {
+                $monster = $firstSpawn->monster->toArray();
+                
+                Log::debug('Fallback monster selected via integrated system', [
+                    'pathway_id' => $pathwayId,
+                    'monster_id' => $monster['id'],
+                    'monster_name' => $monster['name']
+                ]);
+                
+                return $monster;
+            }
+
+            return null;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to get random monster for pathway from integrated system', [
                 'pathway_id' => $pathwayId,
-                'spawn_config_id' => array_key_first($activeSpawns),
-                'monster_id' => $monsterId,
-                'monster_name' => $monster['name']
+                'player_level' => $playerLevel,
+                'error' => $e->getMessage()
             ]);
+            
+            return null;
         }
-        
-        return $monster;
     }
 
+
     /**
-     * 指定されたpathwayの出現率合計を取得
+     * 指定されたpathwayの出現率合計を取得 (統合版SQLite)
      * 
      * @param string $pathwayId
      * @return float
      */
     public function getTotalSpawnRateForPathway(string $pathwayId): float
     {
-        $spawns = $this->getMonsterSpawnsForPathway($pathwayId);
-        
-        $activeSpawns = array_filter($spawns, function($spawn) {
-            return $spawn['is_active'] ?? true;
-        });
+        try {
+            $location = Route::find($pathwayId);
+            
+            if (!$location) {
+                return 0.0;
+            }
 
-        return (float) array_sum(array_column($activeSpawns, 'spawn_rate'));
+            return (float) $location->monsterSpawns()
+                                   ->where('is_active', true)
+                                   ->sum('spawn_rate');
+        } catch (\Exception $e) {
+            Log::error('Failed to get total spawn rate for pathway', [
+                'pathway_id' => $pathwayId,
+                'error' => $e->getMessage()
+            ]);
+            return 0.0;
+        }
     }
 
     /**
-     * pathwayのmonster spawn設定をバリデート
+     * pathwayのmonster spawn設定をバリデート (統合版SQLite)
      * 
      * @param string $pathwayId
      * @return array 検証結果
      */
     public function validatePathwaySpawns(string $pathwayId): array
     {
-        $spawns = $this->getMonsterSpawnsForPathway($pathwayId);
-        $monsters = $this->loadMonsters();
-        $totalRate = $this->getTotalSpawnRateForPathway($pathwayId);
-        
-        $issues = [];
-        
-        // 出現率の合計チェック
-        if ($totalRate > 1.0) {
-            $issues[] = "出現率の合計が100%を超えています (" . number_format($totalRate * 100, 1) . "%)";
-        }
-        
-        if ($totalRate == 0) {
-            $issues[] = "有効なモンスター出現設定がありません";
-        }
-        
-        // モンスター存在チェック
-        foreach ($spawns as $spawnId => $spawn) {
-            if (!isset($monsters[$spawn['monster_id']])) {
-                $issues[] = "モンスター '{$spawn['monster_id']}' が見つかりません";
+        try {
+            $location = Route::with(['monsterSpawns.monster'])
+                                   ->find($pathwayId);
+            
+            if (!$location) {
+                return [
+                    'valid' => false,
+                    'total_rate' => 0,
+                    'total_percentage' => 0,
+                    'issues' => ['ロケーションが見つかりません'],
+                    'spawn_count' => 0
+                ];
             }
+
+            $spawns = $location->monsterSpawns()->where('is_active', true)->with('monster')->get();
+            $totalRate = $spawns->sum('spawn_rate');
+            $issues = [];
+            
+            // 出現率の合計チェック
+            if ($totalRate > 1.0) {
+                $issues[] = "出現率の合計が100%を超えています (" . number_format($totalRate * 100, 1) . "%)";
+            }
+            
+            if ($totalRate == 0) {
+                $issues[] = "有効なモンスター出現設定がありません";
+            }
+            
+            // モンスター存在チェック
+            foreach ($spawns as $spawn) {
+                if (!$spawn->monster) {
+                    $issues[] = "モンスター '{$spawn->monster_id}' が見つかりません";
+                } elseif (!$spawn->monster->is_active) {
+                    $issues[] = "モンスター '{$spawn->monster->name}' ({$spawn->monster_id}) が無効化されています";
+                }
+            }
+            
+            // 重複チェック
+            $monsterIds = $spawns->pluck('monster_id')->toArray();
+            $duplicates = array_diff_assoc($monsterIds, array_unique($monsterIds));
+            if (!empty($duplicates)) {
+                $issues[] = "重複するモンスターが設定されています";
+            }
+            
+            // レベル制限チェック
+            foreach ($spawns as $spawn) {
+                if ($spawn->min_level && $spawn->max_level && $spawn->min_level > $spawn->max_level) {
+                    $issues[] = "モンスター '{$spawn->monster->name}' の最小レベル({$spawn->min_level})が最大レベル({$spawn->max_level})を上回っています";
+                }
+            }
+            
+            return [
+                'valid' => empty($issues),
+                'total_rate' => $totalRate,
+                'total_percentage' => $totalRate * 100,
+                'issues' => $issues,
+                'spawn_count' => $spawns->count(),
+                'all_spawns_count' => $location->monsterSpawns->count()
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to validate pathway spawns', [
+                'pathway_id' => $pathwayId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return [
+                'valid' => false,
+                'total_rate' => 0,
+                'total_percentage' => 0,
+                'issues' => ['検証中にエラーが発生しました'],
+                'spawn_count' => 0
+            ];
         }
-        
-        // 重複チェック
-        $monsterIds = array_column($spawns, 'monster_id');
-        $duplicates = array_diff_assoc($monsterIds, array_unique($monsterIds));
-        if (!empty($duplicates)) {
-            $issues[] = "重複するモンスターが設定されています";
-        }
-        
-        return [
-            'valid' => empty($issues),
-            'total_rate' => $totalRate,
-            'total_percentage' => $totalRate * 100,
-            'issues' => $issues,
-            'spawn_count' => count($spawns)
-        ];
     }
 
     /**
-     * 全pathwayのmonster spawn設定をバリデート
+     * スポーン情報を統合したモンスターデータを取得（Admin画面用、統合版SQLite）
      * 
      * @return array
      */
-    public function validateAllPathwaySpawns(): array
-    {
-        $locationConfig = $this->locationConfigService->loadUnifiedConfig();
-        $results = [];
-        
-        foreach ($locationConfig['pathways'] ?? [] as $pathwayId => $pathway) {
-            $results[$pathwayId] = $this->validatePathwaySpawns($pathwayId);
-        }
-        
-        return $results;
-    }
-
-    /**
-     * モンスター出現リスト設定を保存
-     * 
-     * @param array $spawnLists
-     * @return bool
-     */
-    public function saveSpawnLists(array $spawnLists): bool
+    public function getActiveMonstersWithSpawnInfo(): array
     {
         try {
-            $existingData = [];
-            if (File::exists($this->spawnListsPath)) {
-                $content = File::get($this->spawnListsPath);
-                $existingData = json_decode($content, true) ?? [];
-            }
-
-            $data = array_merge($existingData, [
-                'spawn_lists' => $spawnLists,
-                'last_updated' => now()->toISOString(),
-                'metadata' => array_merge($existingData['metadata'] ?? [], [
-                    'total_spawn_lists' => count($spawnLists),
-                    'total_monster_entries' => array_sum(array_map(function($list) {
-                        return count($list['monsters'] ?? []);
-                    }, $spawnLists))
-                ])
-            ]);
-
-            $content = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            $monsters = Monster::where('is_active', true)
+                              ->with(['monsterSpawnLists.gameLocation'])
+                              ->get();
             
-            if (!File::put($this->spawnListsPath, $content)) {
-                throw new \Exception('Failed to write to file');
-            }
-
-            $this->spawnListsCache = $spawnLists;
-            Log::info('Spawn lists saved successfully', ['path' => $this->spawnListsPath]);
+            $monstersWithSpawn = [];
             
-            return true;
-
+            foreach ($monsters as $monster) {
+                $monsterData = $monster->toArray();
+                $monsterData['spawn_roads'] = [];
+                $monsterData['spawn_locations'] = [];
+                $spawnRates = [];
+                
+                foreach ($monster->monsterSpawnLists as $spawn) {
+                    if ($spawn->is_active && $spawn->gameLocation) {
+                        $monsterData['spawn_locations'][] = $spawn->location_id;
+                        $monsterData['spawn_roads'][] = $spawn->location_id; // 互換性のため
+                        $spawnRates[] = (float) $spawn->spawn_rate;
+                    }
+                }
+                
+                // 重複を削除
+                $monsterData['spawn_roads'] = array_unique($monsterData['spawn_roads']);
+                $monsterData['spawn_locations'] = array_unique($monsterData['spawn_locations']);
+                
+                // spawn_rate統計を計算
+                if (!empty($spawnRates)) {
+                    $monsterData['spawn_rate'] = array_sum($spawnRates) / count($spawnRates); // 平均
+                    $monsterData['max_spawn_rate'] = max($spawnRates); // 最大
+                    $monsterData['min_spawn_rate'] = min($spawnRates); // 最小
+                    $monsterData['spawn_rate_count'] = count($spawnRates); // 出現場所数
+                } else {
+                    $monsterData['spawn_rate'] = 0;
+                    $monsterData['max_spawn_rate'] = 0;
+                    $monsterData['min_spawn_rate'] = 0;
+                    $monsterData['spawn_rate_count'] = 0;
+                }
+                
+                $monstersWithSpawn[$monster->id] = $monsterData;
+            }
+            
+            return $monstersWithSpawn;
+            
         } catch (\Exception $e) {
-            Log::error('Failed to save spawn lists', [
-                'error' => $e->getMessage(),
-                'path' => $this->spawnListsPath
+            Log::error('Failed to get active monsters with spawn info from integrated system', [
+                'error' => $e->getMessage()
             ]);
-            return false;
+            return [];
         }
     }
 
     /**
-     * キャッシュをクリア
+     * 利用可能な道路（パスウェイ）一覧を取得 (SQLite版)
+     * 
+     * @return array
+     */
+    public function getAvailablePathways(): array
+    {
+        try {
+            $locations = Route::where('category', 'road')
+                                    ->orWhere('category', 'dungeon')
+                                    ->pluck('name', 'id')
+                                    ->toArray();
+            
+            return $locations;
+        } catch (\Exception $e) {
+            Log::error('Failed to get available pathways from SQLite', [
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * キャッシュをクリア (SQLite版では不要だが互換性のため保持)
      */
     public function clearCache(): void
     {
-        $this->monstersCache = null;
-        $this->spawnConfigsCache = null;
-        $this->spawnListsCache = null;
+        // SQLiteではEloquentが自動的にキャッシュを管理するため、特に処理は不要
+        Log::debug('Cache clear requested for MonsterConfigService (SQLite version)');
     }
 }

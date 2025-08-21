@@ -182,6 +182,11 @@
                                     <div style="font-weight: bold;">{{ round($monster['spawn_rate'] * 100, 1) }}%</div>
                                     <div style="color: var(--admin-secondary); font-size: 0.75rem;">
                                         {{ $monster['spawn_rate'] > 0.3 ? '高' : ($monster['spawn_rate'] > 0.15 ? '中' : '低') }}
+                                        @if($monster['spawn_rate_count'] > 1)
+                                            <br><span style="font-size: 0.65rem;">
+                                                ({{ round($monster['min_spawn_rate'] * 100, 1) }}%-{{ round($monster['max_spawn_rate'] * 100, 1) }}%)
+                                            </span>
+                                        @endif
                                     </div>
                                 </div>
                             </td>

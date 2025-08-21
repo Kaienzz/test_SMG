@@ -23,7 +23,7 @@ class AdminUserController extends AdminController
     public function index(Request $request)
     {
         $this->initializeForRequest();
-        $this->requirePermission('users.view');
+        $this->checkPermission('users.view');
         $this->trackPageAccess('users.index');
 
         // 検索・フィルタパラメータ
@@ -154,7 +154,8 @@ class AdminUserController extends AdminController
      */
     public function show(Request $request, User $user)
     {
-        $this->requirePermission('users.view');
+        $this->initializeForRequest();
+        $this->checkPermission('users.view');
         
         // ユーザー詳細データの取得
         $user->load(['player']);
@@ -212,7 +213,8 @@ class AdminUserController extends AdminController
      */
     public function edit(Request $request, User $user)
     {
-        $this->requirePermission('users.edit');
+        $this->initializeForRequest();
+        $this->checkPermission('users.edit');
 
         $breadcrumb = $this->buildBreadcrumb([
             ['title' => 'ユーザー管理', 'url' => route('admin.users.index')],
@@ -231,7 +233,8 @@ class AdminUserController extends AdminController
      */
     public function update(Request $request, User $user)
     {
-        $this->requirePermission('users.edit');
+        $this->initializeForRequest();
+        $this->checkPermission('users.edit');
 
         $oldValues = $user->toArray();
 
@@ -289,7 +292,8 @@ class AdminUserController extends AdminController
      */
     public function suspend(Request $request, User $user)
     {
-        $this->requirePermission('users.suspend');
+        $this->initializeForRequest();
+        $this->checkPermission('users.suspend');
 
         $request->validate([
             'reason' => 'required|string|max:500',
@@ -333,7 +337,8 @@ class AdminUserController extends AdminController
      */
     public function restore(Request $request, User $user)
     {
-        $this->requirePermission('users.suspend');
+        $this->initializeForRequest();
+        $this->checkPermission('users.suspend');
 
         // 停止解除処理
         // $user->update([
@@ -363,7 +368,8 @@ class AdminUserController extends AdminController
      */
     public function forceLogout(Request $request, User $user)
     {
-        $this->requirePermission('users.edit');
+        $this->initializeForRequest();
+        $this->checkPermission('users.edit');
 
         // セッション削除
         DB::table('sessions')->where('user_id', $user->id)->delete();
@@ -391,7 +397,8 @@ class AdminUserController extends AdminController
      */
     public function bulkAction(Request $request)
     {
-        $this->requirePermission('users.edit');
+        $this->initializeForRequest();
+        $this->checkPermission('users.edit');
 
         $request->validate([
             'action' => 'required|in:delete,suspend,restore,force_logout',
@@ -443,7 +450,8 @@ class AdminUserController extends AdminController
      */
     public function online(Request $request)
     {
-        $this->requirePermission('users.view');
+        $this->initializeForRequest();
+        $this->checkPermission('users.view');
 
         $onlineThreshold = Carbon::now()->subMinutes(15);
         

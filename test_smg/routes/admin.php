@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\AdminItemController;
 use App\Http\Controllers\Admin\AdminMonsterController;
 use App\Http\Controllers\Admin\AdminMonsterSpawnController;
 use App\Http\Controllers\Admin\AdminLocationController;
+use App\Http\Controllers\Admin\AdminRoadController;
+use App\Http\Controllers\Admin\AdminDungeonController;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,7 +60,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         })->name('players.index');
     });
     
-    // ゲームデータ管理（権限チェック付き）
+    // アイテム管理（権限チェック付き）
     Route::middleware(['admin.permission:items.view'])->group(function () {
         // カスタムアイテム管理
         Route::get('/items', [AdminItemController::class, 'index'])->name('items.index');
@@ -66,56 +68,51 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/items/create', [AdminItemController::class, 'create'])->name('items.create');
         Route::get('/items/{item}/edit', [AdminItemController::class, 'edit'])->name('items.edit');
         
-        // 標準アイテム管理
-        Route::get('/items/standard', [AdminItemController::class, 'standardItems'])->name('items.standard');
-        Route::get('/items/standard/create', [AdminItemController::class, 'createStandardItem'])->name('items.standard.create');
-        Route::get('/items/standard/{itemId}', [AdminItemController::class, 'showStandardItem'])->name('items.standard.show');
-        Route::get('/items/standard/{itemId}/edit', [AdminItemController::class, 'editStandardItem'])->name('items.standard.edit');
         
         // カスタムアイテム作成・編集（追加権限チェック）
         Route::middleware(['admin.permission:items.create'])->group(function () {
             Route::post('/items', [AdminItemController::class, 'store'])->name('items.store');
-            Route::post('/items/standard', [AdminItemController::class, 'storeStandardItem'])->name('items.standard.store');
         });
         
         Route::middleware(['admin.permission:items.edit'])->group(function () {
             Route::put('/items/{item}', [AdminItemController::class, 'update'])->name('items.update');
-            Route::put('/items/standard/{itemId}', [AdminItemController::class, 'updateStandardItem'])->name('items.standard.update');
             Route::post('/items/bulk-action', [AdminItemController::class, 'bulkAction'])->name('items.bulk_action');
-            Route::post('/items/standard/backup', [AdminItemController::class, 'backupStandardItems'])->name('items.standard.backup');
         });
         
         // アイテム削除（特別権限）
         Route::middleware(['admin.permission:items.delete'])->group(function () {
             Route::delete('/items/{item}', [AdminItemController::class, 'destroy'])->name('items.destroy');
-            Route::delete('/items/standard/{itemId}', [AdminItemController::class, 'deleteStandardItem'])->name('items.standard.delete');
         });
-        
-        // モンスター管理
+    });
+    
+    // モンスター管理（権限チェック付き）
+    Route::middleware(['admin.permission:monsters.view'])->group(function () {
+        // モンスター基本管理
         Route::get('/monsters', [AdminMonsterController::class, 'index'])->name('monsters.index');
         Route::get('/monsters/{monster}', [AdminMonsterController::class, 'show'])->name('monsters.show');
         Route::get('/monsters/{monster}/edit', [AdminMonsterController::class, 'edit'])->name('monsters.edit');
+        
+        // モンスタースポーン管理（統合版）
+        Route::get('/monster-spawns', [AdminMonsterSpawnController::class, 'index'])->name('monster-spawns.index');
+        Route::get('/monster-spawns/location/{locationId}', [AdminMonsterSpawnController::class, 'show'])->name('monster-spawns.show');
+        Route::get('/monster-spawns/location/{locationId}/create', [AdminMonsterSpawnController::class, 'create'])->name('monster-spawns.create');
+        Route::get('/monster-spawns/{spawnId}/edit', [AdminMonsterSpawnController::class, 'edit'])->name('monster-spawns.edit');
         
         // モンスター編集（追加権限チェック）
         Route::middleware(['admin.permission:monsters.edit'])->group(function () {
             Route::put('/monsters/{monster}', [AdminMonsterController::class, 'update'])->name('monsters.update');
             Route::post('/monsters/spawn-rates', [AdminMonsterController::class, 'updateSpawnRates'])->name('monsters.spawn_rates');
             Route::post('/monsters/balance-adjustment', [AdminMonsterController::class, 'balanceAdjustment'])->name('monsters.balance_adjustment');
+            
+            // モンスタースポーン編集（統合版）
+            Route::post('/monster-spawns', [AdminMonsterSpawnController::class, 'store'])->name('monster-spawns.store');
+            Route::put('/monster-spawns/{spawnId}', [AdminMonsterSpawnController::class, 'update'])->name('monster-spawns.update');
+            Route::post('/monster-spawns/bulk-action', [AdminMonsterSpawnController::class, 'bulkAction'])->name('monster-spawns.bulk-action');
         });
         
-    });
-    
-    // モンスタースポーン管理（権限チェック付き）
-    Route::middleware(['admin.permission:monsters.view'])->group(function () {
-        Route::get('/monsters/spawn-lists', [AdminMonsterSpawnController::class, 'index'])->name('monsters.spawn-lists.index');
-        Route::get('/monsters/spawn-lists/pathway/{pathwayId}', [AdminMonsterSpawnController::class, 'pathwaySpawns'])->name('monsters.spawn-lists.pathway');
-        Route::get('/monsters/spawn-lists/validate-all', [AdminMonsterSpawnController::class, 'validateAll'])->name('monsters.spawn-lists.validate');
-        Route::get('/monsters/spawn-lists/test/{pathwayId}', [AdminMonsterSpawnController::class, 'testSpawn'])->name('monsters.spawn-lists.test');
-        
-        // モンスタースポーン編集（追加権限チェック）
-        Route::middleware(['admin.permission:monsters.edit'])->group(function () {
-            Route::post('/monsters/spawn-lists/pathway/{pathwayId}', [AdminMonsterSpawnController::class, 'saveSpawns'])->name('monsters.spawn-lists.save');
-            Route::delete('/monsters/spawn-lists/pathway/{pathwayId}/monster/{monsterId}', [AdminMonsterSpawnController::class, 'removeSpawn'])->name('monsters.spawn-lists.remove');
+        // モンスタースポーン削除（特別権限）
+        Route::middleware(['admin.permission:monsters.delete'])->group(function () {
+            Route::delete('/monster-spawns/{spawnId}', [AdminMonsterSpawnController::class, 'destroy'])->name('monster-spawns.destroy');
         });
     });
         
@@ -135,10 +132,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         // ロケーション管理トップページ
         Route::get('/locations', [AdminLocationController::class, 'index'])->name('locations.index');
         
-        // 道路・ダンジョン統合管理
+        // 道路・ダンジョン統合管理（具体的ルートを先に定義）
         Route::get('/locations/pathways', [AdminLocationController::class, 'pathways'])->name('locations.pathways');
         Route::get('/locations/pathways/create', [AdminLocationController::class, 'pathwayForm'])->name('locations.pathways.create');
-        Route::get('/locations/pathways/{pathwayId}', [AdminLocationController::class, 'pathwayForm'])->name('locations.pathways.edit');
+        Route::get('/locations/pathways/{pathwayId}/edit', [AdminLocationController::class, 'pathwayForm'])->name('locations.pathways.edit');
         Route::get('/locations/pathways/{pathwayId}/details', [AdminLocationController::class, 'pathwayDetails'])->name('locations.pathways.details');
         
         // 道路管理（後方互換性）
@@ -175,6 +172,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
             Route::post('/locations/migration/execute', [AdminLocationController::class, 'executeMigration'])->name('locations.migration.execute');
         });
         
+        // ロケーション詳細表示（モジュラー版）- 有効なLocationID形式のみ
+        Route::get('/locations/{locationId}', [AdminLocationController::class, 'show'])
+             ->name('locations.show')
+             ->where('locationId', '[a-zA-Z][a-zA-Z0-9_-]*');
+        
         // 編集・作成・インポート機能（追加権限チェック）
         Route::middleware(['admin.permission:locations.edit'])->group(function () {
             // 道路・ダンジョン統合管理の保存・削除
@@ -206,6 +208,21 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::middleware(['admin.permission:locations.import'])->group(function () {
             Route::post('/locations/import', [AdminLocationController::class, 'importConfig'])->name('locations.import');
         });
+    });
+    
+    // Road管理（新分離型システム）
+    Route::middleware(['admin.permission:locations.view'])->group(function () {
+        Route::resource('roads', AdminRoadController::class);
+    });
+    
+    // Dungeon管理（新分離型システム - DungeonDescベース）
+    Route::middleware(['admin.permission:locations.view'])->group(function () {
+        Route::resource('dungeons', AdminDungeonController::class);
+        
+        // ダンジョンフロア管理（追加ルート）
+        Route::get('dungeons/{dungeon}/floors', [AdminDungeonController::class, 'floors'])->name('dungeons.floors');
+        Route::get('dungeons/{dungeon}/create-floor', [AdminDungeonController::class, 'createFloor'])->name('dungeons.create-floor');
+        Route::post('dungeons/{dungeon}/floors', [AdminDungeonController::class, 'storeFloor'])->name('dungeons.floors.store');
     });
     
     // 分析・監視（権限チェック付き）

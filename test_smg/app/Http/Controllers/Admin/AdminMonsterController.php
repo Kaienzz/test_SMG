@@ -33,8 +33,8 @@ class AdminMonsterController extends AdminController
         
         $filters = $request->only(['search', 'road', 'min_level', 'max_level', 'sort_by', 'sort_direction']);
         
-        // 動的データの取得（JSONベース）
-        $allMonsters = $this->monsterConfigService->getActiveMonsters();
+        // 動的データの取得（JSONベース・スポーン情報統合）
+        $allMonsters = $this->monsterConfigService->getActiveMonstersWithSpawnInfo();
         
         // フィルタリング処理
         $filteredMonsters = collect($allMonsters);
@@ -50,7 +50,7 @@ class AdminMonsterController extends AdminController
         // 道路フィルター
         if (!empty($filters['road'])) {
             $filteredMonsters = $filteredMonsters->filter(function($monster) use ($filters) {
-                return in_array($filters['road'], $monster['spawn_roads']);
+                return in_array($filters['road'], $monster['spawn_roads'] ?? []);
             });
         }
         
@@ -84,7 +84,7 @@ class AdminMonsterController extends AdminController
         $stats = $this->generateMonsterStats($allMonsters);
         
         // 道路情報
-        $roads = $this->getAvailableRoads($allMonsters);
+        $roads = $this->monsterConfigService->getAvailablePathways();
         
         $this->auditLog('monsters.index.viewed', [
             'filters' => $filters,
@@ -109,9 +109,10 @@ class AdminMonsterController extends AdminController
      */
     public function show($monsterId)
     {
+        $this->initializeForRequest();
         $this->checkPermission('monsters.view');
         
-        $allMonsters = $this->monsterConfigService->getActiveMonsters();
+        $allMonsters = $this->monsterConfigService->getActiveMonstersWithSpawnInfo();
         $monster = collect($allMonsters)->firstWhere('name', $monsterId) 
                   ?? collect($allMonsters)->where('id', $monsterId)->first();
         
@@ -147,9 +148,10 @@ class AdminMonsterController extends AdminController
      */
     public function edit($monsterId)
     {
+        $this->initializeForRequest();
         $this->checkPermission('monsters.edit');
         
-        $allMonsters = $this->monsterConfigService->getActiveMonsters();
+        $allMonsters = $this->monsterConfigService->getActiveMonstersWithSpawnInfo();
         $monster = collect($allMonsters)->firstWhere('name', $monsterId) 
                   ?? collect($allMonsters)->where('id', $monsterId)->first();
         
@@ -159,7 +161,7 @@ class AdminMonsterController extends AdminController
         }
         
         // 利用可能な道路
-        $roads = $this->getAvailableRoads($allMonsters);
+        $roads = $this->monsterConfigService->getAvailablePathways();
         
         return view('admin.monsters.edit', compact('monster', 'roads'));
     }
@@ -170,6 +172,7 @@ class AdminMonsterController extends AdminController
      */
     public function update(Request $request, $monsterId)
     {
+        $this->initializeForRequest();
         $this->checkPermission('monsters.edit');
         
         $validator = $this->validateMonsterData($request);
@@ -213,6 +216,7 @@ class AdminMonsterController extends AdminController
      */
     public function updateSpawnRates(Request $request)
     {
+        $this->initializeForRequest();
         $this->checkPermission('monsters.edit');
         
         $request->validate([
@@ -257,6 +261,7 @@ class AdminMonsterController extends AdminController
      */
     public function balanceAdjustment(Request $request)
     {
+        $this->initializeForRequest();
         $this->checkPermission('monsters.edit');
         
         $request->validate([
@@ -273,7 +278,7 @@ class AdminMonsterController extends AdminController
             $adjustments = $request->stat_adjustments;
             $method = $request->adjustment_method;
             
-            $allMonsters = $this->monsterConfigService->getActiveMonsters();
+            $allMonsters = $this->monsterConfigService->getActiveMonstersWithSpawnInfo();
             $affectedMonsters = [];
             
             // 対象モンスターの特定
@@ -288,7 +293,7 @@ class AdminMonsterController extends AdminController
                     
                     case 'road_based':
                         $targetRoads = $request->target_roads ?? [];
-                        $shouldAdjust = !empty(array_intersect($monster['spawn_roads'], $targetRoads));
+                        $shouldAdjust = !empty(array_intersect($monster['spawn_roads'] ?? [], $targetRoads));
                         break;
                     
                     case 'global':
@@ -347,7 +352,7 @@ class AdminMonsterController extends AdminController
         // 道路別分布
         $roadCounts = [];
         foreach ($monsters as $monster) {
-            foreach ($monster['spawn_roads'] as $road) {
+            foreach ($monster['spawn_roads'] ?? [] as $road) {
                 $roadCounts[$road] = ($roadCounts[$road] ?? 0) + 1;
             }
         }
@@ -365,13 +370,13 @@ class AdminMonsterController extends AdminController
     }
 
     /**
-     * 利用可能な道路の取得
+     * 利用可能な道路の取得（統合データ対応）
      */
     private function getAvailableRoads(array $monsters): array
     {
         $roads = [];
         foreach ($monsters as $monster) {
-            foreach ($monster['spawn_roads'] as $road) {
+            foreach ($monster['spawn_roads'] ?? [] as $road) {
                 if (!in_array($road, $roads)) {
                     $roads[] = $road;
                 }
@@ -447,7 +452,7 @@ class AdminMonsterController extends AdminController
             ->filter(function($m) use ($monster) {
                 return $m['name'] !== $monster['name'] && (
                     abs($m['level'] - $monster['level']) <= 2 ||
-                    !empty(array_intersect($m['spawn_roads'], $monster['spawn_roads']))
+                    !empty(array_intersect($m['spawn_roads'] ?? [], $monster['spawn_roads'] ?? []))
                 );
             })
             ->take(5)

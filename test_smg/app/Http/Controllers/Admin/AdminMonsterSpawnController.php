@@ -3,324 +3,469 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\AdminController;
-use App\Services\Monster\MonsterConfigService;
-use App\Services\Location\LocationConfigService;
 use App\Services\Admin\AdminAuditService;
+use App\Models\Route;
+use App\Models\MonsterSpawnList;
+use App\Models\Monster;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
+/**
+ * モンスタースポーン管理コントローラー（統合版）
+ * 
+ * 新しいMonsterSpawnListテーブルを使用したスポーン設定管理
+ */
 class AdminMonsterSpawnController extends AdminController
 {
-    private MonsterConfigService $monsterConfigService;
-    private LocationConfigService $locationConfigService;
-
-    public function __construct(
-        AdminAuditService $auditService,
-        MonsterConfigService $monsterConfigService,
-        LocationConfigService $locationConfigService
-    ) {
+    public function __construct(AdminAuditService $auditService)
+    {
         parent::__construct($auditService);
-        $this->monsterConfigService = $monsterConfigService;
-        $this->locationConfigService = $locationConfigService;
     }
 
     /**
-     * モンスター出現管理一覧
+     * モンスタースポーン管理トップページ
      */
     public function index(Request $request)
     {
         $this->initializeForRequest();
         $this->checkPermission('monsters.view');
-        $this->trackPageAccess('monsters.spawn_lists.index');
+        $this->trackPageAccess('monster-spawns.index');
 
-        $filters = $request->only(['search', 'pathway_id', 'sort_by', 'sort_direction']);
+        $filters = $request->only(['location_search', 'monster_search', 'category', 'is_active']);
 
         try {
-            $locationConfig = $this->locationConfigService->loadUnifiedConfig();
-            $pathways = $locationConfig['pathways'] ?? [];
-            
+            // Location別のスポーン情報を取得
+            $query = Route::with(['monsterSpawns.monster'])
+                                ->whereIn('category', ['road', 'dungeon']);
+
             // フィルタリング
-            if (!empty($filters['pathway_id'])) {
-                $pathways = array_filter($pathways, function($pathwayId) use ($filters) {
-                    return $pathwayId === $filters['pathway_id'];
-                }, ARRAY_FILTER_USE_KEY);
+            if (!empty($filters['location_search'])) {
+                $query->where(function($q) use ($filters) {
+                    $q->where('name', 'like', '%' . $filters['location_search'] . '%')
+                      ->orWhere('id', 'like', '%' . $filters['location_search'] . '%');
+                });
             }
 
-            if (!empty($filters['search'])) {
-                $pathways = array_filter($pathways, function($pathway, $pathwayId) use ($filters) {
-                    return stripos($pathway['name'], $filters['search']) !== false ||
-                           stripos($pathwayId, $filters['search']) !== false;
-                }, ARRAY_FILTER_USE_BOTH);
+            if (!empty($filters['category'])) {
+                $query->where('category', $filters['category']);
             }
 
-            // 各pathwayのmonster spawn設定を取得
-            $pathwaySpawns = [];
-            foreach ($pathways as $pathwayId => $pathway) {
-                $spawns = $this->monsterConfigService->getMonsterSpawnsForPathway($pathwayId);
-                $validation = $this->monsterConfigService->validatePathwaySpawns($pathwayId);
-                
-                $pathwaySpawns[$pathwayId] = [
-                    'pathway' => $pathway,
-                    'spawns' => $spawns,
-                    'validation' => $validation
-                ];
+            $locations = $query->get();
+
+            // モンスターフィルタリング（MonsterSpawn側）
+            if (!empty($filters['monster_search']) || isset($filters['is_active'])) {
+                $locations = $locations->filter(function($location) use ($filters) {
+                    $spawns = $location->monsterSpawns;
+                    
+                    if (!empty($filters['monster_search'])) {
+                        $spawns = $spawns->filter(function($spawn) use ($filters) {
+                            return stripos($spawn->monster->name, $filters['monster_search']) !== false;
+                        });
+                    }
+
+                    if (isset($filters['is_active'])) {
+                        $spawns = $spawns->where('is_active', (bool)$filters['is_active']);
+                    }
+
+                    return $spawns->count() > 0;
+                });
             }
 
-            return view('admin.monsters.spawn_lists.index', [
-                'pathwaySpawns' => $pathwaySpawns,
+            // 統計情報
+            $stats = [
+                'total_locations' => Route::whereIn('category', ['road', 'dungeon'])->count(),
+                'locations_with_spawns' => Route::whereHas('monsterSpawns')->count(),
+                'total_spawns' => MonsterSpawnList::count(),
+                'active_spawns' => MonsterSpawnList::where('is_active', true)->count(),
+                'unique_monsters' => MonsterSpawnList::distinct('monster_id')->count(),
+            ];
+
+            $this->auditLog('monster_spawns.index.viewed', [
                 'filters' => $filters,
-                'pathways' => $locationConfig['pathways'] ?? [],
-                'total_pathways' => count($locationConfig['pathways'] ?? []),
-                'filtered_pathways' => count($pathwaySpawns)
+                'locations_count' => $locations->count(),
+                'stats' => $stats
             ]);
 
+            return view('admin.monster-spawns.index', compact('locations', 'filters', 'stats'));
+
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'データの読み込みに失敗しました: ' . $e->getMessage());
+            Log::error('Failed to load monster spawn data', [
+                'error' => $e->getMessage()
+            ]);
+
+            return view('admin.monster-spawns.index', [
+                'error' => 'モンスタースポーンデータの読み込みに失敗しました: ' . $e->getMessage(),
+                'locations' => collect(),
+                'filters' => $filters,
+                'stats' => []
+            ]);
         }
     }
 
     /**
-     * 特定のpathwayのmonster spawn管理
+     * 特定ロケーションのスポーン詳細表示
      */
-    public function pathwaySpawns(Request $request, string $pathwayId)
+    public function show(Request $request, string $locationId)
     {
         $this->initializeForRequest();
         $this->checkPermission('monsters.view');
 
         try {
-            $locationConfig = $this->locationConfigService->loadUnifiedConfig();
-            
-            if (!isset($locationConfig['pathways'][$pathwayId])) {
-                return redirect()->route('admin.monster_spawns.index')
-                    ->with('error', '指定されたpathwayが見つかりません');
+            $location = Route::with(['monsterSpawns.monster'])->find($locationId);
+
+            if (!$location) {
+                return redirect()->route('admin.monster-spawns.index')
+                               ->with('error', 'ロケーションが見つかりません。');
             }
 
-            $pathway = $locationConfig['pathways'][$pathwayId];
-            $spawns = $this->monsterConfigService->getMonsterSpawnsForPathway($pathwayId);
-            $monsters = $this->monsterConfigService->getActiveMonsters();
-            $validation = $this->monsterConfigService->validatePathwaySpawns($pathwayId);
+            // スポーン設定の統計・検証
+            $spawnStats = $location->getSpawnStats();
+            $validationIssues = $location->validateSpawnConfiguration();
 
-            return view('admin.monsters.spawn_lists.pathway', [
-                'pathwayId' => $pathwayId,
-                'pathway' => $pathway,
-                'spawns' => $spawns,
-                'monsters' => $monsters,
-                'validation' => $validation
+            $this->auditLog('monster_spawns.show.viewed', [
+                'location_id' => $locationId,
+                'location_name' => $location->name,
+                'spawn_count' => $location->monsterSpawns->count()
             ]);
 
+            return view('admin.monster-spawns.show', compact('location', 'spawnStats', 'validationIssues'));
+
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'データの読み込みに失敗しました: ' . $e->getMessage());
+            Log::error('Failed to load location spawn details', [
+                'location_id' => $locationId,
+                'error' => $e->getMessage()
+            ]);
+
+            return redirect()->route('admin.monster-spawns.index')
+                           ->with('error', 'スポーン詳細の読み込みに失敗しました: ' . $e->getMessage());
         }
     }
 
     /**
-     * monster spawn設定保存
+     * 新規スポーン追加フォーム
      */
-    public function saveSpawns(Request $request, string $pathwayId)
+    public function create(Request $request, string $locationId)
+    {
+        $this->initializeForRequest();
+        $this->checkPermission('monsters.create');
+
+        try {
+            $location = Route::find($locationId);
+
+            if (!$location) {
+                return redirect()->route('admin.monster-spawns.index')
+                               ->with('error', 'ロケーションが見つかりません。');
+            }
+
+            // 使用可能なモンスター（まだスポーン設定されていないもの）
+            $existingMonsterIds = $location->monsterSpawns->pluck('monster_id')->toArray();
+            $availableMonsters = Monster::whereNotIn('id', $existingMonsterIds)
+                                       ->where('is_active', true)
+                                       ->orderBy('name')
+                                       ->get();
+
+            // 次の優先度
+            $nextPriority = $location->monsterSpawns->max('priority') + 1;
+
+            return view('admin.monster-spawns.create', compact('location', 'availableMonsters', 'nextPriority'));
+
+        } catch (\Exception $e) {
+            Log::error('Failed to load monster spawn create form', [
+                'location_id' => $locationId,
+                'error' => $e->getMessage()
+            ]);
+
+            return redirect()->route('admin.monster-spawns.index')
+                           ->with('error', 'スポーン作成フォームの読み込みに失敗しました: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * スポーン設定保存
+     */
+    public function store(Request $request)
+    {
+        $this->initializeForRequest();
+        $this->checkPermission('monsters.create');
+
+        $validator = $this->validateSpawnData($request);
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        try {
+            $spawn = MonsterSpawnList::create([
+                'location_id' => $request->location_id,
+                'monster_id' => $request->monster_id,
+                'spawn_rate' => $request->spawn_rate,
+                'priority' => $request->priority,
+                'min_level' => $request->min_level ?: null,
+                'max_level' => $request->max_level ?: null,
+                'is_active' => (bool)$request->is_active,
+            ]);
+
+            $this->auditLog('monster_spawns.created', [
+                'spawn_id' => $spawn->id,
+                'location_id' => $spawn->location_id,
+                'monster_id' => $spawn->monster_id,
+                'spawn_data' => $spawn->toArray()
+            ], 'high');
+
+            return redirect()->route('admin.monster-spawns.show', $request->location_id)
+                           ->with('success', 'モンスタースポーンが追加されました。');
+
+        } catch (\Exception $e) {
+            $this->auditLog('monster_spawns.create.failed', [
+                'location_id' => $request->location_id,
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ], 'critical');
+
+            return back()->withError('スポーン設定の保存に失敗しました: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    /**
+     * スポーン編集フォーム
+     */
+    public function edit(Request $request, int $spawnId)
     {
         $this->initializeForRequest();
         $this->checkPermission('monsters.edit');
 
+        try {
+            $spawn = MonsterSpawnList::with(['gameLocation', 'monster'])->find($spawnId);
+
+            if (!$spawn) {
+                return redirect()->route('admin.monster-spawns.index')
+                               ->with('error', 'モンスタースポーンが見つかりません。');
+            }
+
+            // 利用可能なモンスター（現在選択中は含める）
+            $existingMonsterIds = $spawn->gameLocation->monsterSpawns
+                                        ->where('id', '!=', $spawn->id)
+                                        ->pluck('monster_id')
+                                        ->toArray();
+            
+            $availableMonsters = Monster::where(function($q) use ($spawn, $existingMonsterIds) {
+                $q->whereNotIn('id', $existingMonsterIds)
+                  ->orWhere('id', $spawn->monster_id);
+            })->where('is_active', true)->orderBy('name')->get();
+
+            return view('admin.monster-spawns.edit', compact('spawn', 'availableMonsters'));
+
+        } catch (\Exception $e) {
+            Log::error('Failed to load monster spawn edit form', [
+                'spawn_id' => $spawnId,
+                'error' => $e->getMessage()
+            ]);
+
+            return redirect()->route('admin.monster-spawns.index')
+                           ->with('error', 'スポーン編集フォームの読み込みに失敗しました: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * スポーン設定更新
+     */
+    public function update(Request $request, int $spawnId)
+    {
+        $this->initializeForRequest();
+        $this->checkPermission('monsters.edit');
+
+        $validator = $this->validateSpawnData($request, $spawnId);
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        try {
+            $spawn = MonsterSpawnList::find($spawnId);
+
+            if (!$spawn) {
+                return back()->withError('モンスタースポーンが見つかりません。')->withInput();
+            }
+
+            $originalData = $spawn->toArray();
+
+            $spawn->update([
+                'monster_id' => $request->monster_id,
+                'spawn_rate' => $request->spawn_rate,
+                'priority' => $request->priority,
+                'min_level' => $request->min_level ?: null,
+                'max_level' => $request->max_level ?: null,
+                'is_active' => (bool)$request->is_active,
+            ]);
+
+            $this->auditLog('monster_spawns.updated', [
+                'spawn_id' => $spawn->id,
+                'location_id' => $spawn->location_id,
+                'original_data' => $originalData,
+                'updated_data' => $spawn->fresh()->toArray()
+            ], 'high');
+
+            return redirect()->route('admin.monster-spawns.show', $spawn->location_id)
+                           ->with('success', 'モンスタースポーンが更新されました。');
+
+        } catch (\Exception $e) {
+            $this->auditLog('monster_spawns.update.failed', [
+                'spawn_id' => $spawnId,
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ], 'critical');
+
+            return back()->withError('スポーン設定の更新に失敗しました: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    /**
+     * スポーン設定削除
+     */
+    public function destroy(Request $request, int $spawnId)
+    {
+        $this->initializeForRequest();
+        $this->checkPermission('monsters.delete');
+
+        try {
+            $spawn = MonsterSpawnList::with(['gameLocation', 'monster'])->find($spawnId);
+
+            if (!$spawn) {
+                return back()->withError('モンスタースポーンが見つかりません。');
+            }
+
+            $locationId = $spawn->location_id;
+            $deletedData = $spawn->toArray();
+
+            $spawn->delete();
+
+            $this->auditLog('monster_spawns.deleted', [
+                'deleted_spawn' => $deletedData
+            ], 'critical');
+
+            return redirect()->route('admin.monster-spawns.show', $locationId)
+                           ->with('success', 'モンスタースポーンが削除されました。');
+
+        } catch (\Exception $e) {
+            $this->auditLog('monster_spawns.delete.failed', [
+                'spawn_id' => $spawnId,
+                'error' => $e->getMessage()
+            ], 'critical');
+
+            return back()->withError('スポーン設定の削除に失敗しました: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 一括操作
+     */
+    public function bulkAction(Request $request)
+    {
+        $this->initializeForRequest();
+        $this->checkPermission('monsters.edit');
+
+        $action = $request->input('action');
+        $spawnIds = $request->input('spawn_ids', []);
+
+        if (empty($spawnIds)) {
+            return back()->withError('操作対象が選択されていません。');
+        }
+
+        try {
+            $affectedCount = 0;
+
+            switch ($action) {
+                case 'activate':
+                    $affectedCount = MonsterSpawnList::whereIn('id', $spawnIds)->update(['is_active' => true]);
+                    break;
+
+                case 'deactivate':
+                    $affectedCount = MonsterSpawnList::whereIn('id', $spawnIds)->update(['is_active' => false]);
+                    break;
+
+                case 'delete':
+                    if (!$this->hasPermission('monsters.delete')) {
+                        return back()->withError('削除権限がありません。');
+                    }
+                    $affectedCount = MonsterSpawnList::whereIn('id', $spawnIds)->delete();
+                    break;
+
+                default:
+                    return back()->withError('無効な操作です。');
+            }
+
+            $this->auditLog('monster_spawns.bulk_action', [
+                'action' => $action,
+                'spawn_ids' => $spawnIds,
+                'affected_count' => $affectedCount
+            ], 'medium');
+
+            return back()->with('success', "{$affectedCount}件のスポーン設定を{$action}しました。");
+
+        } catch (\Exception $e) {
+            $this->auditLog('monster_spawns.bulk_action.failed', [
+                'action' => $action,
+                'spawn_ids' => $spawnIds,
+                'error' => $e->getMessage()
+            ], 'critical');
+
+            return back()->withError('一括操作に失敗しました: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * スポーンデータのバリデーション
+     */
+    private function validateSpawnData(Request $request, ?int $excludeSpawnId = null): \Illuminate\Validation\Validator
+    {
         $rules = [
-            'spawns' => 'required|array',
-            'spawns.*.monster_id' => 'required|string',
-            'spawns.*.spawn_rate' => 'required|numeric|min:0|max:1',
-            'spawns.*.priority' => 'integer|min:0',
-            'spawns.*.is_active' => 'boolean',
-            'spawns.*.min_level' => 'nullable|integer|min:1',
-            'spawns.*.max_level' => 'nullable|integer|min:1'
+            'location_id' => 'required|string|exists:routes,id',
+            'monster_id' => 'required|string|exists:monsters,id',
+            'spawn_rate' => 'required|numeric|min:0|max:1',
+            'priority' => 'required|integer|min:0|max:999',
+            'min_level' => 'nullable|integer|min:1|max:999',
+            'max_level' => 'nullable|integer|min:1|max:999',
+            'is_active' => 'boolean',
         ];
 
-        $validator = Validator::make($request->all(), $rules);
-        
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
+        // 重複チェック
+        $uniqueRule = Rule::unique('monster_spawn_lists')->where(function ($query) use ($request) {
+            return $query->where('location_id', $request->location_id)
+                         ->where('monster_id', $request->monster_id);
+        });
+
+        if ($excludeSpawnId) {
+            $uniqueRule->ignore($excludeSpawnId);
         }
 
-        try {
-            $spawns = [];
-            $monsters = $this->monsterConfigService->getActiveMonsters();
-            
-            foreach ($request->input('spawns', []) as $index => $spawnData) {
-                $monsterId = $spawnData['monster_id'];
-                
-                // モンスターの存在確認
-                if (!isset($monsters[$monsterId])) {
-                    return redirect()->back()
-                        ->with('error', "モンスター '{$monsterId}' が見つかりません")
-                        ->withInput();
-                }
+        $rules['monster_id'] = [$rules['monster_id'], $uniqueRule];
 
-                $spawns[$monsterId] = [
-                    'monster_id' => $monsterId,
-                    'spawn_rate' => (float) $spawnData['spawn_rate'],
-                    'priority' => (int) ($spawnData['priority'] ?? 0),
-                    'min_level' => !empty($spawnData['min_level']) ? (int) $spawnData['min_level'] : null,
-                    'max_level' => !empty($spawnData['max_level']) ? (int) $spawnData['max_level'] : null,
-                    'is_active' => (bool) ($spawnData['is_active'] ?? true)
-                ];
+        $validator = Validator::make($request->all(), $rules, [
+            'spawn_rate.max' => '出現率は1.0（100%）以下で入力してください。',
+            'min_level.min' => '最小レベルは1以上で入力してください。',
+            'max_level.min' => '最大レベルは1以上で入力してください。',
+            'monster_id.unique' => 'このロケーションには既に同じモンスターのスポーン設定があります。',
+        ]);
+
+        // カスタムバリデーション
+        $validator->after(function ($validator) use ($request) {
+            // レベル範囲チェック
+            if ($request->min_level && $request->max_level && $request->min_level > $request->max_level) {
+                $validator->errors()->add('max_level', '最大レベルは最小レベル以上で入力してください。');
             }
 
-            // 出現率の合計チェック
-            $totalRate = array_sum(array_column($spawns, 'spawn_rate'));
+            // 出現率合計チェック（他のスポーンとの合計）
+            $existingSpawns = MonsterSpawnList::where('location_id', $request->location_id);
+            if ($request->route('spawn_id')) {
+                $existingSpawns->where('id', '!=', $request->route('spawn_id'));
+            }
+            
+            $totalRate = $existingSpawns->sum('spawn_rate') + ($request->spawn_rate ?? 0);
             if ($totalRate > 1.0) {
-                return redirect()->back()
-                    ->with('error', "出現率の合計が100%を超えています (" . number_format($totalRate * 100, 1) . "%)")
-                    ->withInput();
+                $validator->errors()->add('spawn_rate', 'このロケーションの総出現率が100%を超えます。');
             }
+        });
 
-            // 設定保存 - 新構造対応
-            $locationConfig = $this->locationConfigService->loadUnifiedConfig();
-            if (!isset($locationConfig['pathways'][$pathwayId]['spawn_list_id'])) {
-                return redirect()->back()
-                    ->with('error', 'このPathwayには出現リストIDが設定されていません')
-                    ->withInput();
-            }
-
-            $spawnListId = $locationConfig['pathways'][$pathwayId]['spawn_list_id'];
-            $spawnLists = $this->monsterConfigService->loadSpawnLists();
-            
-            if (!isset($spawnLists[$spawnListId])) {
-                return redirect()->back()
-                    ->with('error', "出現リスト '{$spawnListId}' が見つかりません")
-                    ->withInput();
-            }
-
-            // 出現リストのモンスター設定を更新
-            $spawnLists[$spawnListId]['monsters'] = $spawns;
-            $spawnLists[$spawnListId]['updated_at'] = now()->toISOString();
-
-            if (!$this->monsterConfigService->saveSpawnLists($spawnLists)) {
-                return redirect()->back()
-                    ->with('error', '設定の保存に失敗しました')
-                    ->withInput();
-            }
-
-            // 監査ログ記録
-            $this->auditLog('monster_spawns.updated', [
-                'pathway_id' => $pathwayId,
-                'spawn_list_id' => $spawnListId,
-                'spawns_count' => count($spawns),
-                'total_rate' => $totalRate
-            ]);
-
-            return redirect()->route('admin.monster_spawns.pathway', $pathwayId)
-                ->with('success', 'モンスター出現設定を保存しました');
-
-        } catch (\Exception $e) {
-            Log::error('Failed to save monster spawns', [
-                'pathway_id' => $pathwayId,
-                'error' => $e->getMessage()
-            ]);
-            
-            return redirect()->back()
-                ->with('error', '保存に失敗しました: ' . $e->getMessage())
-                ->withInput();
-        }
-    }
-
-    /**
-     * 特定のmonster spawn削除
-     */
-    public function removeSpawn(Request $request, string $pathwayId, string $monsterId)
-    {
-        $this->initializeForRequest();
-        $this->checkPermission('monsters.edit');
-
-        try {
-            $locationConfig = $this->locationConfigService->loadUnifiedConfig();
-            if (!isset($locationConfig['pathways'][$pathwayId]['spawn_list_id'])) {
-                return redirect()->back()->with('error', 'このPathwayには出現リストIDが設定されていません');
-            }
-
-            $spawnListId = $locationConfig['pathways'][$pathwayId]['spawn_list_id'];
-            $spawnLists = $this->monsterConfigService->loadSpawnLists();
-            
-            if (!isset($spawnLists[$spawnListId])) {
-                return redirect()->back()->with('error', "出現リスト '{$spawnListId}' が見つかりません");
-            }
-
-            if (!isset($spawnLists[$spawnListId]['monsters'][$monsterId])) {
-                return redirect()->back()->with('error', '指定されたモンスター出現設定が見つかりません');
-            }
-
-            unset($spawnLists[$spawnListId]['monsters'][$monsterId]);
-            $spawnLists[$spawnListId]['updated_at'] = now()->toISOString();
-
-            if (!$this->monsterConfigService->saveSpawnLists($spawnLists)) {
-                return redirect()->back()->with('error', '削除に失敗しました');
-            }
-
-            // 監査ログ記録
-            $this->auditLog('monster_spawns.removed', [
-                'pathway_id' => $pathwayId,
-                'spawn_list_id' => $spawnListId,
-                'monster_id' => $monsterId
-            ]);
-
-            return redirect()->back()->with('success', 'モンスター出現設定を削除しました');
-
-        } catch (\Exception $e) {
-            Log::error('Failed to remove monster spawn', [
-                'pathway_id' => $pathwayId,
-                'monster_id' => $monsterId,
-                'error' => $e->getMessage()
-            ]);
-            
-            return redirect()->back()
-                ->with('error', '削除に失敗しました: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 全pathwayのvalidation結果を取得
-     */
-    public function validateAll(Request $request)
-    {
-        $this->initializeForRequest();
-        $this->checkPermission('monsters.view');
-
-        try {
-            $results = $this->monsterConfigService->validateAllPathwaySpawns();
-            
-            return response()->json([
-                'success' => true,
-                'results' => $results
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * テスト用monster選択
-     */
-    public function testSpawn(Request $request, string $pathwayId)
-    {
-        $this->initializeForRequest();
-        $this->checkPermission('monsters.view');
-
-        try {
-            $monster = $this->monsterConfigService->getRandomMonsterForPathway($pathwayId);
-            
-            return response()->json([
-                'success' => true,
-                'monster' => $monster,
-                'pathway_id' => $pathwayId
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        return $validator;
     }
 }

@@ -100,7 +100,7 @@ abstract class AdminController extends Controller
     /**
      * 監査ログの記録
      */
-    protected function auditLog(string $action, array $details = [], string $severity = 'info'): void
+    protected function auditLog(string $action, array $details = [], string $severity = 'low'): void
     {
         try {
             $description = $action . ' - ' . implode(', ', array_keys($details));

@@ -5,7 +5,14 @@ namespace App\Services\StandardItem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Models\StandardItem;
 
+/**
+ * 標準アイテム管理サービス（SQLite対応）
+ * 
+ * SQLiteデータベースのstandard_itemsテーブルを管理
+ * JSONファイルをフォールバックとして使用
+ */
 class StandardItemService
 {
     private const CACHE_KEY = 'standard_items_data';
@@ -21,10 +28,35 @@ class StandardItemService
     }
     
     /**
-     * 標準アイテムデータを取得（DummyDataService::getStandardItems()互換）
+     * 標準アイテムデータを取得（SQLite優先、JSONフォールバック）
      */
     public function getStandardItems(): array
     {
+        try {
+            // SQLiteから取得を試行
+            $items = StandardItem::where('is_standard', true)
+                                ->orderBy('category')
+                                ->orderBy('id')
+                                ->get()
+                                ->keyBy('id')
+                                ->map(function ($item) {
+                                    return $item->toArray();
+                                })
+                                ->toArray();
+            
+            if (!empty($items)) {
+                Log::debug('Standard items loaded from SQLite successfully', [
+                    'count' => count($items)
+                ]);
+                return $items;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to load standard items from SQLite, falling back to JSON', [
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        // SQLite失敗時はJSONフォールバック
         $data = $this->loadStandardItemsData();
         
         if (!$data || !isset($data['items'])) {
@@ -44,10 +76,23 @@ class StandardItemService
     }
     
     /**
-     * IDで標準アイテムを検索
+     * IDで標準アイテムを検索（SQLite優先）
      */
     public function findById(string $id): ?array
     {
+        try {
+            $item = StandardItem::find($id);
+            if ($item) {
+                return $item->toArray();
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to find standard item by ID in SQLite, falling back to JSON', [
+                'item_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        // SQLite失敗時はJSONフォールバック
         $items = $this->getStandardItems();
         
         foreach ($items as $item) {
@@ -60,10 +105,23 @@ class StandardItemService
     }
     
     /**
-     * 名前で標準アイテムを検索（大文字小文字区別なし）
+     * 名前で標準アイテムを検索（SQLite優先、大文字小文字区別なし）
      */
     public function findByName(string $name): ?array
     {
+        try {
+            $item = StandardItem::whereRaw('LOWER(name) = LOWER(?)', [$name])->first();
+            if ($item) {
+                return $item->toArray();
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to find standard item by name in SQLite, falling back to JSON', [
+                'item_name' => $name,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        // SQLite失敗時はJSONフォールバック
         $items = $this->getStandardItems();
         
         foreach ($items as $item) {
@@ -76,10 +134,31 @@ class StandardItemService
     }
     
     /**
-     * カテゴリで標準アイテムをフィルタ
+     * カテゴリで標準アイテムをフィルタ（SQLite優先）
      */
     public function getByCategory(string $category): array
     {
+        try {
+            $items = StandardItem::byCategory($category)
+                                ->where('is_standard', true)
+                                ->orderBy('id')
+                                ->get()
+                                ->map(function ($item) {
+                                    return $item->toArray();
+                                })
+                                ->toArray();
+            
+            if (!empty($items)) {
+                return $items;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to get standard items by category from SQLite, falling back to JSON', [
+                'category' => $category,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        // SQLite失敗時はJSONフォールバック
         $items = $this->getStandardItems();
         
         return array_filter($items, function($item) use ($category) {
@@ -89,11 +168,109 @@ class StandardItemService
 
     
     /**
-     * キャッシュをクリア
+     * 装備可能アイテムを取得（SQLite優先）
+     */
+    public function getEquippableItems(): array
+    {
+        try {
+            $items = StandardItem::equippable()
+                                ->where('is_standard', true)
+                                ->orderBy('category')
+                                ->orderBy('id')
+                                ->get()
+                                ->map(function ($item) {
+                                    return $item->toArray();
+                                })
+                                ->toArray();
+            
+            if (!empty($items)) {
+                return $items;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to get equippable items from SQLite, falling back to JSON', [
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        // SQLite失敗時はJSON経由でフィルタ
+        $items = $this->getStandardItems();
+        return array_filter($items, function($item) {
+            return $item['is_equippable'] ?? false;
+        });
+    }
+
+    /**
+     * 使用可能アイテムを取得（SQLite優先）
+     */
+    public function getUsableItems(): array
+    {
+        try {
+            $items = StandardItem::usable()
+                                ->where('is_standard', true)
+                                ->orderBy('category')
+                                ->orderBy('id')
+                                ->get()
+                                ->map(function ($item) {
+                                    return $item->toArray();
+                                })
+                                ->toArray();
+            
+            if (!empty($items)) {
+                return $items;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to get usable items from SQLite, falling back to JSON', [
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        // SQLite失敗時はJSON経由でフィルタ
+        $items = $this->getStandardItems();
+        return array_filter($items, function($item) {
+            return $item['is_usable'] ?? false;
+        });
+    }
+
+    /**
+     * 武器タイプでアイテムを取得（SQLite優先）
+     */
+    public function getByWeaponType(string $weaponType): array
+    {
+        try {
+            $items = StandardItem::byWeaponType($weaponType)
+                                ->where('is_standard', true)
+                                ->orderBy('id')
+                                ->get()
+                                ->map(function ($item) {
+                                    return $item->toArray();
+                                })
+                                ->toArray();
+            
+            if (!empty($items)) {
+                return $items;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to get items by weapon type from SQLite, falling back to JSON', [
+                'weapon_type' => $weaponType,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        // SQLite失敗時はJSON経由でフィルタ
+        $items = $this->getStandardItems();
+        return array_filter($items, function($item) use ($weaponType) {
+            return ($item['weapon_type'] ?? '') === $weaponType;
+        });
+    }
+
+    /**
+     * キャッシュをクリア（SQLite版では不要だが互換性のため保持）
      */
     public function clearCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+        // SQLiteではEloquentが自動的にキャッシュを管理するため、特に処理は不要
+        Log::debug('Cache clear requested for StandardItemService (SQLite version)');
     }
     
     /**
@@ -190,10 +367,54 @@ class StandardItemService
     }
     
     /**
-     * 統計情報を取得
+     * 統計情報を取得（SQLite優先）
      */
     public function getStatistics(): array
     {
+        try {
+            // SQLiteから効率的に統計情報を取得
+            $totalItems = StandardItem::where('is_standard', true)->count();
+            
+            // カテゴリ別統計
+            $categories = StandardItem::where('is_standard', true)
+                                     ->selectRaw('category, COUNT(*) as count')
+                                     ->groupBy('category')
+                                     ->pluck('count', 'category')
+                                     ->toArray();
+            
+            // 装備・使用可能アイテム統計
+            $equippableCount = StandardItem::equippable()->where('is_standard', true)->count();
+            $usableCount = StandardItem::usable()->where('is_standard', true)->count();
+            
+            // 武器タイプ統計
+            $weaponTypes = StandardItem::where('is_standard', true)
+                                      ->whereNotNull('weapon_type')
+                                      ->where('weapon_type', '!=', '')
+                                      ->selectRaw('weapon_type, COUNT(*) as count')
+                                      ->groupBy('weapon_type')
+                                      ->pluck('count', 'weapon_type')
+                                      ->toArray();
+            
+            // 平均価値
+            $avgValue = StandardItem::where('is_standard', true)->avg('value') ?? 0;
+            
+            return [
+                'total_items' => $totalItems,
+                'categories' => $categories,
+                'equippable_count' => $equippableCount,
+                'usable_count' => $usableCount,
+                'weapon_types' => $weaponTypes,
+                'by_category' => collect($categories),
+                'avg_value' => $avgValue,
+            ];
+            
+        } catch (\Exception $e) {
+            Log::warning('Failed to get statistics from SQLite, falling back to JSON', [
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        // SQLite失敗時はJSONフォールバック
         $items = $this->getStandardItems();
         
         $stats = [

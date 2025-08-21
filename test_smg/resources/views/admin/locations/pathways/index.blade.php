@@ -225,10 +225,10 @@
                                        class="btn btn-outline-primary">
                                         <i class="fas fa-edit"></i> 編集
                                     </a>
-                                    <button type="button" class="btn btn-outline-info" 
-                                            onclick="showPathwayDetails('{{ $pathwayId }}')">
+                                    <a href="{{ route('admin.locations.show', $pathwayId) }}" 
+                                       class="btn btn-outline-info">
                                         <i class="fas fa-eye"></i> 詳細
-                                    </button>
+                                    </a>
                                     <button type="button" class="btn btn-outline-danger" 
                                             onclick="deletePathway('{{ $pathwayId }}', '{{ $pathway['name'] }}')">
                                         <i class="fas fa-trash"></i> 削除
@@ -256,23 +256,7 @@
     </div>
 </div>
 
-<!-- 詳細モーダル -->
-<div class="modal fade" id="pathwayDetailModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">詳細情報</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="pathwayDetailContent">
-                <!-- Ajax で内容が読み込まれます -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- 詳細表示は専用ページに移行したため、モーダルは削除 -->
 
 <!-- 削除確認モーダル -->
 <div class="modal fade" id="deletePathwayModal" tabindex="-1">
@@ -309,19 +293,7 @@
 <script>
 let deletePathwayId = null;
 
-function showPathwayDetails(pathwayId) {
-    fetch(`/admin/locations/pathways/${pathwayId}/details`)
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('pathwayDetailContent').innerHTML = html;
-            const modal = new bootstrap.Modal(document.getElementById('pathwayDetailModal'));
-            modal.show();
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('詳細情報の取得に失敗しました');
-        });
-}
+// 詳細表示は専用ページに遷移するため、JavaScriptは不要
 
 function deletePathway(pathwayId, pathwayName) {
     deletePathwayId = pathwayId;

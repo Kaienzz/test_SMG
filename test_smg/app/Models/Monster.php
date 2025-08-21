@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Monster extends Model
 {
+    protected $primaryKey = 'id';
+    protected $keyType = 'string';
+    public $incrementing = false;
+
     protected $fillable = [
+        'id',
         'name',
         'level',
         'hp',
@@ -19,8 +24,7 @@ class Monster extends Model
         'experience_reward',
         'emoji',
         'description',
-        'spawn_roads',
-        'spawn_rate',
+        'is_active',
     ];
 
     protected $casts = [
@@ -33,9 +37,21 @@ class Monster extends Model
         'evasion' => 'integer',
         'accuracy' => 'integer',
         'experience_reward' => 'integer',
-        'spawn_roads' => 'array',
-        'spawn_rate' => 'float',
+        'is_active' => 'boolean',
     ];
+
+    // Relationships
+    public function monsterSpawns()
+    {
+        return $this->hasMany(MonsterSpawn::class, 'monster_id');
+    }
+
+    public function spawnLists()
+    {
+        return $this->belongsToMany(SpawnList::class, 'monster_spawns', 'monster_id', 'spawn_list_id')
+                    ->withPivot(['spawn_rate', 'priority', 'min_level', 'max_level', 'is_active'])
+                    ->withTimestamps();
+    }
 
     public function getHpPercentage(): float
     {
@@ -78,9 +94,12 @@ class Monster extends Model
 
     public static function getDummyMonsters(): array
     {
+        // JSONベースシステム移行後の緊急フォールバック用データ
+        // 注意: このデータは緊急時のみ使用され、通常はconfig/monsters/monsters.jsonから読み込まれます
         return [
-            // 道路1のモンスター
+            // 基本モンスター（全pathway共通フォールバック）
             [
+                'id' => 'slime',
                 'name' => 'スライム',
                 'level' => 1,
                 'hp' => 25,
@@ -93,10 +112,10 @@ class Monster extends Model
                 'experience_reward' => 15,
                 'emoji' => '🟢',
                 'description' => '弱いが数が多い基本的なモンスター',
-                'spawn_roads' => ['road_1'],
-                'spawn_rate' => 0.4,
+                'is_active' => true,
             ],
             [
+                'id' => 'goblin',
                 'name' => 'ゴブリン',
                 'level' => 2,
                 'hp' => 35,
@@ -109,10 +128,10 @@ class Monster extends Model
                 'experience_reward' => 25,
                 'emoji' => '👹',
                 'description' => '小さいが狡猾な緑の魔物',
-                'spawn_roads' => ['road_1'],
-                'spawn_rate' => 0.3,
+                'is_active' => true,
             ],
             [
+                'id' => 'wolf',
                 'name' => 'ウルフ',
                 'level' => 3,
                 'hp' => 45,
@@ -125,200 +144,53 @@ class Monster extends Model
                 'experience_reward' => 35,
                 'emoji' => '🐺',
                 'description' => '素早い野生の狼',
-                'spawn_roads' => ['road_1'],
-                'spawn_rate' => 0.2,
-            ],
-            [
-                'name' => 'オーク',
-                'level' => 4,
-                'hp' => 60,
-                'max_hp' => 60,
-                'attack' => 18,
-                'defense' => 12,
-                'agility' => 6,
-                'evasion' => 8,
-                'accuracy' => 75,
-                'experience_reward' => 50,
-                'emoji' => '👺',
-                'description' => '力強い筋肉質の戦士',
-                'spawn_roads' => ['road_1'],
-                'spawn_rate' => 0.1,
-            ],
-
-            // 道路2のモンスター
-            [
-                'name' => 'ポイズンスパイダー',
-                'level' => 4,
-                'hp' => 40,
-                'max_hp' => 40,
-                'attack' => 16,
-                'defense' => 6,
-                'agility' => 15,
-                'evasion' => 25,
-                'accuracy' => 85,
-                'experience_reward' => 45,
-                'emoji' => '🕷️',
-                'description' => '毒を持つ危険な蜘蛛',
-                'spawn_roads' => ['road_2'],
-                'spawn_rate' => 0.3,
-            ],
-            [
-                'name' => 'スケルトン',
-                'level' => 5,
-                'hp' => 50,
-                'max_hp' => 50,
-                'attack' => 20,
-                'defense' => 15,
-                'agility' => 10,
-                'evasion' => 12,
-                'accuracy' => 80,
-                'experience_reward' => 60,
-                'emoji' => '💀',
-                'description' => '骨だけの不死の戦士',
-                'spawn_roads' => ['road_2'],
-                'spawn_rate' => 0.4,
-            ],
-            [
-                'name' => 'バンディット',
-                'level' => 6,
-                'hp' => 65,
-                'max_hp' => 65,
-                'attack' => 22,
-                'defense' => 10,
-                'agility' => 18,
-                'evasion' => 22,
-                'accuracy' => 88,
-                'experience_reward' => 75,
-                'emoji' => '🗡️',
-                'description' => '道を荒らす盗賊',
-                'spawn_roads' => ['road_2'],
-                'spawn_rate' => 0.2,
-            ],
-            [
-                'name' => 'トロール',
-                'level' => 7,
-                'hp' => 90,
-                'max_hp' => 90,
-                'attack' => 25,
-                'defense' => 20,
-                'agility' => 4,
-                'evasion' => 5,
-                'accuracy' => 70,
-                'experience_reward' => 100,
-                'emoji' => '👹',
-                'description' => '巨大で強力だが鈍重な巨人',
-                'spawn_roads' => ['road_2'],
-                'spawn_rate' => 0.1,
-            ],
-
-            // 道路3のモンスター
-            [
-                'name' => 'ダークナイト',
-                'level' => 8,
-                'hp' => 85,
-                'max_hp' => 85,
-                'attack' => 28,
-                'defense' => 25,
-                'agility' => 12,
-                'evasion' => 18,
-                'accuracy' => 85,
-                'experience_reward' => 120,
-                'emoji' => '⚔️',
-                'description' => '闇の力を持つ騎士',
-                'spawn_roads' => ['road_3'],
-                'spawn_rate' => 0.3,
-            ],
-            [
-                'name' => 'ドラゴンリング',
-                'level' => 9,
-                'hp' => 70,
-                'max_hp' => 70,
-                'attack' => 30,
-                'defense' => 18,
-                'agility' => 20,
-                'evasion' => 25,
-                'accuracy' => 90,
-                'experience_reward' => 150,
-                'emoji' => '🐉',
-                'description' => '小さなドラゴンの子供',
-                'spawn_roads' => ['road_3'],
-                'spawn_rate' => 0.2,
-            ],
-            [
-                'name' => 'シャドウアサシン',
-                'level' => 10,
-                'hp' => 60,
-                'max_hp' => 60,
-                'attack' => 35,
-                'defense' => 12,
-                'agility' => 30,
-                'evasion' => 40,
-                'accuracy' => 95,
-                'experience_reward' => 180,
-                'emoji' => '🥷',
-                'description' => '影から現れる暗殺者',
-                'spawn_roads' => ['road_3'],
-                'spawn_rate' => 0.3,
-            ],
-            [
-                'name' => 'アンシェントビースト',
-                'level' => 12,
-                'hp' => 120,
-                'max_hp' => 120,
-                'attack' => 40,
-                'defense' => 30,
-                'agility' => 8,
-                'evasion' => 10,
-                'accuracy' => 80,
-                'experience_reward' => 250,
-                'emoji' => '🦁',
-                'description' => '古代から生きる強大な獣',
-                'spawn_roads' => ['road_3'],
-                'spawn_rate' => 0.2,
+                'is_active' => true,
             ],
         ];
     }
 
     public static function getRandomMonsterForRoad(string $roadId): ?array
     {
-        $monsters = self::getDummyMonsters();
-        $roadMonsters = array_filter($monsters, function($monster) use ($roadId) {
-            return in_array($roadId, $monster['spawn_roads']);
-        });
+        // 新しいJSONベースシステムを使用
+        $monsterConfigService = app(\App\Services\Monster\MonsterConfigService::class);
+        $monster = $monsterConfigService->getRandomMonsterForPathway($roadId);
+        
+        if ($monster) {
+            // データ完全性チェックと修正
+            $monster = self::validateAndFixMonsterData($monster);
+            
+            \Log::debug('Monster selected for encounter via JSON config', [
+                'pathway_id' => $roadId,
+                'monster_name' => $monster['name'],
+                'monster_data' => $monster
+            ]);
+            
+            return $monster;
+        }
 
-        if (empty($roadMonsters)) {
-            \Log::warning('No monsters found for road', ['road_id' => $roadId]);
+        // 緊急フォールバック: 基本モンスターを返す（後方互換性）
+        \Log::warning('Falling back to emergency dummy data for monster selection', [
+            'pathway_id' => $roadId,
+            'reason' => 'JSON config system failed'
+        ]);
+        
+        $monsters = self::getDummyMonsters();
+        
+        if (empty($monsters)) {
+            \Log::error('Emergency fallback: No dummy monsters available', ['pathway_id' => $roadId]);
             return null;
         }
 
-        // 確率に基づいてモンスターを選択
-        $totalRate = array_sum(array_column($roadMonsters, 'spawn_rate'));
-        $random = mt_rand() / mt_getrandmax();
-        $cumulativeRate = 0;
-
-        foreach ($roadMonsters as $index => $monster) {
-            $cumulativeRate += $monster['spawn_rate'] / $totalRate;
-            if ($random <= $cumulativeRate) {
-                // 一意のIDを追加
-                $monster['id'] = $index + 1;
-                
-                // データ完全性チェックと修正
-                $monster = self::validateAndFixMonsterData($monster);
-                
-                \Log::debug('Monster selected for encounter', [
-                    'road_id' => $roadId,
-                    'monster_name' => $monster['name'],
-                    'monster_data' => $monster
-                ]);
-                
-                return $monster;
-            }
-        }
-
-        // フォールバック: 最初のモンスターを返す
-        $firstMonster = reset($roadMonsters);
-        $firstMonster['id'] = 1;
+        // 最初の利用可能なモンスターを返す（JSON設定がロードできない緊急時のみ）
+        $firstMonster = reset($monsters);
         $firstMonster = self::validateAndFixMonsterData($firstMonster);
+        
+        \Log::info('Emergency fallback monster selected', [
+            'pathway_id' => $roadId,
+            'monster_name' => $firstMonster['name'],
+            'message' => 'Please check JSON monster configuration files'
+        ]);
+        
         return $firstMonster;
     }
 

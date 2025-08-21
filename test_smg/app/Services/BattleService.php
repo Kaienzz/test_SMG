@@ -4,30 +4,66 @@ namespace App\Services;
 
 use App\Models\Player;
 use App\Models\Monster;
+use App\Models\Route;
 use Illuminate\Support\Facades\Auth;
 
 class BattleService
 {
     /**
-     * モンスターとのエンカウント判定
+     * モンスターとのエンカウント判定（SQLite対応）
      */
     public static function checkEncounter(string $roadId): ?array
     {
-        $encounterRate = 0.1; // 10%の確率
-        $random = mt_rand() / mt_getrandmax();
-        
-        \Log::debug('Encounter check', [
-            'road_id' => $roadId,
-            'encounter_rate' => $encounterRate,
-            'random' => $random,
-            'will_encounter' => $random <= $encounterRate
-        ]);
-        
-        if ($random <= $encounterRate) {
-            return Monster::getRandomMonsterForRoad($roadId);
+        try {
+            // SQLiteからロケーションデータを取得
+            $location = Route::find($roadId);
+            
+            // パスウェイのエンカウント率を取得（デフォルト: 10%）
+            $encounterRate = 0.1; // デフォルト値
+            
+            if ($location && $location->encounter_rate !== null) {
+                $encounterRate = (float) $location->encounter_rate;
+            } else {
+                \Log::warning('Encounter rate not found in location or location not found, using default', [
+                    'location_id' => $roadId,
+                    'default_rate' => $encounterRate
+                ]);
+            }
+            
+            $random = mt_rand() / mt_getrandmax();
+            
+            \Log::debug('Encounter check with SQLite data', [
+                'location_id' => $roadId,
+                'encounter_rate' => $encounterRate,
+                'encounter_percentage' => $encounterRate * 100,
+                'random' => $random,
+                'will_encounter' => $random <= $encounterRate
+            ]);
+            
+            if ($random <= $encounterRate) {
+                $monster = Monster::getRandomMonsterForRoad($roadId);
+                
+                if ($monster) {
+                    \Log::info('Monster encounter occurred', [
+                        'location_id' => $roadId,
+                        'monster_name' => $monster['name'],
+                        'monster_level' => $monster['level'],
+                        'encounter_rate_used' => $encounterRate
+                    ]);
+                }
+                
+                return $monster;
+            }
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            \Log::error('Failed to check encounter', [
+                'location_id' => $roadId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
         }
-        
-        return null;
     }
 
     /**

@@ -11,7 +11,7 @@ namespace App\Application\DTOs;
 class BattleMonsterData
 {
     public function __construct(
-        public readonly int $monster_id,
+        public readonly string|int $monster_id,
         public readonly string $name,
         public readonly string $emoji,
         public readonly int $level,
@@ -67,7 +67,7 @@ class BattleMonsterData
         $stats = $data['stats'] ?? $data;
         
         return new self(
-            monster_id: $data['id'] ?? 0,
+            monster_id: $data['id'] ?? $data['monster_id'] ?? 0,
             name: $data['name'] ?? 'Unknown Monster',
             emoji: $data['emoji'] ?? '👹',
             level: $data['level'] ?? 1,
