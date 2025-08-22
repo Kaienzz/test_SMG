@@ -33,6 +33,7 @@ class AdminItemController extends AdminController
     {
         $this->initializeForRequest();
         $this->checkPermission('items.view');
+        $this->trackPageAccess('items.index');
         
         $filters = $request->only(['search', 'category', 'min_value', 'max_value', 'weapon_type', 'sort_by', 'sort_direction', 'item_type']);
         
@@ -204,6 +205,7 @@ class AdminItemController extends AdminController
     {
         $this->initializeForRequest();
         $this->checkPermission('items.view');
+        $this->trackPageAccess('items.show', ['item_id' => $item->id]);
         
         // 関連データの取得
         $customItems = CustomItem::where('base_item_id', $item->id)
@@ -236,6 +238,7 @@ class AdminItemController extends AdminController
     {
         $this->initializeForRequest();
         $this->checkPermission('items.create');
+        $this->trackPageAccess('items.create');
         
         $categories = ItemCategory::cases();
         $weaponTypes = [
@@ -304,6 +307,7 @@ class AdminItemController extends AdminController
     {
         $this->initializeForRequest();
         $this->checkPermission('items.edit');
+        $this->trackPageAccess('items.edit', ['item_id' => $item->id]);
         
         $categories = ItemCategory::cases();
         $weaponTypes = [

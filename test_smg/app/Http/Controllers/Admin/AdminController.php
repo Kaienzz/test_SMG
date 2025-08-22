@@ -252,4 +252,60 @@ abstract class AdminController extends Controller
             'user_agent' => request()->userAgent(),
         ]);
     }
+
+    /**
+     * 共通バリデーションルール
+     */
+    protected function getCommonValidationRules(): array
+    {
+        return [
+            'search' => 'sometimes|string|max:255',
+            'sort_by' => 'sometimes|string|in:id,name,created_at,updated_at',
+            'sort_direction' => 'sometimes|string|in:asc,desc',
+            'per_page' => 'sometimes|integer|min:1|max:100',
+        ];
+    }
+
+    /**
+     * ロケーション関連バリデーションルール
+     */
+    protected function getLocationValidationRules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'category' => 'required|in:road,town,dungeon',
+            'difficulty' => 'sometimes|integer|min:1|max:10',
+            'is_active' => 'sometimes|boolean',
+        ];
+    }
+
+    /**
+     * アイテム関連バリデーションルール
+     */
+    protected function getItemValidationRules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'description' => 'sometimes|string|max:1000',
+            'category' => 'required|string|max:50',
+            'value' => 'sometimes|integer|min:0',
+            'is_active' => 'sometimes|boolean',
+        ];
+    }
+
+    /**
+     * モンスター関連バリデーションルール
+     */
+    protected function getMonsterValidationRules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'level' => 'required|integer|min:1|max:999',
+            'max_hp' => 'required|integer|min:1',
+            'attack' => 'required|integer|min:0',
+            'defense' => 'required|integer|min:0',
+            'experience_reward' => 'required|integer|min:0',
+            'is_active' => 'sometimes|boolean',
+        ];
+    }
 }

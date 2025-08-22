@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Admin\AdminController;
 use App\Models\Route;
 use App\Models\RouteConnection;
-use App\Services\Admin\AdminLocationService;
+use App\Services\Admin\AdminRouteService;
 use App\Services\Admin\AdminAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,12 +14,12 @@ use Illuminate\Validation\Rule;
 
 class AdminTownController extends AdminController
 {
-    private AdminLocationService $adminLocationService;
+    private AdminRouteService $adminRouteService;
 
-    public function __construct(AdminAuditService $auditService, AdminLocationService $adminLocationService)
+    public function __construct(AdminAuditService $auditService, AdminRouteService $adminRouteService)
     {
         parent::__construct($auditService);
-        $this->adminLocationService = $adminLocationService;
+        $this->adminRouteService = $adminRouteService;
     }
 
     /**
@@ -34,7 +34,7 @@ class AdminTownController extends AdminController
         $filters = $request->only(['search', 'sort_by', 'sort_direction']);
         
         try {
-            $towns = $this->adminLocationService->getTowns($filters);
+            $towns = $this->adminRouteService->getTowns($filters);
 
             $this->auditLog('towns.index.viewed', [
                 'filters' => $filters,

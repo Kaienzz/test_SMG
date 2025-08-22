@@ -9,11 +9,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Admin用ロケーション管理サービス（SQLite対応）
+ * Admin用ルート管理サービス（SQLite対応）
  * 
  * SQLiteデータベースのroutes, route_connectionsテーブルを管理
  */
-class AdminLocationService
+class AdminRouteService
 {
     /**
      * 統計情報を取得
@@ -47,9 +47,9 @@ class AdminLocationService
     }
 
     /**
-     * パスウェイ（道路・ダンジョン）一覧を取得
+     * ルート（道路・ダンジョン）一覧を取得
      */
-    public function getPathways(array $filters = []): array
+    public function getRoutes(array $filters = []): array
     {
         try {
             $query = Route::whereIn('category', ['road', 'dungeon'])
@@ -260,16 +260,16 @@ class AdminLocationService
     }
 
     /**
-     * ロケーション詳細を取得（拡張版：モジュラー情報構造）
+     * ルート詳細を取得（拡張版：モジュラー情報構造）
      */
-    public function getLocationDetail(string $locationId, array $includeModules = []): ?array
+    public function getRouteDetail(string $routeId, array $includeModules = []): ?array
     {
         try {
             $location = Route::with([
                 'monsterSpawns.monster',
                 'sourceConnections.targetLocation',
                 'targetConnections.sourceLocation'
-            ])->find($locationId);
+            ])->find($routeId);
 
             if (!$location) {
                 return null;
@@ -446,8 +446,8 @@ class AdminLocationService
             return $detail;
 
         } catch (\Exception $e) {
-            Log::error('Failed to get location detail', [
-                'location_id' => $locationId,
+            Log::error('Failed to get route detail', [
+                'route_id' => $routeId,
                 'error' => $e->getMessage()
             ]);
             return null;

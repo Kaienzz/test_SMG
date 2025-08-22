@@ -30,6 +30,7 @@ class AdminMonsterController extends AdminController
     {
         $this->initializeForRequest();
         $this->checkPermission('monsters.view');
+        $this->trackPageAccess('monsters.index');
         
         $filters = $request->only(['search', 'road', 'min_level', 'max_level', 'sort_by', 'sort_direction']);
         
@@ -111,6 +112,7 @@ class AdminMonsterController extends AdminController
     {
         $this->initializeForRequest();
         $this->checkPermission('monsters.view');
+        $this->trackPageAccess('monsters.show', ['monster_id' => $monsterId]);
         
         $allMonsters = $this->monsterConfigService->getActiveMonstersWithSpawnInfo();
         $monster = collect($allMonsters)->firstWhere('name', $monsterId) 
@@ -150,6 +152,7 @@ class AdminMonsterController extends AdminController
     {
         $this->initializeForRequest();
         $this->checkPermission('monsters.edit');
+        $this->trackPageAccess('monsters.edit', ['monster_id' => $monsterId]);
         
         $allMonsters = $this->monsterConfigService->getActiveMonstersWithSpawnInfo();
         $monster = collect($allMonsters)->firstWhere('name', $monsterId) 

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\AdminController;
-use App\Services\Admin\AdminLocationService;
+use App\Services\Admin\AdminRouteService;
 use App\Services\Admin\AdminAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -20,12 +20,12 @@ use Illuminate\Support\Facades\Log;
  */
 class AdminLocationController extends AdminController
 {
-    private AdminLocationService $adminLocationService;
+    private AdminRouteService $adminRouteService;
 
-    public function __construct(AdminAuditService $auditService, AdminLocationService $adminLocationService)
+    public function __construct(AdminAuditService $auditService, AdminRouteService $adminRouteService)
     {
         parent::__construct($auditService);
-        $this->adminLocationService = $adminLocationService;
+        $this->adminRouteService = $adminRouteService;
     }
 
     /**
@@ -39,12 +39,12 @@ class AdminLocationController extends AdminController
 
         try {
             $data = [
-                'stats' => $this->adminLocationService->getStatistics(),
-                'recent_backups' => $this->adminLocationService->getRecentBackups(),
-                'config_status' => $this->adminLocationService->getConfigStatus()
+                'stats' => $this->adminRouteService->getStatistics(),
+                'recent_backups' => $this->adminRouteService->getRecentBackups(),
+                'config_status' => $this->adminRouteService->getConfigStatus()
             ];
 
-            $this->auditLog('locations.index.viewed', [
+            $this->auditLog('routes.index.viewed', [
                 'stats' => $data['stats']
             ]);
 
@@ -72,7 +72,7 @@ class AdminLocationController extends AdminController
         try {
             Log::info('Location detail request', ['location_id' => $locationId]);
             
-            $location = $this->adminLocationService->getLocationDetail($locationId);
+            $location = $this->adminRouteService->getRouteDetail($locationId);
 
             if (!$location) {
                 Log::warning('Location not found', ['location_id' => $locationId]);
@@ -80,7 +80,7 @@ class AdminLocationController extends AdminController
                                ->with('error', 'ロケーションが見つかりませんでした。ID: ' . $locationId);
             }
 
-            $this->auditLog('locations.show.viewed', [
+            $this->auditLog('routes.show.viewed', [
                 'location_id' => $locationId,
                 'location_name' => $location['name']
             ]);

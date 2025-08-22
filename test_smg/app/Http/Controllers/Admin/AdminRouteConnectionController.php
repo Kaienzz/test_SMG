@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Admin\AdminController;
 use App\Models\Route;
 use App\Models\RouteConnection;
-use App\Services\Admin\AdminLocationService;
+use App\Services\Admin\AdminRouteService;
 use App\Services\Admin\AdminAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -13,12 +13,12 @@ use Illuminate\Validation\Rule;
 
 class AdminRouteConnectionController extends AdminController
 {
-    private AdminLocationService $adminLocationService;
+    private AdminRouteService $adminRouteService;
 
-    public function __construct(AdminAuditService $auditService, AdminLocationService $adminLocationService)
+    public function __construct(AdminAuditService $auditService, AdminRouteService $adminRouteService)
     {
         parent::__construct($auditService);
-        $this->adminLocationService = $adminLocationService;
+        $this->adminRouteService = $adminRouteService;
     }
 
     /**
@@ -33,7 +33,7 @@ class AdminRouteConnectionController extends AdminController
         $filters = $request->only(['connection_type', 'source_location', 'sort_by', 'sort_direction']);
         
         try {
-            $connections = $this->adminLocationService->getConnections($filters);
+            $connections = $this->adminRouteService->getConnections($filters);
             $locations = Route::active()->orderBy('name')->get();
 
             $this->auditLog('route_connections.index.viewed', [
@@ -358,7 +358,7 @@ class AdminRouteConnectionController extends AdminController
             Log::info('Locations retrieved', ['count' => count($locations)]);
             
             // エッジデータ（接続）を取得
-            $connections = $this->adminLocationService->getConnections($filters);
+            $connections = $this->adminRouteService->getConnections($filters);
             Log::info('Connections retrieved', ['count' => count($connections)]);
             
             // ノードをCytoscape形式に変換
