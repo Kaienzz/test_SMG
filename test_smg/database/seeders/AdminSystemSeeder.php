@@ -68,6 +68,20 @@ class AdminSystemSeeder extends Seeder
             ['name' => 'admin.invite', 'category' => 'admin', 'action' => 'invite', 'display_name' => '管理者招待', 'required_level' => 70, 'is_dangerous' => true],
             ['name' => 'admin.roles', 'category' => 'admin', 'action' => 'roles', 'display_name' => 'ロール管理', 'required_level' => 80, 'is_dangerous' => true],
             ['name' => 'admin.permissions', 'category' => 'admin', 'action' => 'permissions', 'display_name' => '権限管理', 'required_level' => 90, 'is_dangerous' => true],
+
+            // ダッシュボード権限
+            ['name' => 'dashboard.view', 'category' => 'dashboard', 'action' => 'view', 'display_name' => 'ダッシュボード表示', 'required_level' => 10],
+            
+            // locations権限の完全実装
+            ['name' => 'locations.view', 'category' => 'locations', 'action' => 'view', 'display_name' => 'ロケーション表示', 'required_level' => 10],
+            ['name' => 'locations.edit', 'category' => 'locations', 'action' => 'edit', 'display_name' => 'ロケーション編集', 'required_level' => 30],
+            ['name' => 'locations.create', 'category' => 'locations', 'action' => 'create', 'display_name' => 'ロケーション作成', 'required_level' => 30],
+            ['name' => 'locations.delete', 'category' => 'locations', 'action' => 'delete', 'display_name' => 'ロケーション削除', 'required_level' => 50, 'is_dangerous' => true],
+            ['name' => 'locations.export', 'category' => 'locations', 'action' => 'export', 'display_name' => 'ロケーションエクスポート', 'required_level' => 40],
+            ['name' => 'locations.import', 'category' => 'locations', 'action' => 'import', 'display_name' => 'ロケーションインポート', 'required_level' => 50, 'is_dangerous' => true],
+            
+            // monsters権限の完全実装
+            ['name' => 'monsters.delete', 'category' => 'monsters', 'action' => 'delete', 'display_name' => 'モンスター削除', 'required_level' => 50, 'is_dangerous' => true],
         ];
 
         foreach ($permissions as $permission) {

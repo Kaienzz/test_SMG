@@ -31,6 +31,9 @@ class DashboardController extends AdminController
         // リクエスト初期化
         $this->initializeForRequest();
         
+        // 権限チェック
+        $this->checkPermission('dashboard.view');
+        
         // ページアクセス記録
         $this->trackPageAccess('dashboard');
         
@@ -54,7 +57,8 @@ class DashboardController extends AdminController
      */
     public function realTimeStats(Request $request)
     {
-        $this->requirePermission('analytics.view');
+        $this->initializeForRequest();
+        $this->checkPermission('analytics.view');
 
         $stats = [
             'online_users' => $this->getOnlineUsersCount(),
@@ -72,7 +76,8 @@ class DashboardController extends AdminController
      */
     public function detailedAnalytics(Request $request)
     {
-        $this->requirePermission('analytics.advanced');
+        $this->initializeForRequest();
+        $this->checkPermission('analytics.advanced');
 
         $request->validate([
             'period' => 'sometimes|in:7d,30d,90d,1y',

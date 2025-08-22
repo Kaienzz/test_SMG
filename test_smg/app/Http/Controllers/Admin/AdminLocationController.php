@@ -104,35 +104,4 @@ class AdminLocationController extends AdminController
         }
     }
 
-    /**
-     * スポーンリスト管理（暫定）
-     * 
-     * Note: 将来的にはAdminMonsterSpawnControllerに統合予定
-     */
-    public function spawnLists(Request $request)
-    {
-        $this->initializeForRequest();
-        $this->checkPermission('monsters.view');
-        $this->trackPageAccess('locations.spawn_lists');
-
-        try {
-            $spawnLists = $this->adminLocationService->getSpawnLists();
-
-            $this->auditLog('locations.spawn_lists.viewed', [
-                'result_count' => count($spawnLists)
-            ]);
-
-            return view('admin.locations.spawn-lists.index', compact('spawnLists'));
-
-        } catch (\Exception $e) {
-            Log::error('Failed to load spawn lists data', [
-                'error' => $e->getMessage()
-            ]);
-            
-            return view('admin.locations.spawn-lists.index', [
-                'error' => 'スポーンリストデータの読み込みに失敗しました: ' . $e->getMessage(),
-                'spawnLists' => []
-            ]);
-        }
-    }
 }

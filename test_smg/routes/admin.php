@@ -24,13 +24,20 @@ use App\Http\Controllers\Admin\AdminRouteConnectionController;
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     
-    // ダッシュボード
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+    // ダッシュボード（権限チェック付き）
+    Route::middleware(['admin.permission:dashboard.view'])->group(function () {
+        Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+    });
     
-    // リアルタイム統計API
-    Route::get('/api/stats/realtime', [DashboardController::class, 'realTimeStats'])->name('api.stats.realtime');
-    Route::get('/api/analytics/detailed', [DashboardController::class, 'detailedAnalytics'])->name('api.analytics.detailed');
+    // リアルタイム統計API（権限チェック付き）
+    Route::middleware(['admin.permission:analytics.view'])->group(function () {
+        Route::get('/api/stats/realtime', [DashboardController::class, 'realTimeStats'])->name('api.stats.realtime');
+    });
+    
+    Route::middleware(['admin.permission:analytics.advanced'])->group(function () {
+        Route::get('/api/analytics/detailed', [DashboardController::class, 'detailedAnalytics'])->name('api.analytics.detailed');
+    });
     
     // ユーザー管理（権限チェック付き）
     Route::middleware(['admin.permission:users.view'])->group(function () {
@@ -140,7 +147,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
              ->where('locationId', '[a-zA-Z][a-zA-Z0-9_-]*');
              
         // スポーンリスト管理（モンスター管理と統合予定）
-        Route::get('/locations/spawn-lists', [AdminLocationController::class, 'spawnLists'])->name('locations.spawn-lists');
+        // 削除: 重複ルート - /monster-spawns で代替
+        // Route::get('/locations/spawn-lists', [AdminLocationController::class, 'spawnLists'])->name('locations.spawn-lists');
     });
     
     // Road管理（新分離型システム）
