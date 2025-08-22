@@ -41,12 +41,12 @@
             </div>
             
             <div class="admin-filter-item">
-                <label for="pathway_id" class="admin-label">特定エリア</label>
-                <select id="pathway_id" name="pathway_id" class="admin-select">
+                <label for="location_id" class="admin-label">特定エリア</label>
+                <select id="location_id" name="location_id" class="admin-select">
                     <option value="">すべてのエリア</option>
-                    @foreach($pathways as $pathwayId => $pathway)
-                        <option value="{{ $pathwayId }}" {{ ($filters['pathway_id'] ?? '') === $pathwayId ? 'selected' : '' }}>
-                            {{ $pathway['name'] }} ({{ $pathwayId }})
+                    @foreach($locations as $locationId => $location)
+                        <option value="{{ $locationId }}" {{ ($filters['location_id'] ?? '') === $locationId ? 'selected' : '' }}>
+                            {{ $location['name'] }} ({{ $locationId }})
                         </option>
                     @endforeach
                 </select>
@@ -63,11 +63,11 @@
     <div class="admin-stats">
         <div class="admin-stat-item">
             <span class="admin-stat-label">総エリア数</span>
-            <span class="admin-stat-value">{{ $total_pathways }}</span>
+            <span class="admin-stat-value">{{ $total_locations }}</span>
         </div>
         <div class="admin-stat-item">
             <span class="admin-stat-label">表示中</span>
-            <span class="admin-stat-value">{{ $filtered_pathways }}</span>
+            <span class="admin-stat-value">{{ $filtered_locations }}</span>
         </div>
     </div>
 

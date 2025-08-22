@@ -11,7 +11,7 @@
         <ol style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--admin-secondary);">
             <li><a href="{{ route('admin.dashboard') }}" style="color: var(--admin-primary);">ダッシュボード</a></li>
             <li>/</li>
-            <li><a href="{{ route('admin.locations.pathways') }}" style="color: var(--admin-primary);">ロケーション管理</a></li>
+            <li><a href="{{ route('admin.locations.index') }}" style="color: var(--admin-primary);">ロケーション管理</a></li>
             <li>/</li>
             <li>{{ $location['name'] ?? 'ロケーション詳細' }}</li>
         </ol>
@@ -48,16 +48,32 @@
             </div>
             <div style="display: flex; gap: 0.5rem;">
                 @if(auth()->user()->can('locations.edit'))
-                <a href="{{ route('admin.locations.pathways.edit', $location['id']) }}" class="admin-btn admin-btn-primary">
-                    <i class="fas fa-edit"></i> 編集
-                </a>
+                    @php
+                        $editRoute = match($location['category'] ?? '') {
+                            'town' => route('admin.towns.edit', $location['id']),
+                            'road' => route('admin.roads.edit', $location['id']),
+                            'dungeon' => route('admin.dungeons.edit', $location['id']),
+                            default => route('admin.locations.index')
+                        };
+                    @endphp
+                    <a href="{{ $editRoute }}" class="admin-btn admin-btn-primary">
+                        <i class="fas fa-edit"></i> 編集
+                    </a>
                 @endif
                 @if(isset($location['modules']['monster_spawns']) && auth()->user()->can('monsters.view'))
                 <a href="{{ route('admin.monster-spawns.show', $location['id']) }}" class="admin-btn admin-btn-success">
                     <i class="fas fa-dragon"></i> スポーン管理
                 </a>
                 @endif
-                <a href="{{ route('admin.locations.pathways') }}" class="admin-btn admin-btn-secondary">
+                @php
+                    $indexRoute = match($location['category'] ?? '') {
+                        'town' => route('admin.towns.index'),
+                        'road' => route('admin.roads.index'),
+                        'dungeon' => route('admin.dungeons.index'),
+                        default => route('admin.locations.index')
+                    };
+                @endphp
+                <a href="{{ $indexRoute }}" class="admin-btn admin-btn-secondary">
                     <i class="fas fa-list"></i> 一覧に戻る
                 </a>
             </div>

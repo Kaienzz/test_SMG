@@ -1080,37 +1080,29 @@
                             マップ管理
                         </a>
                         <div class="admin-nav-submenu">
-                            <a href="{{ route('admin.locations.pathways') }}" class="admin-nav-subitem {{ request()->routeIs('admin.locations.pathways*') ? 'active' : '' }}">
+                            <a href="{{ route('admin.roads.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.roads*') ? 'active' : '' }}">
                                 <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path>
                                 </svg>
-                                Pathways統合管理
+                                道路管理
                             </a>
-                            <hr class="border-top my-2 mx-3">
-                            <a href="{{ route('admin.roads.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.roads.*') ? 'active' : '' }}">
+                            <a href="{{ route('admin.towns.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.towns*') ? 'active' : '' }}">
                                 <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                                </svg>
-                                Road管理
-                            </a>
-                            <a href="{{ route('admin.dungeons.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.dungeons.*') ? 'active' : '' }}">
-                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                                </svg>
-                                Dungeon管理
-                            </a>
-                            <hr class="border-top my-2 mx-3">
-                            <a href="{{ route('admin.locations.towns') }}" class="admin-nav-subitem {{ request()->routeIs('admin.locations.towns*') ? 'active' : '' }}">
-                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 2L3 7v11a2 2 0 002 2h10a2 2 0 002-2V7l-7-5zM8 15a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                                    <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" clip-rule="evenodd"></path>
                                 </svg>
                                 町管理
                             </a>
-                            <a href="{{ route('admin.locations.connections') }}" class="admin-nav-subitem {{ request()->routeIs('admin.locations.connections*') ? 'active' : '' }}">
+                            <a href="{{ route('admin.route-connections.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.route-connections*') ? 'active' : '' }}">
                                 <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"></path>
+                                    <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"></path>
                                 </svg>
-                                マップ接続管理
+                                接続管理
+                            </a>
+                            <a href="{{ route('admin.dungeons.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.dungeons*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                ダンジョン管理
                             </a>
                         </div>
                     </div>

@@ -193,6 +193,14 @@
     </div>
     @endif
 
+    {{-- 接続管理セクション --}}
+    <div style="margin-top: 2rem;">
+        @include('admin.shared._route_connections', [
+            'location' => $road ?? null,
+            'form_prefix' => 'connections'
+        ])
+    </div>
+
 </div>
 
 <!-- フォーム送信ボタン -->

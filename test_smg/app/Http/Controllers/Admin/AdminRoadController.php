@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Admin\AdminController;
 use App\Models\Route;
+use App\Models\RouteConnection;
 use App\Services\Admin\AdminAuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
@@ -109,24 +111,41 @@ class AdminRoadController extends AdminController
             'length' => 'required|integer|min:1|max:1000',
             'difficulty' => 'required|in:easy,normal,hard',
             'encounter_rate' => 'nullable|numeric|between:0,1',
+            'connections' => 'nullable|array',
+            'connections.*.target_location_id' => 'required_with:connections|string|exists:routes,id',
+            'connections.*.connection_type' => 'required_with:connections|in:start,end,bidirectional',
+            'connections.*.position' => 'nullable|integer|min:0',
+            'connections.*.direction' => 'nullable|string|max:255'
         ]);
 
         try {
+            DB::beginTransaction();
+            
             $road = Route::create(array_merge($validated, [
                 'category' => 'road',
                 'dungeon_id' => null,
                 'is_active' => true,
             ]));
 
+            // 接続データの処理
+            if (!empty($validated['connections'])) {
+                $this->createConnections($road->id, $validated['connections']);
+            }
+
+            DB::commit();
+
             $this->auditLog('roads.created', [
                 'road_id' => $road->id,
-                'road_name' => $road->name
+                'road_name' => $road->name,
+                'connections_count' => count($validated['connections'] ?? [])
             ]);
 
             return redirect()->route('admin.roads.show', $road->id)
                            ->with('success', 'Road が正常に作成されました。');
 
         } catch (\Exception $e) {
+            DB::rollBack();
+            
             Log::error('Failed to create road', [
                 'data' => $validated,
                 'error' => $e->getMessage()
@@ -189,20 +208,37 @@ class AdminRoadController extends AdminController
                 'difficulty' => 'required|in:easy,normal,hard',
                 'encounter_rate' => 'nullable|numeric|between:0,1',
                 'is_active' => 'boolean',
+                'connections' => 'nullable|array',
+                'connections.*.target_location_id' => 'required_with:connections|string|exists:routes,id',
+                'connections.*.connection_type' => 'required_with:connections|in:start,end,bidirectional',
+                'connections.*.position' => 'nullable|integer|min:0',
+                'connections.*.direction' => 'nullable|string|max:255'
             ]);
 
+            DB::beginTransaction();
+            
             $road->update($validated);
+
+            // 接続データの処理（新規作成のみ - 既存は個別に管理）
+            if (!empty($validated['connections'])) {
+                $this->createConnections($road->id, $validated['connections']);
+            }
+
+            DB::commit();
 
             $this->auditLog('roads.updated', [
                 'road_id' => $road->id,
                 'road_name' => $road->name,
-                'changes' => $road->getChanges()
+                'changes' => $road->getChanges(),
+                'new_connections_count' => count($validated['connections'] ?? [])
             ]);
 
             return redirect()->route('admin.roads.show', $road->id)
                            ->with('success', 'Road が正常に更新されました。');
 
         } catch (\Exception $e) {
+            DB::rollBack();
+            
             Log::error('Failed to update road', [
                 'road_id' => $id,
                 'error' => $e->getMessage()
@@ -248,6 +284,33 @@ class AdminRoadController extends AdminController
             
             return redirect()->route('admin.roads.index')
                            ->with('error', 'Road の削除に失敗しました: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 接続データを作成
+     */
+    private function createConnections(string $sourceLocationId, array $connections)
+    {
+        foreach ($connections as $connectionData) {
+            // 重複チェック
+            $existingConnection = RouteConnection::where(function($query) use ($sourceLocationId, $connectionData) {
+                $query->where('source_location_id', $sourceLocationId)
+                      ->where('target_location_id', $connectionData['target_location_id']);
+            })->orWhere(function($query) use ($sourceLocationId, $connectionData) {
+                $query->where('source_location_id', $connectionData['target_location_id'])
+                      ->where('target_location_id', $sourceLocationId);
+            })->first();
+
+            if (!$existingConnection) {
+                RouteConnection::create([
+                    'source_location_id' => $sourceLocationId,
+                    'target_location_id' => $connectionData['target_location_id'],
+                    'connection_type' => $connectionData['connection_type'],
+                    'position' => $connectionData['position'] ?? null,
+                    'direction' => $connectionData['direction'] ?? null,
+                ]);
+            }
         }
     }
 }

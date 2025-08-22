@@ -268,8 +268,8 @@
                 @endif
                 
                 @if(auth()->user()->can('locations.edit'))
-                <a href="{{ route('admin.locations.pathways.edit', request()->route('locationId')) }}" class="admin-btn admin-btn-warning">
-                    <i class="fas fa-edit"></i> 接続編集
+                <a href="{{ route('admin.route-connections.index') }}" class="admin-btn admin-btn-warning">
+                    <i class="fas fa-edit"></i> 接続管理
                 </a>
                 @endif
             </div>
