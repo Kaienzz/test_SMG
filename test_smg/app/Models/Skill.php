@@ -259,27 +259,4 @@ class Skill extends Model
         
         return $skill;
     }
-
-    public static function createForPlayer(int $playerId, string $skillType, string $skillName, array $effects = [], int $spCost = 10, int $duration = 5): self
-    {
-        $skill = self::create([
-            'player_id' => $playerId,
-            'skill_type' => $skillType,
-            'skill_name' => $skillName,
-            'level' => 1,
-            'experience' => 0,
-            'effects' => $effects,
-            'sp_cost' => $spCost,
-            'duration' => $duration,
-            'is_active' => true,
-        ]);
-        
-        // スキル追加時にプレイヤーレベルも更新
-        $player = Player::find($playerId);
-        if ($player) {
-            $player->updatePlayerLevel();
-        }
-        
-        return $skill;
-    }
 }

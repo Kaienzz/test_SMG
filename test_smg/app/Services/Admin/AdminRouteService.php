@@ -7,6 +7,7 @@ use App\Models\RouteConnection;
 use App\Models\MonsterSpawnList;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Admin用ルート管理サービス（SQLite対応）
@@ -16,7 +17,25 @@ use Illuminate\Support\Facades\DB;
 class AdminRouteService
 {
     /**
-     * 統計情報を取得
+     * キャッシュ付き統計情報を取得
+     */
+    public function getCachedStatistics(): array
+    {
+        return Cache::remember('admin_route_statistics', now()->addMinutes(30), function () {
+            return $this->getStatistics();
+        });
+    }
+
+    /**
+     * 統計情報キャッシュをクリア
+     */
+    public function clearStatisticsCache(): void
+    {
+        Cache::forget('admin_route_statistics');
+    }
+
+    /**
+     * 統計情報を取得（実際のデータベースアクセス）
      */
     public function getStatistics(): array
     {
@@ -47,73 +66,102 @@ class AdminRouteService
     }
 
     /**
-     * ルート（道路・ダンジョン）一覧を取得
+     * ルート基本データをキャッシュから取得
+     */
+    public function getCachedRoutesBase(): array
+    {
+        return Cache::remember('admin_routes_base_data', now()->addMinutes(15), function () {
+            return Route::whereIn('category', ['road', 'dungeon'])
+                        ->with(['monsterSpawns.monster', 'sourceConnections.targetLocation'])
+                        ->get()
+                        ->map(function($location) {
+                            $totalSpawnRate = $location->monsterSpawns->sum('spawn_rate');
+                            $activeSpawnsCount = $location->monsterSpawns->where('is_active', true)->count();
+                            
+                            return [
+                                'id' => $location->id,
+                                'name' => $location->name,
+                                'description' => $location->description,
+                                'category' => $location->category,
+                                'length' => $location->length,
+                                'difficulty' => $location->difficulty,
+                                'encounter_rate' => $location->encounter_rate,
+                                'spawn_tags' => $location->spawn_tags ?? [],
+                                'spawn_description' => $location->spawn_description,
+                                'monster_spawns_count' => $location->monsterSpawns->count(),
+                                'active_spawns_count' => $activeSpawnsCount,
+                                'total_spawn_rate' => round($totalSpawnRate, 3),
+                                'spawn_completion' => $totalSpawnRate >= 0.99 ? 'complete' : ($totalSpawnRate > 0 ? 'partial' : 'none'),
+                                'connections_count' => $location->sourceConnections->count(),
+                                'is_active' => $location->is_active,
+                                'floors' => $location->floors,
+                                'min_level' => $location->min_level,
+                                'max_level' => $location->max_level,
+                            ];
+                        })->toArray();
+        });
+    }
+
+    /**
+     * ルートキャッシュをクリア
+     */
+    public function clearRoutesCache(): void
+    {
+        Cache::forget('admin_routes_base_data');
+        Cache::forget('admin_towns_base_data');
+    }
+
+    /**
+     * ルート（道路・ダンジョン）一覧を取得（フィルタリング対応）
      */
     public function getRoutes(array $filters = []): array
     {
         try {
-            $query = Route::whereIn('category', ['road', 'dungeon'])
-                                ->with(['monsterSpawns.monster', 'sourceConnections.targetLocation']);
+            // フィルタが未指定の場合はキャッシュから直接返す
+            if (empty($filters) || empty(array_filter($filters))) {
+                return $this->getCachedRoutesBase();
+            }
 
-            // フィルタリング
+            // キャッシュデータを取得してフィルタリング適用
+            $routes = collect($this->getCachedRoutesBase());
+
+            // Collectionベースのフィルタリング
             if (!empty($filters['search'])) {
-                $query->where(function($q) use ($filters) {
-                    $q->where('name', 'like', '%' . $filters['search'] . '%')
-                      ->orWhere('id', 'like', '%' . $filters['search'] . '%')
-                      ->orWhere('description', 'like', '%' . $filters['search'] . '%');
+                $routes = $routes->filter(function($route) use ($filters) {
+                    return stripos($route['name'], $filters['search']) !== false ||
+                           stripos($route['id'], $filters['search']) !== false ||
+                           stripos($route['description'], $filters['search']) !== false;
                 });
             }
 
             if (!empty($filters['category'])) {
-                $query->where('category', $filters['category']);
+                $routes = $routes->where('category', $filters['category']);
             }
 
             if (!empty($filters['difficulty'])) {
-                $query->where('difficulty', $filters['difficulty']);
+                $routes = $routes->where('difficulty', $filters['difficulty']);
             }
 
             // スポーン設定でフィルタリング
             if (isset($filters['has_spawns'])) {
                 if ($filters['has_spawns']) {
-                    $query->whereHas('monsterSpawns');
+                    $routes = $routes->where('monster_spawns_count', '>', 0);
                 } else {
-                    $query->whereDoesntHave('monsterSpawns');
+                    $routes = $routes->where('monster_spawns_count', 0);
                 }
             }
 
             // ソート
             $sortBy = $filters['sort_by'] ?? 'id';
             $sortDirection = $filters['sort_direction'] ?? 'asc';
-            $query->orderBy($sortBy, $sortDirection);
+            
+            if ($sortDirection === 'desc') {
+                $routes = $routes->sortByDesc($sortBy);
+            } else {
+                $routes = $routes->sortBy($sortBy);
+            }
 
-            $pathways = $query->get();
-
-            // レスポンス形式を調整
-            return $pathways->map(function($location) {
-                $totalSpawnRate = $location->monsterSpawns->sum('spawn_rate');
-                $activeSpawnsCount = $location->monsterSpawns->where('is_active', true)->count();
-                
-                return [
-                    'id' => $location->id,
-                    'name' => $location->name,
-                    'description' => $location->description,
-                    'category' => $location->category,
-                    'length' => $location->length,
-                    'difficulty' => $location->difficulty,
-                    'encounter_rate' => $location->encounter_rate,
-                    'spawn_tags' => $location->spawn_tags ?? [],
-                    'spawn_description' => $location->spawn_description,
-                    'monster_spawns_count' => $location->monsterSpawns->count(),
-                    'active_spawns_count' => $activeSpawnsCount,
-                    'total_spawn_rate' => round($totalSpawnRate, 3),
-                    'spawn_completion' => $totalSpawnRate >= 0.99 ? 'complete' : ($totalSpawnRate > 0 ? 'partial' : 'none'),
-                    'connections_count' => $location->sourceConnections->count(),
-                    'is_active' => $location->is_active,
-                    'floors' => $location->floors,
-                    'min_level' => $location->min_level,
-                    'max_level' => $location->max_level,
-                ];
-            })->toArray();
+            return $routes->values()->toArray();
 
         } catch (\Exception $e) {
             Log::error('Failed to get pathways', ['error' => $e->getMessage()]);
@@ -122,46 +170,67 @@ class AdminRouteService
     }
 
     /**
-     * 町一覧を取得
+     * 町基本データをキャッシュから取得
+     */
+    public function getCachedTownsBase(): array
+    {
+        return Cache::remember('admin_towns_base_data', now()->addMinutes(15), function () {
+            return Route::where('category', 'town')
+                        ->with(['sourceConnections.targetLocation'])
+                        ->get()
+                        ->map(function($location) {
+                            return [
+                                'id' => $location->id,
+                                'name' => $location->name,
+                                'description' => $location->description,
+                                'services' => $location->services ?? [],
+                                'connections_count' => $location->sourceConnections->count(),
+                                'connections' => $location->sourceConnections->map(function($conn) {
+                                    return [
+                                        'type' => $conn->connection_type,
+                                        'direction' => $conn->direction,
+                                        'target' => $conn->targetLocation?->name,
+                                        'target_category' => $conn->targetLocation?->category,
+                                    ];
+                                })->toArray(),
+                            ];
+                        })->toArray();
+        });
+    }
+
+    /**
+     * 町一覧を取得（フィルタリング対応）
      */
     public function getTowns(array $filters = []): array
     {
         try {
-            $query = Route::where('category', 'town')
-                                ->with(['sourceConnections.targetLocation']);
+            // フィルタが未指定の場合はキャッシュから直接返す
+            if (empty($filters) || empty(array_filter($filters))) {
+                return $this->getCachedTownsBase();
+            }
 
-            // フィルタリング
+            // キャッシュデータを取得してフィルタリング適用
+            $towns = collect($this->getCachedTownsBase());
+
+            // Collectionベースのフィルタリング
             if (!empty($filters['search'])) {
-                $query->where(function($q) use ($filters) {
-                    $q->where('name', 'like', '%' . $filters['search'] . '%')
-                      ->orWhere('id', 'like', '%' . $filters['search'] . '%');
+                $towns = $towns->filter(function($town) use ($filters) {
+                    return stripos($town['name'], $filters['search']) !== false ||
+                           stripos($town['id'], $filters['search']) !== false;
                 });
             }
 
             // ソート
             $sortBy = $filters['sort_by'] ?? 'id';
             $sortDirection = $filters['sort_direction'] ?? 'asc';
-            $query->orderBy($sortBy, $sortDirection);
+            
+            if ($sortDirection === 'desc') {
+                $towns = $towns->sortByDesc($sortBy);
+            } else {
+                $towns = $towns->sortBy($sortBy);
+            }
 
-            $towns = $query->get();
-
-            return $towns->map(function($location) {
-                return [
-                    'id' => $location->id,
-                    'name' => $location->name,
-                    'description' => $location->description,
-                    'services' => $location->services ?? [],
-                    'connections_count' => $location->sourceConnections->count(),
-                    'connections' => $location->sourceConnections->map(function($conn) {
-                        return [
-                            'type' => $conn->connection_type,
-                            'direction' => $conn->direction,
-                            'target' => $conn->targetLocation?->name,
-                            'target_category' => $conn->targetLocation?->category,
-                        ];
-                    })->toArray(),
-                ];
-            })->toArray();
+            return $towns->values()->toArray();
 
         } catch (\Exception $e) {
             Log::error('Failed to get towns', ['error' => $e->getMessage()]);

@@ -37,10 +37,8 @@ class DashboardController extends AdminController
         // ページアクセス記録
         $this->trackPageAccess('dashboard');
         
-        // キャッシュ付きでダッシュボードデータを取得
-        $dashboardData = Cache::remember('admin_dashboard_data', now()->addMinutes(15), function () {
-            return $this->compileDashboardData();
-        });
+        // 階層化キャッシュでダッシュボードデータを取得
+        $dashboardData = $this->getOptimizedDashboardData();
 
         $breadcrumb = $this->buildBreadcrumb([
             ['title' => '概要', 'active' => true]
@@ -120,7 +118,70 @@ class DashboardController extends AdminController
     }
 
     /**
-     * ダッシュボードデータのコンパイル
+     * 最適化されたダッシュボードデータ取得（階層化キャッシュ）
+     */
+    private function getOptimizedDashboardData(): array
+    {
+        return [
+            // 基本統計（30分キャッシュ - 安定データ）
+            'overview' => Cache::remember('dashboard_overview', now()->addMinutes(30), function () {
+                return $this->getOverviewStats();
+            }),
+            
+            // ユーザー統計（30分キャッシュ - 安定データ）
+            'users' => Cache::remember('dashboard_users', now()->addMinutes(30), function () {
+                return $this->getUserStats();
+            }),
+            
+            // ゲーム統計（15分キャッシュ - 中程度の変化）
+            'game' => Cache::remember('dashboard_game', now()->addMinutes(15), function () {
+                return $this->getGameStats();
+            }),
+            
+            // システム統計（20分キャッシュ - 中程度の変化）
+            'system' => Cache::remember('dashboard_system', now()->addMinutes(20), function () {
+                return $this->getSystemStats();
+            }),
+            
+            // 最近のアクティビティ（5分キャッシュ - 頻繁な更新）
+            'recent_activity' => Cache::remember('dashboard_activity', now()->addMinutes(5), function () {
+                return $this->getRecentActivity();
+            }),
+            
+            // アラート・通知（1分キャッシュ - リアルタイム性重視）
+            'alerts' => Cache::remember('dashboard_alerts', now()->addMinutes(1), function () {
+                return $this->getSystemAlerts();
+            }),
+            
+            // パフォーマンス指標（10分キャッシュ - 適度な更新）
+            'performance' => Cache::remember('dashboard_performance', now()->addMinutes(10), function () {
+                return $this->getPerformanceMetrics();
+            }),
+        ];
+    }
+
+    /**
+     * ダッシュボードキャッシュをクリア
+     */
+    public function clearDashboardCache(): void
+    {
+        $cacheKeys = [
+            'dashboard_overview',
+            'dashboard_users',
+            'dashboard_game',
+            'dashboard_system',
+            'dashboard_activity',
+            'dashboard_alerts',
+            'dashboard_performance'
+        ];
+
+        foreach ($cacheKeys as $key) {
+            Cache::forget($key);
+        }
+    }
+
+    /**
+     * ダッシュボードデータのコンパイル（キャッシュなし版）
      */
     private function compileDashboardData(): array
     {
@@ -149,54 +210,69 @@ class DashboardController extends AdminController
     }
 
     /**
-     * 概要統計の取得
+     * 概要統計の取得（クエリ最適化版）
      */
     private function getOverviewStats(): array
     {
-        return [
-            'total_users' => DB::table('users')->count(),
-            'active_users_today' => DB::table('users')
-                ->where('last_active_at', '>=', Carbon::today())
-                ->count(),
+        // ユーザー関連統計を単一クエリで取得
+        $userStats = DB::table('users')
+            ->selectRaw('
+                COUNT(*) as total_users,
+                SUM(CASE WHEN last_active_at >= ? THEN 1 ELSE 0 END) as active_users_today,
+                SUM(CASE WHEN is_admin = 1 THEN 1 ELSE 0 END) as admin_users
+            ')
+            ->addBinding(Carbon::today())
+            ->first();
+
+        // その他の統計を並行取得（異なるテーブルのため）
+        $otherStats = [
             'total_players' => DB::table('players')->count(),
             'active_battles' => DB::table('active_battles')->count(),
             'total_items' => DB::table('items')->count(),
-            'admin_users' => DB::table('users')->where('is_admin', true)->count(),
         ];
+
+        return array_merge([
+            'total_users' => $userStats->total_users,
+            'active_users_today' => $userStats->active_users_today,
+            'admin_users' => $userStats->admin_users,
+        ], $otherStats);
     }
 
     /**
-     * ユーザー統計の取得
+     * ユーザー統計の取得（クエリ最適化版）
      */
     private function getUserStats(): array
     {
         $thirtyDaysAgo = Carbon::now()->subDays(30);
         $sevenDaysAgo = Carbon::now()->subDays(7);
         $yesterday = Carbon::yesterday();
+        $today = Carbon::today();
+
+        // 全ユーザー統計を単一クエリで取得
+        $stats = DB::table('users')
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as registrations_30d,
+                SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as registrations_7d,
+                SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END) as registrations_yesterday,
+                SUM(CASE WHEN last_active_at >= ? THEN 1 ELSE 0 END) as daily_active,
+                SUM(CASE WHEN last_active_at >= ? THEN 1 ELSE 0 END) as weekly_active,
+                SUM(CASE WHEN last_active_at >= ? THEN 1 ELSE 0 END) as monthly_active
+            ')
+            ->addBinding([$thirtyDaysAgo, $sevenDaysAgo, $yesterday, $today, $today, $sevenDaysAgo, $thirtyDaysAgo])
+            ->first();
 
         return [
             'registrations' => [
-                'total' => DB::table('users')->count(),
-                'last_30_days' => DB::table('users')
-                    ->where('created_at', '>=', $thirtyDaysAgo)
-                    ->count(),
-                'last_7_days' => DB::table('users')
-                    ->where('created_at', '>=', $sevenDaysAgo)
-                    ->count(),
-                'yesterday' => DB::table('users')
-                    ->whereBetween('created_at', [$yesterday, Carbon::today()])
-                    ->count(),
+                'total' => $stats->total,
+                'last_30_days' => $stats->registrations_30d,
+                'last_7_days' => $stats->registrations_7d,
+                'yesterday' => $stats->registrations_yesterday,
             ],
             'activity' => [
-                'daily_active_users' => DB::table('users')
-                    ->where('last_active_at', '>=', Carbon::today())
-                    ->count(),
-                'weekly_active_users' => DB::table('users')
-                    ->where('last_active_at', '>=', $sevenDaysAgo)
-                    ->count(),
-                'monthly_active_users' => DB::table('users')
-                    ->where('last_active_at', '>=', $thirtyDaysAgo)
-                    ->count(),
+                'daily_active_users' => $stats->daily_active,
+                'weekly_active_users' => $stats->weekly_active,
+                'monthly_active_users' => $stats->monthly_active,
             ],
             'retention' => $this->calculateUserRetention(),
         ];
@@ -294,11 +370,15 @@ class DashboardController extends AdminController
     }
 
     /**
-     * システムアラートの取得
+     * システムアラートの取得（セキュリティ監視強化版）
      */
     private function getSystemAlerts(): array
     {
         $alerts = [];
+
+        // 🔐 高度なセキュリティアラート
+        $securityAlerts = $this->getAdvancedSecurityAlerts();
+        $alerts = array_merge($alerts, $securityAlerts);
         
         // セキュリティアラート
         $securityEvents = DB::table('admin_audit_logs')
@@ -537,5 +617,130 @@ class DashboardController extends AdminController
         }
 
         return round((($periodUsers - $previousPeriodUsers) / $previousPeriodUsers) * 100, 2);
+    }
+
+    /**
+     * 高度なセキュリティアラート検出
+     */
+    private function getAdvancedSecurityAlerts(): array
+    {
+        $alerts = [];
+        $now = Carbon::now();
+
+        // 1. 異常な権限使用パターンの検出
+        $suspiciousPermissionUsage = DB::table('admin_audit_logs')
+            ->where('event_time', '>=', $now->subHours(24))
+            ->where('admin_name', '!=', null)
+            ->whereIn('description', ['Permission granted', 'Permission denied', 'Role changed'])
+            ->groupBy('admin_name')
+            ->havingRaw('COUNT(*) > 100')
+            ->count();
+
+        if ($suspiciousPermissionUsage > 0) {
+            $alerts[] = [
+                'type' => 'security',
+                'level' => 'critical',
+                'category' => 'permission_abuse',
+                'message' => "{$suspiciousPermissionUsage}人の管理者で異常な権限使用パターンが検出されました（24時間で100回以上）",
+                'action_url' => route('admin.audit.index', ['filter' => 'permissions']),
+                'detected_at' => $now->toISOString(),
+            ];
+        }
+
+        // 2. 短時間内の大量失敗操作検出
+        $recentFailures = DB::table('admin_audit_logs')
+            ->where('event_time', '>=', $now->subMinutes(30))
+            ->where('status', 'failed')
+            ->count();
+
+        if ($recentFailures > 20) {
+            $alerts[] = [
+                'type' => 'security',
+                'level' => 'high',
+                'category' => 'failed_operations',
+                'message' => "直近30分で{$recentFailures}件の操作が失敗しています（可能性のあるブルートフォース攻撃）",
+                'action_url' => route('admin.audit.index', ['filter' => 'failed']),
+                'detected_at' => $now->toISOString(),
+            ];
+        }
+
+        // 3. 疑わしいIPアドレスからのアクセス検出
+        $suspiciousIPs = DB::table('admin_audit_logs')
+            ->where('event_time', '>=', $now->subHours(6))
+            ->where('status', 'failed')
+            ->groupBy('ip_address')
+            ->havingRaw('COUNT(*) > 10')
+            ->pluck('ip_address');
+
+        if ($suspiciousIPs->count() > 0) {
+            $alerts[] = [
+                'type' => 'security',
+                'level' => 'high',
+                'category' => 'suspicious_ip',
+                'message' => $suspiciousIPs->count() . "個のIPアドレスから大量の失敗操作が検出されています",
+                'action_url' => route('admin.audit.index', ['filter' => 'ip_analysis']),
+                'detected_at' => $now->toISOString(),
+                'data' => ['suspicious_ips' => $suspiciousIPs->take(5)->toArray()]
+            ];
+        }
+
+        // 4. 管理者アカウントの異常ログイン検出
+        $adminLoginFailures = DB::table('admin_audit_logs')
+            ->where('event_time', '>=', $now->subHours(12))
+            ->where('description', 'like', '%login%failed%')
+            ->orWhere('description', 'like', '%authentication%failed%')
+            ->groupBy('admin_name')
+            ->havingRaw('COUNT(*) > 5')
+            ->count();
+
+        if ($adminLoginFailures > 0) {
+            $alerts[] = [
+                'type' => 'security',
+                'level' => 'critical',
+                'category' => 'admin_login_attempts',
+                'message' => "{$adminLoginFailures}個の管理者アカウントで異常なログイン試行が検出されました",
+                'action_url' => route('admin.audit.index', ['filter' => 'login_failures']),
+                'detected_at' => $now->toISOString(),
+            ];
+        }
+
+        // 5. 権限昇格の検出
+        $privilegeEscalation = DB::table('admin_audit_logs')
+            ->where('event_time', '>=', $now->subHours(24))
+            ->where('description', 'like', '%permission%granted%')
+            ->where('severity', 'high')
+            ->count();
+
+        if ($privilegeEscalation > 0) {
+            $alerts[] = [
+                'type' => 'security',
+                'level' => 'high',
+                'category' => 'privilege_escalation',
+                'message' => "直近24時間で{$privilegeEscalation}件の権限昇格操作が実行されました",
+                'action_url' => route('admin.audit.index', ['filter' => 'privilege_changes']),
+                'detected_at' => $now->toISOString(),
+            ];
+        }
+
+        // 6. システムファイルへの異常アクセス検出
+        $systemFileAccess = DB::table('admin_audit_logs')
+            ->where('event_time', '>=', $now->subHours(6))
+            ->where('description', 'like', '%file%')
+            ->where('description', 'like', '%system%')
+            ->orWhere('description', 'like', '%config%')
+            ->count();
+
+        if ($systemFileAccess > 10) {
+            $alerts[] = [
+                'type' => 'security',
+                'level' => 'medium',
+                'category' => 'system_file_access',
+                'message' => "システムファイルへの異常なアクセスが{$systemFileAccess}件検出されています",
+                'action_url' => route('admin.audit.index', ['filter' => 'system_access']),
+                'detected_at' => $now->toISOString(),
+            ];
+        }
+
+        return $alerts;
     }
 }

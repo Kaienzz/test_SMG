@@ -17,6 +17,7 @@ class ShopSeeder extends Seeder
         $this->seedItems();
         $this->seedTownAShops();
         $this->seedTownBShops();
+        $this->seedTownPrimaShops();
     }
 
     private function seedItems(): void
@@ -56,6 +57,14 @@ class ShopSeeder extends Seeder
         $this->createBlacksmith('town_b', 'B町の鍛冶屋', '伝統の技で最高の装備を提供いたします。');
         $this->createTavern('town_b', 'B町の酒場', '武闘の疲労を癒す最高の酒場です。');
         $this->createAlchemyShop('town_b', 'B町の錬金屋', '秘密の錬金術で装備を究極進化させます。');
+    }
+
+    private function seedTownPrimaShops(): void
+    {
+        $this->createItemShop('town_prima', 'プリマ町の道具屋', 'プリマ町で評判の道具屋です。冒険に必要なものが揃っています。');
+        $this->createBlacksmith('town_prima', 'プリマ町の鍛冶屋', 'プリマ町で一番の腕を持つ鍛冶職人の店です。');
+        $this->createTavern('town_prima', 'プリマ町の酒場', 'プリマ町の心温まる酒場で、疲れを癒しましょう。');
+        $this->createAlchemyShop('town_prima', 'プリマ町の錬金屋', 'プリマ町の神秘的な錬金術師が装備を強化してくれます。');
     }
 
     private function createItemShop(string $locationId, string $name, string $description): void

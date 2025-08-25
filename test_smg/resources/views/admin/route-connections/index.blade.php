@@ -340,7 +340,7 @@ window.loadGraphData = function() {
     // クエリパラメータの構築
     const params = new URLSearchParams(currentFilters);
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    const url = `{{ route('admin.route-connections.graph-data') }}?${params}`;
+    const url = `/admin/route-connections-graph-data?${params}`;
     
     debugLog(`Fetching: ${url}`);
     debugLog(`CSRF Token: ${token ? 'あり' : 'なし'}`);
@@ -356,9 +356,12 @@ window.loadGraphData = function() {
         credentials: 'same-origin'
     })
     .then(response => {
-        debugLog(`Response status: ${response.status}`);
+        debugLog(`Response status: ${response.status} ${response.statusText}`);
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            return response.text().then(text => {
+                debugLog(`Error response body: ${text}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}. Body: ${text.substring(0, 200)}`);
+            });
         }
         return response.json();
     })
@@ -369,11 +372,16 @@ window.loadGraphData = function() {
     })
     .catch(error => {
         debugLog(`ERROR: ${error.message}`);
+        console.error('Graph load error:', error);
         if (loadingEl) {
             loadingEl.innerHTML = `
                 <div class="text-danger">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <div class="mt-2">グラフの読み込みに失敗しました: ${error.message}</div>
+                    <div class="mt-2">グラフの読み込みに失敗しました</div>
+                    <div class="mt-1"><small>${error.message}</small></div>
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadGraphData()">
+                        <i class="fas fa-retry"></i> 再試行
+                    </button>
                 </div>
             `;
         }
@@ -384,20 +392,36 @@ window.loadGraphData = function() {
 window.renderGraph = function(data) {
     debugLog('renderGraph() 開始');
     
+    if (!data || !data.elements) {
+        debugLog('ERROR: Invalid data structure');
+        return;
+    }
+    
+    debugLog(`Data structure: nodes=${data.elements.nodes?.length || 0}, edges=${data.elements.edges?.length || 0}`);
+    
     const container = document.getElementById('cytoscape-graph');
     if (!container) {
         debugLog('ERROR: cytoscape-graph container not found');
         return;
     }
     
+    if (typeof cytoscape === 'undefined') {
+        debugLog('ERROR: cytoscape is not defined');
+        return;
+    }
+    
     try {
         if (cy) {
+            debugLog('Destroying existing cytoscape instance');
             cy.destroy();
         }
         
+        const elements = [...(data.elements.nodes || []), ...(data.elements.edges || [])];
+        debugLog(`Total elements to render: ${elements.length}`);
+        
         cy = cytoscape({
             container: container,
-            elements: [...data.elements.nodes, ...data.elements.edges],
+            elements: elements,
             style: [
                 {
                     selector: 'node',
@@ -432,11 +456,26 @@ window.renderGraph = function(data) {
         });
         
         debugLog('グラフ描画完了');
-        document.getElementById('graph-loading').style.display = 'none';
-        document.getElementById('cytoscape-graph').style.display = 'block';
+        const loadingEl = document.getElementById('graph-loading');
+        const graphEl = document.getElementById('cytoscape-graph');
+        
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (graphEl) graphEl.style.display = 'block';
         
     } catch (error) {
         debugLog(`ERROR in renderGraph: ${error.message}`);
+        console.error('renderGraph error:', error);
+        
+        const loadingEl = document.getElementById('graph-loading');
+        if (loadingEl) {
+            loadingEl.innerHTML = `
+                <div class="text-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div class="mt-2">グラフの描画に失敗しました</div>
+                    <div class="mt-1"><small>${error.message}</small></div>
+                </div>
+            `;
+        }
     }
 }
 
@@ -494,6 +533,13 @@ window.updateFilters = function() {
 document.addEventListener('DOMContentLoaded', function() {
     debugLog('DOMContentLoaded - 初期化開始');
     
+    // Cytoscape.jsの読み込み確認
+    if (typeof cytoscape !== 'undefined') {
+        debugLog('Cytoscape.js 正常に読み込まれました');
+    } else {
+        debugLog('ERROR: Cytoscape.js が読み込まれていません');
+    }
+    
     // フィルター変更時の処理
     const filterForm = document.getElementById('filter-form');
     if (filterForm) {
@@ -503,6 +549,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadGraphData();
             }
         });
+        debugLog('フィルターイベントハンドラ設定完了');
+    } else {
+        debugLog('ERROR: filter-form要素が見つかりません');
     }
     
     // 初期フィルター設定

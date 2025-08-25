@@ -39,7 +39,7 @@ class AdminLocationController extends AdminController
 
         try {
             $data = [
-                'stats' => $this->adminRouteService->getStatistics(),
+                'stats' => $this->adminRouteService->getCachedStatistics(),
                 'recent_backups' => $this->adminRouteService->getRecentBackups(),
                 'config_status' => $this->adminRouteService->getConfigStatus()
             ];

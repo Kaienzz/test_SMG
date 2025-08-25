@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\AdminLocationController;
 use App\Http\Controllers\Admin\AdminRoadController;
 use App\Http\Controllers\Admin\AdminDungeonController;
 use App\Http\Controllers\Admin\AdminTownController;
+use App\Http\Controllers\Admin\AdminShopController;
 use App\Http\Controllers\Admin\AdminRouteConnectionController;
 
 /*
@@ -125,15 +126,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         });
     });
         
+    // ショップ管理（権限チェック付き）
     Route::middleware(['admin.permission:shops.view'])->group(function () {
-        Route::get('/shops', function () {
-            return view('admin.shops.index', [
-                'breadcrumb' => [
-                    ['title' => 'ダッシュボード', 'url' => route('admin.dashboard'), 'active' => false],
-                    ['title' => 'ショップ管理', 'active' => true]
-                ]
-            ]);
-        })->name('shops.index');
+        Route::get('/shops', [AdminShopController::class, 'index'])->name('shops.index');
+        Route::get('/shops/{shop}', [AdminShopController::class, 'show'])->name('shops.show');
+        
+        // ショップ作成・編集（追加権限チェック）
+        Route::middleware(['admin.permission:shops.create'])->group(function () {
+            Route::get('/shops/create', [AdminShopController::class, 'create'])->name('shops.create');
+            Route::post('/shops', [AdminShopController::class, 'store'])->name('shops.store');
+        });
     });
     
     // ロケーション管理（統計・ダッシュボード）
