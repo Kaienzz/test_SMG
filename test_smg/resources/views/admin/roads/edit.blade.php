@@ -86,7 +86,7 @@
 
 @endsection
 
-@section('scripts')
+@push('scripts')
 <script>
 // 他のスクリプトとの干渉を防ぐため、独立して実行
 (function() {
@@ -114,7 +114,7 @@
             console.log('Method spoofing:', editForm.querySelector('input[name="_method"]')?.value || 'NONE');
         
         // 更新ボタンクリック時のデバッグ
-        const submitButton = editForm.querySelector('button[type="submit"]');
+    const submitButton = document.getElementById('road-update-submit') || editForm.querySelector('button[type="submit"]');
         if (submitButton) {
             console.log('Submit button found:', submitButton.textContent.trim());
             submitButton.addEventListener('click', function(e) {
@@ -223,4 +223,4 @@ function confirmDelete() {
     return doubleConfirm === roadName;
 }
 </script>
-@endsection
+@endpush

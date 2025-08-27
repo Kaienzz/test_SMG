@@ -316,6 +316,19 @@ class AdminTownController extends AdminController
                     'position' => $connectionData['position'] ?? null,
                     'direction' => $connectionData['direction'] ?? null,
                 ]);
+            } else {
+                // 既存があり、今回が双方向指定ならアップグレード
+                if (($connectionData['connection_type'] ?? null) === 'bidirectional' && $existingConnection->connection_type !== 'bidirectional') {
+                    $existingConnection->connection_type = 'bidirectional';
+                    // 任意で補助情報を更新（値が提供されていれば）
+                    if (array_key_exists('position', $connectionData) && $connectionData['position'] !== null) {
+                        $existingConnection->position = $connectionData['position'];
+                    }
+                    if (array_key_exists('direction', $connectionData) && $connectionData['direction'] !== null) {
+                        $existingConnection->direction = $connectionData['direction'];
+                    }
+                    $existingConnection->save();
+                }
             }
         }
     }

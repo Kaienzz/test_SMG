@@ -61,21 +61,11 @@
                             @enderror
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">サービス</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="services[]" value="general_store" id="service_general_store">
-                                <label class="form-check-label" for="service_general_store">雑貨屋</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="services[]" value="inn" id="service_inn">
-                                <label class="form-check-label" for="service_inn">宿屋</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="services[]" value="bank" id="service_bank">
-                                <label class="form-check-label" for="service_bank">銀行</label>
-                            </div>
-                        </div>
+                        {{-- 接続管理セクション（初回作成時は新規のみ） --}}
+                        @include('admin.shared._route_connections', [
+                            'location' => null,
+                            'form_prefix' => 'connections'
+                        ])
 
                         <div class="mb-3">
                             <div class="form-check">
@@ -97,11 +87,7 @@
                 </div>
             </div>
             
-            {{-- 接続管理セクション --}}
-            @include('admin.shared._route_connections', [
-                'location' => null,
-                'form_prefix' => 'connections'
-            ])
+            
         </div>
     </div>
 </div>

@@ -78,10 +78,10 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-primary active" id="list-tab-btn" onclick="debugShowTab('list')">
+                <button type="button" class="btn btn-outline-primary active" id="list-tab-btn" data-tab="list">
                     <i class="fas fa-list"></i> リスト表示
                 </button>
-                <button type="button" class="btn btn-outline-primary" id="graph-tab-btn" onclick="debugShowTab('graph')">
+                <button type="button" class="btn btn-outline-primary" id="graph-tab-btn" data-tab="graph">
                     <i class="fas fa-project-diagram"></i> グラフ表示
                 </button>
             </div>
@@ -92,7 +92,7 @@
                 <a href="{{ route('admin.route-connections.test-graph') }}" class="btn btn-sm btn-outline-info" target="_blank">
                     <i class="fas fa-bug"></i> API Test
                 </a>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleDebug()">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="toggle-debug-btn">
                     <i class="fas fa-eye"></i> デバッグ表示
                 </button>
             </div>
@@ -158,8 +158,10 @@
                                                class="btn btn-outline-primary" title="編集">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <button type="button" class="btn btn-outline-danger" 
-                                                    onclick="confirmDelete('{{ $connection['id'] }}', '{{ $connection['source_name'] ?? 'Unknown' }}', '{{ $connection['target_name'] ?? 'Unknown' }}')"
+                                            <button type="button" class="btn btn-outline-danger delete-connection-btn" 
+                                                    data-connection-id="{{ $connection['id'] }}"
+                                                    data-source-name="{{ $connection['source_name'] ?? 'Unknown' }}"
+                                                    data-target-name="{{ $connection['target_name'] ?? 'Unknown' }}"
                                                     title="削除">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -187,10 +189,10 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">接続グラフ</h5>
                     <div class="btn-group btn-group-sm">
-                        <button type="button" class="btn btn-outline-secondary" onclick="refreshGraph()">
+                        <button type="button" class="btn btn-outline-secondary" id="refresh-graph-btn">
                             <i class="fas fa-sync-alt"></i> 更新
                         </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="fitGraph()">
+                        <button type="button" class="btn btn-outline-secondary" id="fit-graph-btn">
                             <i class="fas fa-expand-arrows-alt"></i> 全体表示
                         </button>
                     </div>
@@ -508,15 +510,47 @@ window.fitGraph = function() {
     if (cy) cy.fit();
 }
 
-window.confirmDelete = function(connectionId, sourceName, targetName) {
-    debugLog(`confirmDelete(${connectionId}, ${sourceName}, ${targetName})`);
+// 削除確認関数 - イベントリスナー用
+function showDeleteConfirmation(connectionId, sourceName, targetName) {
+    console.log(`Showing delete confirmation for: ${connectionId}, ${sourceName} -> ${targetName}`);
+    
+    if (!connectionId) {
+        console.error('Connection ID not provided');
+        alert('接続IDが見つかりません。');
+        return;
+    }
+    
     document.getElementById('delete-details').innerHTML = `<strong>${sourceName}</strong> → <strong>${targetName}</strong>`;
-    document.getElementById('delete-form').action = `{{ route('admin.route-connections.destroy', ':id') }}`.replace(':id', connectionId);
+    // より安全なURL生成方法
+    const deleteUrl = '{!! route("admin.route-connections.destroy", ["route_connection" => "__PLACEHOLDER__"]) !!}'.replace('__PLACEHOLDER__', connectionId);
+    document.getElementById('delete-form').action = deleteUrl;
+    
+    console.log(`Generated delete URL: ${deleteUrl}`);
+    
     document.getElementById('deleteModal').style.display = 'block';
 }
 
-window.closeDeleteModal = function() {
+function closeDeleteModal() {
     document.getElementById('deleteModal').style.display = 'none';
+}
+
+// タブ切り替え関数
+function showTab(tabName) {
+    console.log(`Tab switching to: ${tabName}`);
+    
+    // タブボタンの状態更新
+    document.getElementById('list-tab-btn').classList.remove('active');
+    document.getElementById('graph-tab-btn').classList.remove('active');
+    document.getElementById(tabName + '-tab-btn').classList.add('active');
+    
+    // コンテンツの表示切り替え
+    document.getElementById('list-content').style.display = tabName === 'list' ? 'block' : 'none';
+    document.getElementById('graph-content').style.display = tabName === 'graph' ? 'block' : 'none';
+    
+    // グラフタブの場合はデータ読み込み
+    if (tabName === 'graph') {
+        loadGraphData();
+    }
 }
 
 // フィルター情報の更新
@@ -531,13 +565,69 @@ window.updateFilters = function() {
 
 // 初期化
 document.addEventListener('DOMContentLoaded', function() {
-    debugLog('DOMContentLoaded - 初期化開始');
+    console.log('DOMContentLoaded - 初期化開始');
     
     // Cytoscape.jsの読み込み確認
     if (typeof cytoscape !== 'undefined') {
-        debugLog('Cytoscape.js 正常に読み込まれました');
+        console.log('Cytoscape.js 正常に読み込まれました');
     } else {
-        debugLog('ERROR: Cytoscape.js が読み込まれていません');
+        console.log('ERROR: Cytoscape.js が読み込まれていません');
+    }
+    
+    // 削除ボタンのイベントリスナーを設定
+    const deleteButtons = document.querySelectorAll('.delete-connection-btn');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const connectionId = this.dataset.connectionId;
+            const sourceName = this.dataset.sourceName;
+            const targetName = this.dataset.targetName;
+            
+            console.log('Delete button clicked:', { connectionId, sourceName, targetName });
+            showDeleteConfirmation(connectionId, sourceName, targetName);
+        });
+    });
+    console.log(`${deleteButtons.length} 個の削除ボタンにイベントリスナーを設定しました`);
+    
+    // モーダルのクローズボタン
+    const closeModalBtn = document.querySelector('.btn-secondary[onclick="closeDeleteModal()"]');
+    if (closeModalBtn) {
+        closeModalBtn.removeAttribute('onclick');
+        closeModalBtn.addEventListener('click', closeDeleteModal);
+    }
+    
+    // タブ切り替えボタン
+    const listTabBtn = document.getElementById('list-tab-btn');
+    const graphTabBtn = document.getElementById('graph-tab-btn');
+    
+    if (listTabBtn) {
+        listTabBtn.addEventListener('click', () => showTab('list'));
+    }
+    if (graphTabBtn) {
+        graphTabBtn.addEventListener('click', () => showTab('graph'));
+    }
+    
+    // デバッグボタン
+    const toggleDebugBtn = document.getElementById('toggle-debug-btn');
+    if (toggleDebugBtn) {
+        toggleDebugBtn.addEventListener('click', function() {
+            const debugInfo = document.getElementById('debug-info');
+            if (debugInfo) {
+                debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+    }
+    
+    // グラフ操作ボタン
+    const refreshGraphBtn = document.getElementById('refresh-graph-btn');
+    const fitGraphBtn = document.getElementById('fit-graph-btn');
+    
+    if (refreshGraphBtn) {
+        refreshGraphBtn.addEventListener('click', () => loadGraphData());
+    }
+    if (fitGraphBtn) {
+        fitGraphBtn.addEventListener('click', () => {
+            if (window.cy) window.cy.fit();
+        });
     }
     
     // フィルター変更時の処理
@@ -549,15 +639,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadGraphData();
             }
         });
-        debugLog('フィルターイベントハンドラ設定完了');
+        console.log('フィルターイベントハンドラ設定完了');
     } else {
-        debugLog('ERROR: filter-form要素が見つかりません');
+        console.log('ERROR: filter-form要素が見つかりません');
     }
     
     // 初期フィルター設定
     updateFilters();
     
-    debugLog('初期化完了');
+    console.log('初期化完了');
 });
 </script>
 @endsection

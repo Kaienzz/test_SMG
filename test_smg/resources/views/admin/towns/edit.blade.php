@@ -61,27 +61,11 @@
                             @enderror
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">サービス</label>
-                            @php
-                                $currentServices = old('services', $town->services ?? []);
-                            @endphp
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="services[]" value="general_store" id="service_general_store"
-                                       {{ in_array('general_store', $currentServices) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="service_general_store">雑貨屋</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="services[]" value="inn" id="service_inn"
-                                       {{ in_array('inn', $currentServices) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="service_inn">宿屋</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="services[]" value="bank" id="service_bank"
-                                       {{ in_array('bank', $currentServices) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="service_bank">銀行</label>
-                            </div>
-                        </div>
+                        {{-- 接続管理セクション（フォーム内に配置し送信対象に含める） --}}
+                        @include('admin.shared._route_connections', [
+                            'location' => $town,
+                            'form_prefix' => 'connections'
+                        ])
 
                         <div class="mb-3">
                             <div class="form-check">
@@ -102,12 +86,6 @@
                     </form>
                 </div>
             </div>
-            
-            {{-- 接続管理セクション --}}
-            @include('admin.shared._route_connections', [
-                'location' => $town,
-                'form_prefix' => 'connections'
-            ])
         </div>
         
         <div class="col-lg-4">

@@ -9,6 +9,7 @@ use App\Services\Admin\AdminAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class AdminRoadController extends AdminController
@@ -234,26 +235,63 @@ class AdminRoadController extends AdminController
             }
 
             try {
+                // 基本情報のバリデーション
                 $validated = $request->validate([
                     'name' => 'required|string|max:255',
                     'description' => 'nullable|string',
                     'length' => 'required|integer|min:1|max:1000',
                     'difficulty' => 'required|in:easy,normal,hard',
                     'encounter_rate' => 'nullable|numeric|between:0,1',
-                    'is_active' => 'sometimes|in:0,1'  // checkboxで送信される値に対応
-                    // 接続関連のバリデーションは編集時には複雑すぎるため簡素化
+                    'is_active' => 'sometimes|in:0,1',  // checkboxで送信される値に対応
                 ]);
-                
+
                 // is_activeをbooleanに変換
-                if (isset($validated['is_active'])) {
-                    $validated['is_active'] = (bool) $validated['is_active'];
-                } else {
-                    $validated['is_active'] = false;  // チェックボックス未選択時
+                $validated['is_active'] = isset($validated['is_active']) ? (bool) $validated['is_active'] : false;
+
+                // 接続データ（新規追加分）の取り込みと検証（任意）
+                $connectionsInput = $request->input('connections', []);
+                $newConnections = [];
+                if (is_array($connectionsInput) && count($connectionsInput) > 0) {
+                    // 空行を除外
+                    $filtered = array_values(array_filter($connectionsInput, function ($row) use ($id) {
+                        return is_array($row)
+                            && !empty($row['target_location_id'])
+                            && $row['target_location_id'] !== $id
+                            && !empty($row['connection_type']);
+                    }));
+
+                    if (count($filtered) > 0) {
+                        $validator = Validator::make(
+                            ['connections' => $filtered],
+                            [
+                                'connections' => 'array',
+                                'connections.*.target_location_id' => [
+                                    'required',
+                                    'string',
+                                    'different:source_location_id',
+                                    Rule::exists('routes', 'id'),
+                                ],
+                                'connections.*.connection_type' => 'required|in:start,end,bidirectional',
+                                'connections.*.position' => 'nullable|integer|min:0',
+                                'connections.*.direction' => 'nullable|string|max:50',
+                            ],
+                            [
+                                'connections.*.target_location_id.different' => '接続先は自身と異なる場所を指定してください。',
+                            ]
+                        );
+
+                        if ($validator->fails()) {
+                            throw new \Illuminate\Validation\ValidationException($validator);
+                        }
+
+                        $newConnections = $validator->validated()['connections'];
+                    }
                 }
 
                 Log::info('Road update validation passed', [
                     'road_id' => $id,
-                    'validated_data' => $validated
+                    'validated_data' => $validated,
+                    'new_connections_count' => count($newConnections)
                 ]);
 
             } catch (\Illuminate\Validation\ValidationException $e) {
@@ -269,11 +307,16 @@ class AdminRoadController extends AdminController
             
             $road->update($validated);
 
-            // 接続データは編集画面の別セクションで管理（基本情報更新時はスキップ）
+            // 新規接続データがあれば作成（既存は別画面で編集・削除）
+            if (!empty($newConnections)) {
+                $this->createConnections($road->id, $newConnections);
+            }
+
             Log::info('Road basic data updated successfully', [
                 'road_id' => $road->id,
                 'road_name' => $road->name,
-                'changes' => $road->getChanges()
+                'changes' => $road->getChanges(),
+                'added_connections' => !empty($newConnections) ? count($newConnections) : 0,
             ]);
 
             DB::commit();
@@ -281,7 +324,8 @@ class AdminRoadController extends AdminController
             $this->auditLog('roads.updated', [
                 'road_id' => $road->id,
                 'road_name' => $road->name,
-                'changes' => $road->getChanges()
+                'changes' => $road->getChanges(),
+                'added_connections' => !empty($newConnections) ? count($newConnections) : 0,
             ]);
 
             return redirect()->route('admin.roads.show', $road->id)
@@ -361,6 +405,18 @@ class AdminRoadController extends AdminController
                     'position' => $connectionData['position'] ?? null,
                     'direction' => $connectionData['direction'] ?? null,
                 ]);
+            } else {
+                // 既存があり、今回が双方向指定ならアップグレード
+                if (($connectionData['connection_type'] ?? null) === 'bidirectional' && $existingConnection->connection_type !== 'bidirectional') {
+                    $existingConnection->connection_type = 'bidirectional';
+                    if (array_key_exists('position', $connectionData) && $connectionData['position'] !== null) {
+                        $existingConnection->position = $connectionData['position'];
+                    }
+                    if (array_key_exists('direction', $connectionData) && $connectionData['direction'] !== null) {
+                        $existingConnection->direction = $connectionData['direction'];
+                    }
+                    $existingConnection->save();
+                }
             }
         }
     }

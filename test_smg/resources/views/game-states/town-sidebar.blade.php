@@ -21,7 +21,6 @@
                 @endphp
                 <button 
                     class="connection-btn"
-                    onclick="moveToDirection('{{ $direction }}')"
                     title="{{ $connection['name'] ?? 'Unknown destination' }}"
                     data-direction="{{ $direction }}"
                 >

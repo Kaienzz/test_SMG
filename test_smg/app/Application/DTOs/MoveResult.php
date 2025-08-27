@@ -118,6 +118,12 @@ class MoveResult
      */
     public function toArray(): array
     {
+        // location_typeを決定（currentLocationの情報を基に）
+        $locationType = 'road'; // デフォルト
+        if ($this->currentLocation && $this->currentLocation->toArray()['type'] === 'town') {
+            $locationType = 'town';
+        }
+        
         $result = [
             'success' => $this->success,
             'position' => $this->position,
@@ -126,6 +132,7 @@ class MoveResult
             'nextLocation' => $this->nextLocation?->toArray(),
             'canMoveToNext' => $this->canMoveToNext,
             'canMoveToPrevious' => $this->canMoveToPrevious,
+            'location_type' => $locationType,
         ];
 
         if ($this->encounter) {

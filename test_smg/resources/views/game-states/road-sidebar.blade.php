@@ -51,13 +51,30 @@
 </div>
 
 {{-- Environment Actions --}}
+@php
+    $gatheringSkill = null;
+    $currentEnvironment = $currentLocation->category ?? 'road';
+    $environmentName = $currentEnvironment === 'dungeon' ? 'ダンジョン' : '道路';
+    $environmentIcon = $currentEnvironment === 'dungeon' ? '🏰' : '🛤️';
+    
+    // プレイヤーが採集スキルを持っているかチェック
+    if (is_object($player) && method_exists($player, 'getSkill')) {
+        $gatheringSkill = $player->getSkill('採集');
+    }
+    
+    // レベル制限チェック（ダンジョンの場合）
+    $levelRequirementMet = true;
+    if ($currentEnvironment === 'dungeon' && isset($currentLocation->min_level)) {
+        $levelRequirementMet = ($player->level ?? 1) >= $currentLocation->min_level;
+    }
+@endphp
+
 <div class="environment-actions-section">
     <h3>{{ $environmentName }}での行動</h3>
     
     <div class="action-buttons">
         @if($gatheringSkill)
-            <button class="btn btn-success action-btn" onclick="performGathering()" id="gathering-btn"
-                    @if($currentEnvironment === 'dungeon' && !$levelRequirementMet) disabled @endif>
+            <button class="btn btn-success action-btn" onclick="performGathering()" id="gathering-btn">
                 <span class="btn-icon">{{ $currentEnvironment === 'dungeon' ? '💎' : '🌿' }}</span>
                 <span class="btn-text">採集する</span>
             </button>
@@ -110,23 +127,6 @@
 </div>
 
 {{-- Gathering Information (dynamic for Road/Dungeon) --}}
-@php
-    $gatheringSkill = null;
-    $currentEnvironment = $currentLocation->category ?? 'road';
-    $environmentName = $currentEnvironment === 'dungeon' ? 'ダンジョン' : '道路';
-    $environmentIcon = $currentEnvironment === 'dungeon' ? '🏰' : '🛤️';
-    
-    // プレイヤーが採集スキルを持っているかチェック
-    if (is_object($player) && method_exists($player, 'getSkill')) {
-        $gatheringSkill = $player->getSkill('採集');
-    }
-    
-    // レベル制限チェック（ダンジョンの場合）
-    $levelRequirementMet = true;
-    if ($currentEnvironment === 'dungeon' && isset($currentLocation->min_level)) {
-        $levelRequirementMet = ($player->level ?? 1) >= $currentLocation->min_level;
-    }
-@endphp
 
 @if($gatheringSkill)
     <div class="gathering-info environment-{{ $currentEnvironment }}">

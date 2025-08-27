@@ -308,6 +308,13 @@ class GameController extends Controller
         // TownFacilityモデルから指定された場所の施設を取得
         $facilities = \App\Models\TownFacility::getFacilitiesByLocation($locationId, $locationType);
         
+        // 接続情報も取得（町の場合のみ）
+        $connections = [];
+        if ($locationType === 'town') {
+            $locationService = app(\App\Domain\Location\LocationService::class);
+            $connections = $locationService->getTownConnections($locationId) ?? [];
+        }
+        
         return response()->json([
             'success' => true,
             'facilities' => $facilities->map(function($facility) {
@@ -319,7 +326,8 @@ class GameController extends Controller
                     'location_id' => $facility->location_id,
                     'location_type' => $facility->location_type
                 ];
-            })->toArray()
+            })->toArray(),
+            'connections' => $connections
         ]);
     }
 

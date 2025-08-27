@@ -33,9 +33,10 @@ class GameManager {
         };
         this.updateGameDisplay(initialData);
         
-        // 道路でposition=100または0のとき、次の場所ボタンを表示
+        // 道路でpositionが0/50/100のとき、次の場所ボタンを表示
         if (this.gameData.character.location_type === 'road') {
-            if ((this.gameData.character.game_position >= 100 || this.gameData.character.game_position <= 0) && this.gameData.nextLocation) {
+            const pos = this.gameData.character.game_position;
+            if ((pos <= 0 || pos === 50 || pos >= 100) && this.gameData.nextLocation) {
                 console.log('Initial load - Showing button for road at boundary');
                 this.updateNextLocationDisplay(this.gameData.nextLocation, true);
             } else {
@@ -230,10 +231,10 @@ class MovementManager {
             return;
         }
         
-        // 位置ベースの次の場所ボタン表示制御
+        // 位置ベースの次の場所ボタン表示制御（0/50/100）
         if (extendedData.location_type === 'road') {
-            const isAtBoundary = data.position <= 0 || data.position >= 100;
-            if (isAtBoundary && data.nextLocation) {
+            const isAtBoundaryOrBranch = data.position <= 0 || data.position === 50 || data.position >= 100;
+            if (isAtBoundaryOrBranch && data.nextLocation) {
                 console.log('Move success: Showing next location button at boundary, position:', data.position);
                 this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
             } else {
@@ -336,9 +337,9 @@ class MovementManager {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
                 }
             } else {
-                // 道路にいるときは位置で判定（境界にいる場合のみ表示）
-                const isAtBoundary = data.position <= 0 || data.position >= 100;
-                if (isAtBoundary && data.nextLocation) {
+                // 道路にいるときは位置で判定（0/50/100にいる場合のみ表示）
+                const isAtBoundaryOrBranch = data.position <= 0 || data.position === 50 || data.position >= 100;
+                if (isAtBoundaryOrBranch && data.nextLocation) {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, true);
                 } else {
                     this.gameManager.updateNextLocationDisplay(data.nextLocation, false);
@@ -376,9 +377,9 @@ class UIManager {
         
         // 道路でのnextLocationボタンチェック（gameData更新後）
         if (locationType === 'road') {
-            const isAtBoundary = data.position <= 0 || data.position >= 100;
-            console.log('updateGameDisplay: Road position check - position:', data.position, 'isAtBoundary:', isAtBoundary, 'nextLocation:', this.gameManager.gameData.nextLocation);
-            if (isAtBoundary && this.gameManager.gameData.nextLocation) {
+            const isAtBoundaryOrBranch = data.position <= 0 || data.position === 50 || data.position >= 100;
+            console.log('updateGameDisplay: Road position check - position:', data.position, 'isAtBoundaryOrBranch:', isAtBoundaryOrBranch, 'nextLocation:', this.gameManager.gameData.nextLocation);
+            if (isAtBoundaryOrBranch && this.gameManager.gameData.nextLocation) {
                 console.log('updateGameDisplay: Showing next location button');
                 this.updateNextLocationDisplay(this.gameManager.gameData.nextLocation, true);
             } else {
@@ -474,7 +475,7 @@ class UIManager {
         .then(response => response.json())
         .then(data => {
             console.log('Town facilities data:', data);
-            this.renderTownMenu(data.facilities);
+            this.renderTownMenu(data.facilities, data.connections);
         })
         .catch(error => {
             console.error('Failed to fetch town facilities:', error);
@@ -483,7 +484,7 @@ class UIManager {
         });
     }
 
-    renderTownMenu(facilities) {
+    renderTownMenu(facilities, connections) {
         const facilityMenu = document.querySelector('.facility-menu');
         if (!facilityMenu) {
             // facility-menuが存在しない場合は作成
@@ -509,6 +510,41 @@ class UIManager {
             } else {
                 // フォールバック: 基本的な施設を表示
                 menuHTML += this.getDefaultFacilitiesHTML();
+            }
+            
+            // 接続ボタンを追加
+            if (connections && Object.keys(connections).length > 0) {
+                menuHTML += '<hr style="margin: 15px 0;">';
+                menuHTML += '<h3>移動先選択</h3>';
+                menuHTML += '<div class="connection-options">';
+                
+                Object.keys(connections).forEach(direction => {
+                    const connection = connections[direction];
+                    const directionIcons = {
+                        'north': '⬆️',
+                        'south': '⬇️', 
+                        'east': '➡️',
+                        'west': '⬅️'
+                    };
+                    const icon = directionIcons[direction] || '🚪';
+                    
+                    menuHTML += `
+                        <button 
+                            class="connection-btn btn btn-success"
+                            title="${connection.name || 'Unknown destination'}"
+                            data-direction="${direction}"
+                            style="margin: 5px; padding: 10px 15px; width: 100%; display: flex; align-items: center; gap: 10px;"
+                        >
+                            <span class="direction-icon">${icon}</span>
+                            <div class="direction-info" style="flex: 1; text-align: left;">
+                                <div style="font-weight: bold;">${connection.direction_label || direction.charAt(0).toUpperCase() + direction.slice(1)}</div>
+                                <div style="font-size: 12px; opacity: 0.8;">${connection.name || 'Unknown'}</div>
+                            </div>
+                        </button>
+                    `;
+                });
+                
+                menuHTML += '</div>';
             }
             
             facilityMenuElement.innerHTML = menuHTML;
@@ -773,7 +809,40 @@ class UIManager {
 
     updateNextLocationDisplay(nextLocation, canMove) {
         console.log('updateNextLocationDisplay called:', nextLocation, 'canMove:', canMove);
-        const nextLocationInfo = document.getElementById('next-location-info');
+        let nextLocationInfo = document.getElementById('next-location-info');
+        if (!nextLocationInfo) {
+            // コンテナが存在しない場合は動的に作成して挿入
+            const locationInfo = document.querySelector('.location-info');
+            if (locationInfo) {
+                nextLocationInfo = document.createElement('div');
+                nextLocationInfo.className = 'next-location';
+                nextLocationInfo.id = 'next-location-info';
+                nextLocationInfo.style.display = 'none';
+
+                // ボタンIDとハンドラを現在の場所タイプから決定
+                const locationType = this.gameManager?.gameData?.character?.location_type || 'town';
+                const buttonId = locationType === 'town' ? 'move-to-next-town' : 'move-to-next-road';
+                const buttonHandler = locationType === 'town' ? 'moveToNextFromTown()' : 'moveToNextFromRoad()';
+
+                nextLocationInfo.innerHTML = `
+                    <p>次の場所: <strong></strong></p>
+                    <button class="btn btn-success" id="${buttonId}" onclick="${buttonHandler}">
+                        移動する
+                    </button>
+                `;
+
+                // location-infoの末尾に挿入（存在すればプログレスバーの後）
+                const progressBar = locationInfo.querySelector('.progress-bar');
+                if (progressBar && progressBar.nextSibling) {
+                    locationInfo.insertBefore(nextLocationInfo, progressBar.nextSibling);
+                } else {
+                    locationInfo.appendChild(nextLocationInfo);
+                }
+            } else {
+                console.error('location-info container not found; cannot insert next-location-info');
+            }
+        }
+
         if (nextLocationInfo) {
             if (nextLocation && canMove) {
                 console.log('Showing next location button for:', nextLocation.name);
@@ -785,6 +854,15 @@ class UIManager {
                 }
                 if (buttonElement) {
                     buttonElement.textContent = nextLocation.name + 'に移動する';
+                    // 位置タイプが変わっている可能性があるため、必要ならハンドラを更新
+                    const locationType = this.gameManager?.gameData?.character?.location_type || 'town';
+                    if (locationType === 'town') {
+                        buttonElement.id = 'move-to-next-town';
+                        buttonElement.setAttribute('onclick', 'moveToNextFromTown()');
+                    } else {
+                        buttonElement.id = 'move-to-next-road';
+                        buttonElement.setAttribute('onclick', 'moveToNextFromRoad()');
+                    }
                 }
                 nextLocationInfo.style.display = 'block';
             } else {
@@ -932,6 +1010,7 @@ function initializeGame(gameData) {
     // GameManagerにUIManagerの参照を設定
     gameManager.uiManager = uiManager;
     gameManager.battleManager = battleManager;
+    gameManager.movementManager = movementManager;
     
     // UIManagerのメソッドをGameManagerに追加
     gameManager.updateGameDisplay = (data) => uiManager.updateGameDisplay(data);
@@ -1161,7 +1240,11 @@ function selectBranch(direction) {
                 }
                 
                 // ゲーム画面を更新
-                updateGameDisplay(data);
+                if (gameManager && typeof gameManager.updateGameDisplay === 'function') {
+                    gameManager.updateGameDisplay(data);
+                } else {
+                    console.error('GameManager updateGameDisplay not available');
+                }
                 
                 // 分岐選択UIを隠す
                 hideBranchSelection();
@@ -1308,7 +1391,11 @@ function moveToDirection(direction) {
                 }
                 
                 // ゲーム画面を更新
-                updateGameDisplay(data);
+                if (gameManager && typeof gameManager.updateGameDisplay === 'function') {
+                    gameManager.updateGameDisplay(data);
+                } else {
+                    console.error('GameManager updateGameDisplay not available');
+                }
                 
                 // 複数接続UIを隠す
                 hideMultipleConnections();
@@ -1359,3 +1446,65 @@ function hideMultipleConnections() {
         multipleConnections.style.display = 'none';
     }
 }
+
+/**
+ * イベントデリゲーションを使用してゲームボタンのクリックを処理
+ * 動的に追加されるボタンにも対応
+ */
+document.addEventListener('click', function(event) {
+    // move-to-nextボタンがクリックされた場合
+    if (event.target && event.target.id === 'move-to-next') {
+        console.log('Move to next button clicked via event delegation');
+        event.preventDefault();
+        
+        if (movementManager && typeof movementManager.moveToNextFromRoad === 'function') {
+            console.log('Calling movementManager.moveToNextFromRoad()');
+            movementManager.moveToNextFromRoad();
+        } else if (gameManager && gameManager.movementManager && typeof gameManager.movementManager.moveToNextFromRoad === 'function') {
+            console.log('Calling gameManager.movementManager.moveToNextFromRoad()');
+            gameManager.movementManager.moveToNextFromRoad();
+        } else {
+            console.error('MovementManager or moveToNextFromRoad method not available');
+        }
+        return;
+    }
+    
+    // ボタン内のspan要素がクリックされた場合も対応
+    if (event.target && event.target.closest && event.target.closest('#move-to-next')) {
+        console.log('Move to next button clicked via span element');
+        event.preventDefault();
+        
+        if (movementManager && typeof movementManager.moveToNextFromRoad === 'function') {
+            console.log('Calling movementManager.moveToNextFromRoad()');
+            movementManager.moveToNextFromRoad();
+        } else if (gameManager && gameManager.movementManager && typeof gameManager.movementManager.moveToNextFromRoad === 'function') {
+            console.log('Calling gameManager.movementManager.moveToNextFromRoad()');
+            gameManager.movementManager.moveToNextFromRoad();
+        } else {
+            console.error('MovementManager or moveToNextFromRoad method not available');
+        }
+        return;
+    }
+    
+    // connection-btnボタンがクリックされた場合（町からの移動）
+    let connectionButton = null;
+    if (event.target && event.target.classList && event.target.classList.contains('connection-btn')) {
+        connectionButton = event.target;
+    } else if (event.target && event.target.closest && event.target.closest('.connection-btn')) {
+        connectionButton = event.target.closest('.connection-btn');
+    }
+    
+    if (connectionButton) {
+        console.log('Connection button clicked via event delegation');
+        event.preventDefault();
+        
+        const direction = connectionButton.getAttribute('data-direction');
+        if (direction && typeof moveToDirection === 'function') {
+            console.log('Calling moveToDirection with direction:', direction);
+            moveToDirection(direction);
+        } else {
+            console.error('Direction not found or moveToDirection function not available');
+        }
+        return;
+    }
+});

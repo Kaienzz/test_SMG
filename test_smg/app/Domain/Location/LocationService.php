@@ -178,7 +178,7 @@ class LocationService
     {
         try {
             $connections = RouteConnection::where('source_location_id', $townId)
-                                           ->whereIn('connection_type', ['town_connection', 'start', 'end'])
+                                           ->whereIn('connection_type', ['town_connection', 'start', 'end', 'bidirectional'])
                                            ->with('targetLocation')
                                            ->get();
             

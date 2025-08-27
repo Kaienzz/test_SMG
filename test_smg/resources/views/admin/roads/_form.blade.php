@@ -224,7 +224,7 @@
     <a href="{{ route('admin.roads.index') }}" class="admin-btn admin-btn-secondary">
         <i class="fas fa-times"></i> キャンセル
     </a>
-    <button type="submit" class="admin-btn admin-btn-primary" onclick="console.log('Submit button clicked for:', '{{ isset($road) ? 'UPDATE' : 'CREATE' }}', new Date());">
+    <button type="submit" id="road-update-submit" form="road-edit-form" class="admin-btn admin-btn-primary" onclick="console.log('Submit button clicked for:', '{{ isset($road) ? 'UPDATE' : 'CREATE' }}', new Date());">
         <i class="fas fa-save"></i> {{ isset($road) ? '更新' : '作成' }}
     </button>
 </div>

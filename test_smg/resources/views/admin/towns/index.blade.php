@@ -70,7 +70,6 @@
                                 <th>ID</th>
                                 <th>町名</th>
                                 <th>説明</th>
-                                <th>サービス</th>
                                 <th>ステータス</th>
                                 <th>操作</th>
                             </tr>
@@ -83,15 +82,7 @@
                                     <strong>{{ $town['name'] }}</strong>
                                 </td>
                                 <td>{{ $town['description'] ? Str::limit($town['description'], 50) : 'なし' }}</td>
-                                <td>
-                                    @if(isset($town['services']) && count($town['services']) > 0)
-                                        @foreach($town['services'] as $service)
-                                            <span class="badge bg-info me-1">{{ $service }}</span>
-                                        @endforeach
-                                    @else
-                                        <span class="text-muted">なし</span>
-                                    @endif
-                                </td>
+                                
                                 <td>
                                     @if($town['is_active'] ?? true)
                                         <span class="badge bg-success">有効</span>

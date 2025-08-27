@@ -48,21 +48,16 @@
                             @endif
                         </dd>
                         
-                        <dt class="col-sm-3">サービス</dt>
-                        <dd class="col-sm-9">
-                            @if($town->services && count($town->services) > 0)
-                                @foreach($town->services as $service)
-                                    <span class="badge bg-primary me-1">{{ $service }}</span>
-                                @endforeach
-                            @else
-                                <span class="text-muted">サービスなし</span>
-                            @endif
-                        </dd>
+                        
                     </dl>
                 </div>
             </div>
 
-            @if($town->connections()->count() > 0)
+            @php
+                $outgoing = $town->sourceConnections()->with('targetLocation')->get();
+                $incoming = $town->targetConnections()->with('sourceLocation')->get();
+            @endphp
+            @if($outgoing->count() > 0 || $incoming->count() > 0)
             <div class="card mt-3">
                 <div class="card-header">
                     <h5 class="mb-0">接続情報</h5>
@@ -72,15 +67,25 @@
                         <table class="table table-sm">
                             <thead>
                                 <tr>
+                                    <th>種類</th>
                                     <th>接続先</th>
                                     <th>方向</th>
                                     <th>タイプ</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($town->connections as $connection)
+                                @foreach($outgoing as $connection)
                                 <tr>
+                                    <td><span class="badge bg-info">この町から</span></td>
                                     <td>{{ $connection->targetLocation->name ?? 'Unknown' }}</td>
+                                    <td>{{ $connection->direction ?? 'N/A' }}</td>
+                                    <td><span class="badge bg-secondary">{{ $connection->connection_type }}</span></td>
+                                </tr>
+                                @endforeach
+                                @foreach($incoming as $connection)
+                                <tr>
+                                    <td><span class="badge bg-warning text-dark">この町へ</span></td>
+                                    <td>{{ $connection->sourceLocation->name ?? 'Unknown' }}</td>
                                     <td>{{ $connection->direction ?? 'N/A' }}</td>
                                     <td><span class="badge bg-secondary">{{ $connection->connection_type }}</span></td>
                                 </tr>

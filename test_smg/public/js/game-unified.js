@@ -609,6 +609,9 @@ class TownStateManager {
             return;
         }
         
+        // 移動中フラグを確実にリセット（遷移後に残っている可能性があるため）
+        this.isMoving = false;
+        
         // Facility links
         document.querySelectorAll('.facility-link').forEach(link => {
             link.addEventListener('click', (e) => {
@@ -621,20 +624,27 @@ class TownStateManager {
         });
         
         // Movement buttons - 重複実行を防ぐためonclick属性を無効化
-        document.querySelectorAll('button[onclick*="moveToDirection"]').forEach(btn => {
-            console.log('🚀 [TOWN] Found movement button:', btn, 'onclick:', btn.getAttribute('onclick'));
+        // まず、すべての接続ボタン（onclick属性の有無に関わらず）を取得
+        const connectionButtons = document.querySelectorAll('.connection-btn, button[onclick*="moveToDirection"]');
+        console.log('🚀 [TOWN] Found connection buttons:', connectionButtons.length);
+        
+        connectionButtons.forEach(btn => {
+            console.log('🚀 [TOWN] Processing movement button:', btn, 'onclick:', btn.getAttribute('onclick'), 'data-direction:', btn.getAttribute('data-direction'));
             
             // Ensure button is clickable
             btn.disabled = false;
             btn.style.pointerEvents = 'auto';
+            btn.classList.remove('disabled');
             
-            // onclick属性から方向を抽出
-            const onclickAttr = btn.getAttribute('onclick');
-            let direction = null;
-            if (onclickAttr) {
-                const match = onclickAttr.match(/moveToDirection\(['"]([^'"]+)['"]\)/);
-                if (match && match[1]) {
-                    direction = match[1];
+            // 方向を抽出 - data-direction属性またはonclick属性から
+            let direction = btn.getAttribute('data-direction');
+            if (!direction) {
+                const onclickAttr = btn.getAttribute('onclick');
+                if (onclickAttr) {
+                    const match = onclickAttr.match(/moveToDirection\(['"]([^'"]+)['"]\)/);
+                    if (match && match[1]) {
+                        direction = match[1];
+                    }
                 }
             }
             
@@ -745,8 +755,14 @@ class TownStateManager {
     async activate(gameData) {
         console.log('🚀 [TRANSITION] Activating TownStateManager with data:', gameData);
         
-        // 町のイベントリスナーを再セットアップ
-        this.setupTownEventListeners();
+        // 移動フラグを確実にリセット
+        this.isMoving = false;
+        this.eventListenersAttached = false;
+        
+        // 少し遅延を入れてDOMが完全に更新されてから再セットアップ
+        setTimeout(() => {
+            this.setupTownEventListeners();
+        }, 100);
         
         console.log('🚀 [TRANSITION] TownStateManager activated');
     }
@@ -787,14 +803,23 @@ class RoadStateManager {
         
         // Check if player is at boundary position (can move to next location)
         const position = gameData.player?.game_position || 0;
-        console.log('Road initialization - Player position:', position);
-        console.log('Road initialization - Next location data:', gameData.nextLocation);
+        console.log('🚀 [DEBUG] Road initialization - Player position:', position);
+        console.log('🚀 [DEBUG] Road initialization - Next location data:', gameData.nextLocation);
         
         if (position === 0 || position === 50 || position === 100) {
-            console.log('Player at boundary position (' + position + '), showing next location button');
-            this.showNextLocationButton(gameData.nextLocation);
+            console.log('🚀 [DEBUG] Player at boundary position (' + position + '), showing next location button');
+            
+            // Ensure the gameManager has the latest nextLocation data
+            if (this.gameManager && gameData.nextLocation) {
+                this.gameManager.gameData.nextLocation = gameData.nextLocation;
+            }
+            
+            // Use a small delay to ensure DOM is ready
+            setTimeout(() => {
+                this.showNextLocationButton(gameData.nextLocation);
+            }, 100);
         } else {
-            console.log('Player in middle of road (position: ' + position + '), hiding next location button');
+            console.log('🚀 [DEBUG] Player in middle of road (position: ' + position + '), hiding next location button');
             this.hideNextLocationButton();
         }
     }
@@ -1041,15 +1066,25 @@ class RoadStateManager {
                 
                 // Check if reached next location (boundary positions: 0, 50, 100)
                 if (data.position === 0 || data.position === 50 || data.position === 100) {
-                    console.log('Reached boundary position (' + data.position + '), showing next location button');
-                    this.showNextLocationButton(data.nextLocation);
+                    console.log('🚀 [DEBUG] Reached boundary position (' + data.position + '), showing next location button');
+                    console.log('🚀 [DEBUG] nextLocation data:', data.nextLocation);
+                    
+                    // Force update the game data with the latest nextLocation
+                    if (this.gameManager && data.nextLocation) {
+                        this.gameManager.gameData.nextLocation = data.nextLocation;
+                    }
+                    
+                    // Use a small delay to ensure DOM is ready and any other operations have completed
+                    setTimeout(() => {
+                        this.showNextLocationButton(data.nextLocation);
+                    }, 50);
                     
                     // Hide movement controls when at boundary
                     this.hideMovementControls();
                     this.hideDiceResult();
                 } else {
                     // Still in the middle of the road, keep controls visible for next dice roll
-                    console.log('Still on road, position:', data.position);
+                    console.log('🚀 [DEBUG] Still on road, position:', data.position);
                     
                     // Hide next location button when not at boundary
                     this.hideNextLocationButton();
@@ -1063,6 +1098,29 @@ class RoadStateManager {
                 if ((data.position !== 0 && data.position !== 50 && data.position !== 100) && this.gameManager && this.gameManager.showNotification) {
                     this.gameManager.showNotification('移動しました', 'success');
                 }
+                
+                // Force a comprehensive UI state update to ensure consistency
+                setTimeout(() => {
+                    console.log('🚀 [DEBUG] Final UI state check after move...');
+                    const finalPosition = data.position;
+                    const isBoundary = finalPosition === 0 || finalPosition === 50 || finalPosition === 100;
+                    const nextLocationElement = document.getElementById('next-location-info');
+                    
+                    console.log('🚀 [DEBUG] Final check - Position:', finalPosition, 'IsBoundary:', isBoundary, 'Element found:', !!nextLocationElement);
+                    
+                    if (isBoundary && data.nextLocation && nextLocationElement) {
+                        const isCurrentlyVisible = !nextLocationElement.classList.contains('hidden') && 
+                                                 nextLocationElement.style.display !== 'none' &&
+                                                 nextLocationElement.offsetHeight > 0;
+                        
+                        console.log('🚀 [DEBUG] Button currently visible:', isCurrentlyVisible);
+                        
+                        if (!isCurrentlyVisible) {
+                            console.log('🚀 [DEBUG] Button should be visible but is not, forcing show...');
+                            this.showNextLocationButton(data.nextLocation);
+                        }
+                    }
+                }, 200);
             } else {
                 alert(data.message || '移動に失敗しました');
                 this.enableMovementButtons();
@@ -1168,35 +1226,48 @@ class RoadStateManager {
     }
 
     showNextLocationButton(nextLocationData) {
-        console.log('showNextLocationButton called with data:', nextLocationData);
+        console.log('🚀 [DEBUG] showNextLocationButton called with data:', nextLocationData);
         const nextLocation = document.getElementById('next-location-info');
-        console.log('Found next-location-info element:', nextLocation);
+        console.log('🚀 [DEBUG] Found next-location-info element:', nextLocation);
         
         if (nextLocation) {
-            console.log('Element classes before:', nextLocation.className);
+            console.log('🚀 [DEBUG] Element classes before:', nextLocation.className);
+            console.log('🚀 [DEBUG] Element style.display before:', nextLocation.style.display);
+            
+            // Force show the element
             nextLocation.classList.remove('hidden');
-            console.log('Element classes after:', nextLocation.className);
-            console.log('Next location button revealed');
+            nextLocation.style.display = 'block'; // Force block display to override any inline styles
+            nextLocation.style.visibility = 'visible'; // Ensure visibility
+            nextLocation.style.opacity = '1'; // Ensure opacity
+            
+            console.log('🚀 [DEBUG] Element classes after:', nextLocation.className);
+            console.log('🚀 [DEBUG] Element style.display after:', nextLocation.style.display);
+            console.log('🚀 [DEBUG] Next location button revealed');
             
             // Update destination name if data is provided
             if (nextLocationData && nextLocationData.name) {
-                console.log('Updating destination name to:', nextLocationData.name);
+                console.log('🚀 [DEBUG] Updating destination name to:', nextLocationData.name);
                 const destinationName = nextLocation.querySelector('.destination-name');
                 if (destinationName) {
                     destinationName.textContent = nextLocationData.name;
-                    console.log('Destination name updated');
+                    console.log('🚀 [DEBUG] Destination name updated');
                 } else {
-                    console.warn('Destination name element not found');
+                    console.warn('🚀 [DEBUG] Destination name element not found');
                 }
                 
                 const moveButton = nextLocation.querySelector('#move-to-next');
-                console.log('Found move-to-next button:', moveButton);
+                console.log('🚀 [DEBUG] Found move-to-next button:', moveButton);
                 if (moveButton) {
+                    // Ensure button is enabled and visible
+                    moveButton.disabled = false;
+                    moveButton.style.display = '';
+                    moveButton.style.pointerEvents = 'auto';
+                    
                     // Update button text - try different approaches
                     const buttonTextSpan = moveButton.querySelector('.btn-text');
                     if (buttonTextSpan) {
                         buttonTextSpan.textContent = `${nextLocationData.name}に移動`;
-                        console.log('Button text updated via .btn-text span');
+                        console.log('🚀 [DEBUG] Button text updated via .btn-text span');
                         
                         // ボタン状態の詳細チェック
                         console.log('🚀 [DEBUG] ======= BUTTON STATE ANALYSIS =======');
@@ -1239,30 +1310,50 @@ class RoadStateManager {
                         const iconSpan = moveButton.querySelector('.btn-icon');
                         if (iconSpan && iconSpan.nextSibling) {
                             iconSpan.nextSibling.textContent = ` ${nextLocationData.name}に移動`;
-                            console.log('Button text updated via nextSibling');
+                            console.log('🚀 [DEBUG] Button text updated via nextSibling');
                         } else {
                             // Fallback: replace all text content
                             moveButton.innerHTML = `<span class="btn-icon">🚀</span> ${nextLocationData.name}に移動`;
-                            console.log('Button text updated via innerHTML');
+                            console.log('🚀 [DEBUG] Button text updated via innerHTML');
                         }
                     }
                 }
             }
+            
+            // Force a layout reflow to ensure visibility
+            setTimeout(() => {
+                const finalCheck = document.getElementById('next-location-info');
+                console.log('🚀 [DEBUG] Final visibility check:', {
+                    element: finalCheck,
+                    isVisible: finalCheck && finalCheck.offsetHeight > 0,
+                    offsetHeight: finalCheck?.offsetHeight,
+                    classList: finalCheck?.className,
+                    displayStyle: finalCheck?.style.display
+                });
+            }, 100);
+            
         } else {
-            console.error('next-location-info element not found in DOM!');
+            console.error('🚀 [DEBUG] next-location-info element not found in DOM!');
+            
+            // Attempt to find similar elements for debugging
+            const allNextElements = document.querySelectorAll('[id*="next"]');
+            console.log('🚀 [DEBUG] All elements with "next" in ID:', allNextElements);
+            
+            const allLocationElements = document.querySelectorAll('[id*="location"]');
+            console.log('🚀 [DEBUG] All elements with "location" in ID:', allLocationElements);
         }
     }
 
     hideNextLocationButton() {
-        console.log('hideNextLocationButton called');
+        console.log('🚀 [DEBUG] hideNextLocationButton called');
         const nextLocation = document.getElementById('next-location-info');
         if (nextLocation) {
-            console.log('Hiding next location button');
+            console.log('🚀 [DEBUG] Hiding next location button');
             nextLocation.classList.add('hidden');
             nextLocation.style.display = 'none';
-            console.log('Next location button hidden');
+            console.log('🚀 [DEBUG] Next location button hidden');
         } else {
-            console.error('next-location-info element not found in DOM!');
+            console.error('🚀 [DEBUG] next-location-info element not found in DOM when trying to hide!');
         }
     }
 
@@ -1522,6 +1613,10 @@ class RoadStateManager {
     async activate(gameData) {
         console.log('🚀 [TRANSITION] Activating RoadStateManager with data:', gameData);
         
+        // 状態フラグをリセット
+        this.isMoving = false;
+        this.eventListenersAttached = false;
+        
         // プレイヤー状態更新
         if (gameData.player) {
             this.updateProgressBar(gameData.player.game_position || 0);
@@ -1529,9 +1624,15 @@ class RoadStateManager {
         
         // 境界位置チェック
         const position = gameData.player?.game_position || 0;
+        console.log('🚀 [DEBUG] RoadStateManager activate - Position:', position, 'NextLocation:', gameData.nextLocation);
+        
         if (position === 0 || position === 50 || position === 100) {
-            this.showNextLocationButton(gameData.nextLocation);
+            console.log('🚀 [DEBUG] Activate: Player at boundary, showing next location button');
+            setTimeout(() => {
+                this.showNextLocationButton(gameData.nextLocation);
+            }, 150);
         } else {
+            console.log('🚀 [DEBUG] Activate: Player not at boundary, hiding next location button');
             this.hideNextLocationButton();
         }
         
@@ -1541,6 +1642,11 @@ class RoadStateManager {
             rollButton.disabled = false;
             rollButton.textContent = 'サイコロを振る';
         }
+        
+        // イベントリスナーを再セットアップ
+        setTimeout(() => {
+            this.setupRoadEventListeners();
+        }, 100);
         
         console.log('🚀 [TRANSITION] RoadStateManager activated');
     }
