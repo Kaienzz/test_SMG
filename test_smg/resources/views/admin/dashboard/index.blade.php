@@ -273,8 +273,8 @@
                 <a href="{{ route('admin.monsters.index') }}" class="admin-btn admin-btn-info">
                     🐉 モンスター管理
                 </a>
-                <a href="{{ route('admin.shops.index') }}" class="admin-btn admin-btn-warning">
-                    🏪 ショップ管理
+                <a href="{{ route('admin.town-facilities.index') }}" class="admin-btn admin-btn-warning">
+                    🏢 町施設管理
                 </a>
                 @endif
                 

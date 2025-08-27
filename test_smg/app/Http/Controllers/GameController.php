@@ -295,7 +295,7 @@ class GameController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function getLocationShops(Request $request): JsonResponse
+    public function getLocationFacilities(Request $request): JsonResponse
     {
         $request->validate([
             'location_id' => 'required|string',
@@ -305,19 +305,19 @@ class GameController extends Controller
         $locationId = $request->input('location_id');
         $locationType = $request->input('location_type');
         
-        // Shopモデルから指定された場所の施設を取得
-        $shops = \App\Models\Shop::getShopsByLocation($locationId, $locationType);
+        // TownFacilityモデルから指定された場所の施設を取得
+        $facilities = \App\Models\TownFacility::getFacilitiesByLocation($locationId, $locationType);
         
         return response()->json([
             'success' => true,
-            'shops' => $shops->map(function($shop) {
+            'facilities' => $facilities->map(function($facility) {
                 return [
-                    'id' => $shop->id,
-                    'name' => $shop->name,
-                    'shop_type' => $shop->shop_type,
-                    'description' => $shop->description,
-                    'location_id' => $shop->location_id,
-                    'location_type' => $shop->location_type
+                    'id' => $facility->id,
+                    'name' => $facility->name,
+                    'facility_type' => $facility->facility_type,
+                    'description' => $facility->description,
+                    'location_id' => $facility->location_id,
+                    'location_type' => $facility->location_type
                 ];
             })->toArray()
         ]);

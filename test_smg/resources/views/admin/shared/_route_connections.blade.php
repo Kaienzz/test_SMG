@@ -156,9 +156,14 @@ document.addEventListener('DOMContentLoaded', function() {
     let connectionIndex = 0;
     
     // 接続追加ボタン
-    document.getElementById('add-connection-btn').addEventListener('click', function() {
-        addConnectionForm();
-    });
+    const addConnectionBtn = document.getElementById('add-connection-btn');
+    if (addConnectionBtn) {
+        addConnectionBtn.addEventListener('click', function() {
+            addConnectionForm();
+        });
+    } else {
+        console.log('Add connection button not found - this is normal for create forms');
+    }
     
     // 接続フォーム追加
     function addConnectionForm() {

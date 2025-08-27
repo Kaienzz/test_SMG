@@ -37,16 +37,21 @@ class AdminRoadController extends AdminController
                 'result_count' => $roads->count()
             ]);
 
-            return view('admin.roads.index', compact('roads'));
+            $canManageGameData = $this->hasPermission('locations.edit') || $this->hasPermission('locations.create');
+
+            return view('admin.roads.index', compact('roads', 'canManageGameData'));
 
         } catch (\Exception $e) {
             Log::error('Failed to load roads data', [
                 'error' => $e->getMessage()
             ]);
             
+            $canManageGameData = $this->hasPermission('locations.edit') || $this->hasPermission('locations.create');
+            
             return view('admin.roads.index', [
                 'error' => 'Road データの読み込みに失敗しました: ' . $e->getMessage(),
-                'roads' => collect()
+                'roads' => collect(),
+                'canManageGameData' => $canManageGameData
             ]);
         }
     }
@@ -72,7 +77,9 @@ class AdminRoadController extends AdminController
                 'road_name' => $road->name
             ]);
 
-            return view('admin.roads.show', compact('road'));
+            $canManageGameData = $this->hasPermission('locations.edit') || $this->hasPermission('locations.delete');
+
+            return view('admin.roads.show', compact('road', 'canManageGameData'));
 
         } catch (\Exception $e) {
             Log::error('Failed to load road detail', [
@@ -93,7 +100,9 @@ class AdminRoadController extends AdminController
         $this->initializeForRequest();
         $this->checkPermission('locations.edit');
 
-        return view('admin.roads.create');
+        $canManageGameData = $this->hasPermission('locations.edit') || $this->hasPermission('locations.create');
+        
+        return view('admin.roads.create', compact('canManageGameData'));
     }
 
     /**
@@ -104,19 +113,33 @@ class AdminRoadController extends AdminController
         $this->initializeForRequest();
         $this->checkPermission('locations.edit');
 
-        $validated = $request->validate([
-            'id' => 'required|string|unique:routes,id',
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'length' => 'required|integer|min:1|max:1000',
-            'difficulty' => 'required|in:easy,normal,hard',
-            'encounter_rate' => 'nullable|numeric|between:0,1',
-            'connections' => 'nullable|array',
-            'connections.*.target_location_id' => 'required_with:connections|string|exists:routes,id',
-            'connections.*.connection_type' => 'required_with:connections|in:start,end,bidirectional',
-            'connections.*.position' => 'nullable|integer|min:0',
-            'connections.*.direction' => 'nullable|string|max:255'
+        Log::info('Road creation attempt started', [
+            'user_id' => auth()->id(),
+            'request_data' => $request->all()
         ]);
+
+        try {
+            $validated = $request->validate([
+                'id' => 'required|string|unique:routes,id',
+                'name' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'length' => 'required|integer|min:1|max:1000',
+                'difficulty' => 'required|in:easy,normal,hard',
+                'encounter_rate' => 'nullable|numeric|between:0,1'
+                // 接続関連のバリデーションは新規作成時には不要
+            ]);
+
+            Log::info('Road creation validation passed', [
+                'validated_data' => $validated
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Road creation validation failed', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            throw $e;
+        }
 
         try {
             DB::beginTransaction();
@@ -127,17 +150,17 @@ class AdminRoadController extends AdminController
                 'is_active' => true,
             ]));
 
-            // 接続データの処理
-            if (!empty($validated['connections'])) {
-                $this->createConnections($road->id, $validated['connections']);
-            }
+            // 新規作成時は接続処理をスキップ（編集画面で後から設定可能）
+            Log::info('Road created successfully, connections can be added later via edit', [
+                'road_id' => $road->id
+            ]);
 
             DB::commit();
 
             $this->auditLog('roads.created', [
                 'road_id' => $road->id,
                 'road_name' => $road->name,
-                'connections_count' => count($validated['connections'] ?? [])
+                'connections_count' => 0  // 新規作成時は接続なし
             ]);
 
             return redirect()->route('admin.roads.show', $road->id)
@@ -172,7 +195,9 @@ class AdminRoadController extends AdminController
                                ->with('error', 'Road が見つかりませんでした。');
             }
 
-            return view('admin.roads.edit', compact('road'));
+            $canManageGameData = $this->hasPermission('locations.edit') || $this->hasPermission('locations.delete');
+
+            return view('admin.roads.edit', compact('road', 'canManageGameData'));
 
         } catch (\Exception $e) {
             Log::error('Failed to load road for edit', [
@@ -193,44 +218,70 @@ class AdminRoadController extends AdminController
         $this->initializeForRequest();
         $this->checkPermission('locations.edit');
 
+        Log::info('Road update attempt started', [
+            'user_id' => auth()->id(),
+            'road_id' => $id,
+            'request_data' => $request->all()
+        ]);
+
         try {
             $road = Route::roads()->where('id', $id)->first();
 
             if (!$road) {
+                Log::warning('Road not found for update', ['road_id' => $id]);
                 return redirect()->route('admin.roads.index')
                                ->with('error', 'Road が見つかりませんでした。');
             }
 
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'length' => 'required|integer|min:1|max:1000',
-                'difficulty' => 'required|in:easy,normal,hard',
-                'encounter_rate' => 'nullable|numeric|between:0,1',
-                'is_active' => 'boolean',
-                'connections' => 'nullable|array',
-                'connections.*.target_location_id' => 'required_with:connections|string|exists:routes,id',
-                'connections.*.connection_type' => 'required_with:connections|in:start,end,bidirectional',
-                'connections.*.position' => 'nullable|integer|min:0',
-                'connections.*.direction' => 'nullable|string|max:255'
-            ]);
+            try {
+                $validated = $request->validate([
+                    'name' => 'required|string|max:255',
+                    'description' => 'nullable|string',
+                    'length' => 'required|integer|min:1|max:1000',
+                    'difficulty' => 'required|in:easy,normal,hard',
+                    'encounter_rate' => 'nullable|numeric|between:0,1',
+                    'is_active' => 'sometimes|in:0,1'  // checkboxで送信される値に対応
+                    // 接続関連のバリデーションは編集時には複雑すぎるため簡素化
+                ]);
+                
+                // is_activeをbooleanに変換
+                if (isset($validated['is_active'])) {
+                    $validated['is_active'] = (bool) $validated['is_active'];
+                } else {
+                    $validated['is_active'] = false;  // チェックボックス未選択時
+                }
+
+                Log::info('Road update validation passed', [
+                    'road_id' => $id,
+                    'validated_data' => $validated
+                ]);
+
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                Log::error('Road update validation failed', [
+                    'road_id' => $id,
+                    'errors' => $e->errors(),
+                    'request_data' => $request->all()
+                ]);
+                throw $e;
+            }
 
             DB::beginTransaction();
             
             $road->update($validated);
 
-            // 接続データの処理（新規作成のみ - 既存は個別に管理）
-            if (!empty($validated['connections'])) {
-                $this->createConnections($road->id, $validated['connections']);
-            }
+            // 接続データは編集画面の別セクションで管理（基本情報更新時はスキップ）
+            Log::info('Road basic data updated successfully', [
+                'road_id' => $road->id,
+                'road_name' => $road->name,
+                'changes' => $road->getChanges()
+            ]);
 
             DB::commit();
 
             $this->auditLog('roads.updated', [
                 'road_id' => $road->id,
                 'road_name' => $road->name,
-                'changes' => $road->getChanges(),
-                'new_connections_count' => count($validated['connections'] ?? [])
+                'changes' => $road->getChanges()
             ]);
 
             return redirect()->route('admin.roads.show', $road->id)

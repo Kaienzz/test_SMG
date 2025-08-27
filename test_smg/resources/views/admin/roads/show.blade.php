@@ -18,15 +18,15 @@
     </nav>
 
     <!-- アクションバー -->
-    <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
         <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">{{ $road->name }}</h2>
         <div style="display: flex; gap: 1rem;">
-            @if(auth()->user()->can('locations.edit'))
+            @if($canManageGameData ?? true)
             <a href="{{ route('admin.roads.edit', $road->id) }}" class="admin-btn admin-btn-warning">
                 <i class="fas fa-edit"></i> 編集
             </a>
             @endif
-            @if(auth()->user()->can('locations.delete'))
+            @if($canManageGameData ?? true)
             <form method="POST" action="{{ route('admin.roads.destroy', $road->id) }}" 
                   style="display: inline;" 
                   onsubmit="return confirm('このRoadを削除してもよろしいですか？関連するデータも失われる可能性があります。')">

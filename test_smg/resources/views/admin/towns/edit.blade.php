@@ -67,9 +67,9 @@
                                 $currentServices = old('services', $town->services ?? []);
                             @endphp
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="services[]" value="shop" id="service_shop"
-                                       {{ in_array('shop', $currentServices) ? 'checked' : '' }}>
-                                <label class="form-check-label" for="service_shop">ショップ</label>
+                                <input class="form-check-input" type="checkbox" name="services[]" value="general_store" id="service_general_store"
+                                       {{ in_array('general_store', $currentServices) ? 'checked' : '' }}>
+                                <label class="form-check-label" for="service_general_store">雑貨屋</label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="services[]" value="inn" id="service_inn"

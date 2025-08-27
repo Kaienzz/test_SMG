@@ -464,7 +464,7 @@ class UIManager {
         console.log('Updating town menu for:', currentLocation);
         
         // 施設データを取得してメニューを更新
-        fetch(`/api/location/shops?location_id=${currentLocation.id}&location_type=town`, {
+        fetch(`/api/location/facilities?location_id=${currentLocation.id}&location_type=town`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -473,62 +473,62 @@ class UIManager {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Town shops data:', data);
-            this.renderTownMenu(data.shops);
+            console.log('Town facilities data:', data);
+            this.renderTownMenu(data.facilities);
         })
         .catch(error => {
-            console.error('Failed to fetch town shops:', error);
+            console.error('Failed to fetch town facilities:', error);
             // フォールバック: デフォルトの施設メニューを表示
             this.showDefaultTownMenu();
         });
     }
 
-    renderTownMenu(shops) {
-        const shopMenu = document.querySelector('.shop-menu');
-        if (!shopMenu) {
-            // shop-menuが存在しない場合は作成
+    renderTownMenu(facilities) {
+        const facilityMenu = document.querySelector('.facility-menu');
+        if (!facilityMenu) {
+            // facility-menuが存在しない場合は作成
             this.createTownMenuContainer();
         }
         
-        const shopMenuElement = document.querySelector('.shop-menu');
-        if (shopMenuElement) {
+        const facilityMenuElement = document.querySelector('.facility-menu');
+        if (facilityMenuElement) {
             let menuHTML = '<h3>町の施設</h3>';
             
-            if (shops && shops.length > 0) {
-                shops.forEach(shop => {
-                    const routeName = this.getShopRouteName(shop.shop_type);
+            if (facilities && facilities.length > 0) {
+                facilities.forEach(facility => {
+                    const routeName = this.getFacilityRouteName(facility.facility_type);
                     if (routeName) {
                         menuHTML += `
-                            <a href="${routeName}" class="btn btn-primary" title="${shop.description || this.getShopDescription(shop.shop_type)}" style="margin: 5px;">
-                                <span class="shop-icon">${this.getShopIcon(shop.shop_type)}</span>
-                                ${shop.name}
+                            <a href="${routeName}" class="btn btn-primary" title="${facility.description || this.getFacilityDescription(facility.facility_type)}" style="margin: 5px;">
+                                <span class="facility-icon">${this.getFacilityIcon(facility.facility_type)}</span>
+                                ${facility.name}
                             </a>
                         `;
                     }
                 });
             } else {
                 // フォールバック: 基本的な施設を表示
-                menuHTML += this.getDefaultShopsHTML();
+                menuHTML += this.getDefaultFacilitiesHTML();
             }
             
-            shopMenuElement.innerHTML = menuHTML;
-            shopMenuElement.style.display = 'block';
+            facilityMenuElement.innerHTML = menuHTML;
+            facilityMenuElement.style.display = 'block';
         }
     }
 
     createTownMenuContainer() {
         const locationInfo = document.querySelector('.location-info');
         if (locationInfo) {
-            const shopMenu = document.createElement('div');
-            shopMenu.className = 'shop-menu';
-            shopMenu.style.cssText = 'background-color: #e0f7fa; border: 2px solid #00acc1; border-radius: 8px; padding: 15px; margin-bottom: 15px;';
+            const facilityMenu = document.createElement('div');
+            facilityMenu.className = 'facility-menu';
+            facilityMenu.style.cssText = 'background-color: #e0f7fa; border: 2px solid #00acc1; border-radius: 8px; padding: 15px; margin-bottom: 15px;';
             
             // プログレスバーの前に挿入
             const progressBar = locationInfo.querySelector('.progress-bar');
             if (progressBar) {
-                locationInfo.insertBefore(shopMenu, progressBar);
+                locationInfo.insertBefore(facilityMenu, progressBar);
             } else {
-                locationInfo.appendChild(shopMenu);
+                locationInfo.appendChild(facilityMenu);
             }
         }
     }
@@ -582,12 +582,12 @@ class UIManager {
                 progressBar.appendChild(progressFill);
                 progressBar.appendChild(progressText);
                 
-                // shop-menuの後、次の場所ボタンの前に挿入
-                const shopMenu = locationInfo.querySelector('.shop-menu');
+                // facility-menuの後、次の場所ボタンの前に挿入
+                const facilityMenu = locationInfo.querySelector('.facility-menu');
                 const nextLocationInfo = locationInfo.querySelector('#next-location-info');
                 
-                if (shopMenu && shopMenu.nextSibling) {
-                    locationInfo.insertBefore(progressBar, shopMenu.nextSibling);
+                if (facilityMenu && facilityMenu.nextSibling) {
+                    locationInfo.insertBefore(progressBar, facilityMenu.nextSibling);
                 } else if (nextLocationInfo) {
                     locationInfo.insertBefore(progressBar, nextLocationInfo);
                 } else {
@@ -597,41 +597,53 @@ class UIManager {
         }
     }
 
-    getShopRouteName(shopType) {
-        switch(shopType) {
-            case 'item_shop': return '/shops/item';
-            case 'blacksmith': return '/shops/blacksmith';
-            case 'tavern': return '/shops/tavern';
+    getFacilityRouteName(facilityType) {
+        switch(facilityType) {
+            case 'item_shop': return '/facilities/item';
+            case 'general_store': return '/facilities/item';
+            case 'blacksmith': return '/facilities/blacksmith';
+            case 'tavern': return '/facilities/tavern';
+            case 'alchemy_shop': return '/facilities/alchemy';
+            case 'inn': return '/facilities/inn';
+            case 'bank': return '/facilities/bank';
             default: return null;
         }
     }
 
-    getShopIcon(shopType) {
-        switch(shopType) {
-            case 'item_shop': return '🏪';
+    getFacilityIcon(facilityType) {
+        switch(facilityType) {
+            case 'item_shop':
+            case 'general_store': return '🏪';
             case 'blacksmith': return '⚒️';
             case 'tavern': return '🍺';
+            case 'alchemy_shop': return '⚗️';
+            case 'inn': return '🛏️';
+            case 'bank': return '🏦';
             default: return '🏬';
         }
     }
 
-    getShopDescription(shopType) {
-        switch(shopType) {
-            case 'item_shop': return '道具屋';
+    getFacilityDescription(facilityType) {
+        switch(facilityType) {
+            case 'item_shop':
+            case 'general_store': return '道具屋';
             case 'blacksmith': return '鍛冶屋';
             case 'tavern': return 'HP、MP、SPを回復できます。';
-            default: return '店舗';
+            case 'alchemy_shop': return '錬金屋';
+            case 'inn': return '宿屋';
+            case 'bank': return '銀行';
+            default: return '施設';
         }
     }
 
-    getDefaultShopsHTML() {
+    getDefaultFacilitiesHTML() {
         return `
-            <a href="/shops/item" class="btn btn-primary" title="道具屋" style="margin: 5px;">
-                <span class="shop-icon">🏪</span>
+            <a href="/facilities/item" class="btn btn-primary" title="道具屋" style="margin: 5px;">
+                <span class="facility-icon">🏪</span>
                 道具屋
             </a>
-            <a href="/shops/blacksmith" class="btn btn-primary" title="鍛冶屋" style="margin: 5px;">
-                <span class="shop-icon">⚒️</span>
+            <a href="/facilities/blacksmith" class="btn btn-primary" title="鍛冶屋" style="margin: 5px;">
+                <span class="facility-icon">⚒️</span>
                 鍛冶屋
             </a>
         `;
@@ -639,25 +651,25 @@ class UIManager {
 
     showTownMenu() {
         // 既存のメニューを表示（後方互換性のため残す）
-        const shopMenu = document.querySelector('.shop-menu');
-        if (shopMenu) {
-            shopMenu.style.display = 'block';
+        const facilityMenu = document.querySelector('.facility-menu');
+        if (facilityMenu) {
+            facilityMenu.style.display = 'block';
         }
     }
 
     showDefaultTownMenu() {
         // エラー時のフォールバック
-        const shopMenu = document.querySelector('.shop-menu');
-        if (shopMenu) {
-            shopMenu.innerHTML = '<h3>町の施設</h3>' + this.getDefaultShopsHTML();
-            shopMenu.style.display = 'block';
+        const facilityMenu = document.querySelector('.facility-menu');
+        if (facilityMenu) {
+            facilityMenu.innerHTML = '<h3>町の施設</h3>' + this.getDefaultFacilitiesHTML();
+            facilityMenu.style.display = 'block';
         }
     }
 
     hideTownMenu() {
-        const shopMenu = document.querySelector('.shop-menu');
-        if (shopMenu) {
-            shopMenu.style.display = 'none';
+        const facilityMenu = document.querySelector('.facility-menu');
+        if (facilityMenu) {
+            facilityMenu.style.display = 'none';
         }
         // 移動メニューは next_location_button.blade.php で処理
     }

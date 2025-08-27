@@ -5,7 +5,8 @@
 
 **プロジェクト名**: test_smg (Simple Management Game)  
 **作成日**: 2025年7月25日  
-**版数**: Version 1.0  
+**最終更新**: 2025年8月27日  
+**版数**: Version 2.0  
 **対象**: 開発チーム、DBA、保守担当者  
 
 ---
@@ -30,17 +31,25 @@ test_smgのデータベース設計は、以下の設計原則に基づいて構
 │                     User Management                      │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐  │
 │  │    users    │  │ password_    │  │    sessions     │  │
-│  │    (認証)   │  │ reset_tokens │  │   (セッション)  │  │
-│  └─────────────┘  └──────────────┘  └─────────────────┘  │
+│  │   (認証+管理) │  │ reset_tokens │  │   (セッション)  │  │
+│  │  ┌─────────┐│  └──────────────┘  └─────────────────┘  │
+│  │  │admin_*  ││                                          │
+│  │  │tables   ││                                          │
+│  │  └─────────┘│                                          │
+│  └─────────────┘                                          │
 └─────────────────────────────────────────────────────────┘
                               │ 1:1
                               ▼
 ┌─────────────────────────────────────────────────────────┐
-│                   Character System                      │
+│                 Character/Player System                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
-│  │ characters  │  │   skills    │  │ active_effects  │  │
-│  │  (中心エンティティ)│  │   (1:多)  │  │   (一時効果)    │  │
-│  └─────────────┘  └─────────────┘  └─────────────────┘  │
+│  │   players   │  │   skills    │  │ active_effects  │  │
+│  │(統合エンティティ)│  │   (1:多)  │  │   (一時効果)    │  │
+│  │ ┌─────────┐ │  └─────────────┘  └─────────────────┘  │
+│  │ │character│ │          │               │             │
+│  │ │ (legacy)│ │          │               │             │
+│  │ └─────────┘ │          │               │             │
+│  └─────────────┘          │               │             │
 └─────────────────────────────────────────────────────────┘
            │ 1:1              │ 1:1              │ 1:多
            ▼                  ▼                  ▼
@@ -48,7 +57,24 @@ test_smgのデータベース設計は、以下の設計原則に基づいて構
 │               Item & Equipment System                   │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
 │  │inventories  │  │ equipment   │  │     items       │  │
-│  │  (JSON管理)  │  │  (装備状態)  │  │  (マスターデータ)  │  │
+│  │  (JSON管理)  │  │  (装備状態)  │  │  (旧マスター)    │  │
+│  └─────────────┘  └─────────────┘  ├─────────────────┤  │
+│  ┌─────────────┐  ┌─────────────┐  │ standard_items  │  │
+│  │custom_items │  │alchemy_     │  │  (新マスター)    │  │
+│  │ (錬金品)    │  │ materials   │  └─────────────────┘  │
+│  └─────────────┘  └─────────────┘                      │
+└─────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────┐
+│                 World & Location System                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │    routes   │  │route_       │  │gathering_       │  │
+│  │ (場所/経路)  │  │connections  │  │mappings         │  │
+│  └─────────────┘  └─────────────┘  └─────────────────┘  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │dungeons_desc│  │town_        │  │   monsters      │  │
+│  │ (ダンジョン)  │  │facilities   │  │ (モンスター)     │  │
 │  └─────────────┘  └─────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────┘
                               │
@@ -56,18 +82,13 @@ test_smgのデータベース設計は、以下の設計原則に基づいて構
 ┌─────────────────────────────────────────────────────────┐
 │                   Battle System                         │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
-│  │active_battles│  │battle_logs  │  │  [monsters]     │  │
-│  │ (進行中戦闘) │  │  (戦闘履歴)  │  │  (将来拡張)     │  │
+│  │active_battles│  │battle_logs  │  │monster_spawns   │  │
+│  │ (進行中戦闘) │  │  (戦闘履歴)  │  │ (出現設定)      │  │
 │  └─────────────┘  └─────────────┘  └─────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────┐
-│                     Shop System                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
-│  │    shops    │  │ shop_items  │  │    [経済]       │  │
-│  │  (ショップ)  │  │  (商品管理)  │  │  (将来拡張)     │  │
-│  └─────────────┘  └─────────────┘  └─────────────────┘  │
+│  ┌─────────────┐  ┌─────────────┐                      │
+│  │monster_spawn│  │ spawn_lists │                      │
+│  │_lists       │  │ (出現リスト) │                      │
+│  └─────────────┘  └─────────────┘                      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -78,7 +99,7 @@ test_smgのデータベース設計は、以下の設計原則に基づいて構
 ### 2.1 ユーザー管理系テーブル
 
 #### users テーブル
-**責務**: ユーザー認証・セッション管理・デバイス情報管理
+**責務**: ユーザー認証・セッション管理・デバイス情報管理・管理者システム
 
 ```sql
 CREATE TABLE users (
@@ -95,21 +116,415 @@ CREATE TABLE users (
     last_ip_address VARCHAR(255) NULL COMMENT '最終アクセスIPアドレス',
     session_data JSON NULL COMMENT 'セッション同期データ',
     
+    -- 管理者システム (2025年8月追加)
+    is_admin BOOLEAN DEFAULT FALSE COMMENT '管理者フラグ',
+    admin_activated_at TIMESTAMP NULL COMMENT '管理者権限有効化日時',
+    admin_last_login_at TIMESTAMP NULL COMMENT '管理者最終ログイン日時',
+    admin_role_id BIGINT UNSIGNED NULL COMMENT '管理者ロールID',
+    admin_permissions JSON NULL COMMENT '管理者権限設定',
+    admin_level VARCHAR(255) DEFAULT 'basic' COMMENT '管理者レベル',
+    admin_requires_2fa BOOLEAN DEFAULT FALSE COMMENT '2要素認証必須フラグ',
+    admin_ip_whitelist JSON NULL COMMENT 'IP制限設定',
+    admin_permissions_updated_at TIMESTAMP NULL COMMENT '権限最終更新日時',
+    admin_created_by BIGINT UNSIGNED NULL COMMENT '管理者権限付与者ID',
+    admin_notes TEXT NULL COMMENT '管理者メモ',
+    
     created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     INDEX idx_email (email),
-    INDEX idx_last_active (last_active_at)
+    INDEX idx_last_active (last_active_at),
+    INDEX idx_active_admins (is_admin, admin_activated_at),
+    INDEX idx_admin_role (admin_role_id),
+    INDEX idx_admin_level (admin_level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='ユーザー認証・セッション管理テーブル';
+COMMENT='ユーザー認証・セッション管理・管理者システムテーブル';
 ```
 
 **重要な設計決定**:
 - `session_data`: マルチデバイス同期のためのJSON データ
-- `last_device_type`, `last_ip_address`: セキュリティ監視・デバイス切り替え検出
-- Laravel Breeze標準に準拠した認証カラム構成
+- `admin_*`: 包括的な管理者権限管理システム
+- 段階的な管理者レベル：basic/advanced/super
+- IP制限・2FA対応のセキュリティ機能
 
-### 2.2 キャラクター管理系テーブル
+#### 管理者システム関連テーブル (2025年8月追加)
+
+##### admin_roles テーブル
+**責務**: 管理者ロール・権限テンプレート管理
+
+```sql
+CREATE TABLE admin_roles (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE COMMENT 'ロール名',
+    description TEXT NULL COMMENT 'ロール説明',
+    permissions JSON NOT NULL COMMENT '権限設定',
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'ロール有効状態',
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='管理者ロール定義テーブル';
+```
+
+##### admin_permissions テーブル
+**責務**: 細かな権限設定管理
+
+```sql
+CREATE TABLE admin_permissions (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE COMMENT '権限名',
+    description TEXT NULL COMMENT '権限説明',
+    category VARCHAR(255) NOT NULL COMMENT '権限カテゴリ',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '権限有効状態',
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='管理者権限マスターテーブル';
+```
+
+##### admin_audit_logs テーブル
+**責務**: 管理者操作ログ・監査証跡管理
+
+```sql
+CREATE TABLE admin_audit_logs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    admin_user_id BIGINT UNSIGNED NOT NULL COMMENT '操作者管理者ID',
+    action_type VARCHAR(255) NOT NULL COMMENT '操作種別',
+    target_type VARCHAR(255) NULL COMMENT '操作対象種別',
+    target_id VARCHAR(255) NULL COMMENT '操作対象ID',
+    old_values JSON NULL COMMENT '変更前データ',
+    new_values JSON NULL COMMENT '変更後データ',
+    ip_address VARCHAR(255) NULL COMMENT '操作元IPアドレス',
+    user_agent TEXT NULL COMMENT 'ブラウザ情報',
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_admin_action (admin_user_id, action_type),
+    INDEX idx_target (target_type, target_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='管理者操作監査ログテーブル';
+```
+
+### 2.2 ワールド・場所システム (2025年8月大幅拡張)
+
+#### routes テーブル (旧locations)
+**責務**: ゲーム内場所・経路・ダンジョン情報管理
+
+```sql
+CREATE TABLE routes (
+    id VARCHAR(255) NOT NULL PRIMARY KEY COMMENT '場所ID',
+    name VARCHAR(255) NOT NULL COMMENT '場所名',
+    description TEXT NULL COMMENT '場所説明',
+    category VARCHAR(255) NOT NULL COMMENT '場所カテゴリ',
+    
+    -- 経路・移動関連
+    length INT NULL COMMENT '経路長（移動に必要なターン数）',
+    difficulty VARCHAR(255) NULL COMMENT '難易度',
+    encounter_rate DECIMAL(3,2) NULL COMMENT 'エンカウント率（0.00-1.00）',
+    
+    -- ダンジョン関連
+    type VARCHAR(255) NULL COMMENT '場所タイプ',
+    floors INT NULL COMMENT '階層数',
+    min_level INT NULL COMMENT '推奨最小レベル',
+    max_level INT NULL COMMENT '推奨最大レベル',
+    boss VARCHAR(255) NULL COMMENT 'ボスモンスター',
+    
+    -- 町・拠点関連
+    services JSON NULL COMMENT '利用可能サービス',
+    special_actions JSON NULL COMMENT '特殊アクション',
+    branches JSON NULL COMMENT '分岐情報',
+    
+    -- モンスター・採集関連
+    spawn_list_id VARCHAR(255) NULL COMMENT 'モンスター出現リストID',
+    spawn_tags JSON NULL COMMENT '出現タグ',
+    spawn_description TEXT NULL COMMENT '出現説明',
+    
+    -- ダンジョン関連外部キー
+    dungeon_id VARCHAR(255) NULL COMMENT 'ダンジョンID',
+    
+    is_active BOOLEAN DEFAULT TRUE COMMENT '場所有効状態',
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (dungeon_id) REFERENCES dungeons_desc(dungeon_id) ON DELETE SET NULL,
+    INDEX idx_category (category),
+    INDEX idx_difficulty (difficulty),
+    INDEX idx_is_active (is_active),
+    INDEX idx_spawn_list_id (spawn_list_id),
+    INDEX idx_dungeon_id (dungeon_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='ゲーム内場所・経路・ダンジョン管理テーブル';
+```
+
+**場所カテゴリ体系**:
+```php
+const ROUTE_CATEGORIES = [
+    'town' => '町・拠点',
+    'road' => '道路・経路',
+    'dungeon' => 'ダンジョン',
+    'forest' => '森林',
+    'mountain' => '山地',
+    'cave' => '洞窟',
+    'ruins' => '遺跡',
+    'special' => '特殊場所'
+];
+```
+
+#### route_connections テーブル
+**責務**: 場所間の接続・移動経路管理
+
+```sql
+CREATE TABLE route_connections (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_location_id VARCHAR(255) NOT NULL COMMENT '出発場所ID',
+    target_location_id VARCHAR(255) NOT NULL COMMENT '到着場所ID',
+    connection_type VARCHAR(255) NOT NULL COMMENT '接続種別',
+    position INT NULL COMMENT '接続位置',
+    direction VARCHAR(255) NULL COMMENT '方向',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (source_location_id) REFERENCES routes(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_location_id) REFERENCES routes(id) ON DELETE CASCADE,
+    INDEX idx_source_location (source_location_id),
+    INDEX idx_target_location (target_location_id),
+    INDEX idx_connection_type (connection_type),
+    INDEX idx_direction (direction)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='場所間接続・経路管理テーブル';
+```
+
+#### dungeons_desc テーブル
+**責務**: ダンジョン詳細情報管理
+
+```sql
+CREATE TABLE dungeons_desc (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    dungeon_id VARCHAR(255) NOT NULL UNIQUE COMMENT 'ダンジョンID',
+    dungeon_name VARCHAR(255) NOT NULL COMMENT 'ダンジョン名',
+    dungeon_desc TEXT NULL COMMENT 'ダンジョン説明',
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'ダンジョン有効状態',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_dungeon_id (dungeon_id),
+    INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='ダンジョン詳細情報テーブル';
+```
+
+#### town_facilities テーブル (新ショップシステム)
+**責務**: 町の施設・ショップ管理
+
+```sql
+CREATE TABLE town_facilities (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL COMMENT '施設名',
+    facility_type VARCHAR(255) NOT NULL COMMENT '施設種別',
+    location_id VARCHAR(255) NOT NULL COMMENT '所在場所ID',
+    location_type VARCHAR(255) NOT NULL COMMENT '場所種別',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '施設営業状態',
+    description TEXT NULL COMMENT '施設説明',
+    facility_config JSON NULL COMMENT '施設固有設定',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    UNIQUE KEY unique_location_facility (location_id, location_type, facility_type),
+    INDEX idx_facility_type (facility_type),
+    INDEX idx_location (location_id, location_type),
+    INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='町施設・ショップ管理テーブル';
+```
+
+**施設種別**:
+```php
+const FACILITY_TYPES = [
+    'ITEM_SHOP' => 'アイテムショップ',
+    'BLACKSMITH' => '鍛冶屋',
+    'TAVERN' => '酒場',
+    'ALCHEMY_SHOP' => '錬金屋',
+    'MAGIC_SHOP' => '魔法ショップ',
+    'GUILD_HALL' => 'ギルドホール',
+    'BANK' => '銀行',
+    'WAREHOUSE' => '倉庫'
+];
+```
+
+#### facility_items テーブル (旧shop_items)
+**責務**: 施設商品・在庫管理
+
+```sql
+CREATE TABLE facility_items (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    facility_id BIGINT UNSIGNED NOT NULL COMMENT '所属施設ID',
+    item_id BIGINT UNSIGNED NOT NULL COMMENT '販売アイテムID',
+    
+    -- 価格・在庫
+    price INT NOT NULL COMMENT '販売価格',
+    stock INT DEFAULT -1 COMMENT '在庫数（-1=無限在庫）',
+    is_available BOOLEAN DEFAULT TRUE COMMENT '販売可能状態',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (facility_id) REFERENCES town_facilities(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_facility_item (facility_id, item_id),
+    INDEX idx_facility_available (facility_id, is_available),
+    INDEX idx_item (item_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='施設商品管理テーブル';
+```
+
+#### gathering_mappings テーブル (採集システム)
+**責務**: 場所別採集可能アイテム・成功率管理
+
+```sql
+CREATE TABLE gathering_mappings (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    route_id VARCHAR(255) NOT NULL COMMENT '採集場所ID',
+    item_id BIGINT UNSIGNED NOT NULL COMMENT '採集アイテムID',
+    
+    -- 採集設定
+    required_skill_level INT DEFAULT 1 COMMENT '必要スキルレベル',
+    success_rate INT NOT NULL COMMENT '基本成功率（%）',
+    quantity_min INT DEFAULT 1 COMMENT '最小採集数',
+    quantity_max INT DEFAULT 1 COMMENT '最大採集数',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '採集可能状態',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (route_id) REFERENCES routes(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_route_item (route_id, item_id),
+    INDEX idx_route_id (route_id),
+    INDEX idx_item_id (item_id),
+    INDEX idx_skill_level (required_skill_level),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='場所別採集アイテム管理テーブル';
+```
+
+### 2.3 モンスター・戦闘システム (2025年8月実装)
+
+#### monsters テーブル
+**責務**: モンスター基本情報・ステータス管理
+
+```sql
+CREATE TABLE monsters (
+    id VARCHAR(255) NOT NULL PRIMARY KEY COMMENT 'モンスターID',
+    name VARCHAR(255) NOT NULL COMMENT 'モンスター名',
+    level INT NOT NULL COMMENT 'モンスターレベル',
+    
+    -- ステータス
+    hp INT NOT NULL COMMENT '最大HP',
+    max_hp INT NOT NULL COMMENT '最大HP（冗長だが明示的に）',
+    attack INT NOT NULL COMMENT '攻撃力',
+    defense INT NOT NULL COMMENT '防御力',
+    agility INT NOT NULL COMMENT '素早さ',
+    evasion INT NOT NULL COMMENT '回避力',
+    accuracy INT NOT NULL COMMENT '命中力',
+    
+    -- 報酬・外見
+    experience_reward INT NOT NULL COMMENT '撃破時経験値',
+    emoji VARCHAR(10) NULL COMMENT 'モンスター絵文字',
+    description TEXT NULL COMMENT 'モンスター説明',
+    
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'モンスター有効状態',
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_level (level),
+    INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='モンスター基本情報テーブル';
+```
+
+#### spawn_lists テーブル
+**責務**: モンスター出現リスト・グループ管理
+
+```sql
+CREATE TABLE spawn_lists (
+    id VARCHAR(255) NOT NULL PRIMARY KEY COMMENT '出現リストID',
+    name VARCHAR(255) NOT NULL COMMENT '出現リスト名',
+    description TEXT NULL COMMENT '出現リスト説明',
+    is_active BOOLEAN DEFAULT TRUE COMMENT 'リスト有効状態',
+    tags JSON NULL COMMENT '出現タグ（検索・分類用）',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='モンスター出現リスト管理テーブル';
+```
+
+#### monster_spawns テーブル
+**責務**: 出現リスト内のモンスター・確率設定
+
+```sql
+CREATE TABLE monster_spawns (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    spawn_list_id VARCHAR(255) NOT NULL COMMENT '所属出現リストID',
+    monster_id VARCHAR(255) NOT NULL COMMENT 'モンスターID',
+    
+    -- 出現設定
+    spawn_rate DECIMAL(5,2) NOT NULL COMMENT '出現確率（%）',
+    priority INT DEFAULT 0 COMMENT '出現優先度',
+    min_level INT NULL COMMENT '出現最小レベル',
+    max_level INT NULL COMMENT '出現最大レベル',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '出現有効状態',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (spawn_list_id) REFERENCES spawn_lists(id) ON DELETE CASCADE,
+    FOREIGN KEY (monster_id) REFERENCES monsters(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_spawn_monster (spawn_list_id, monster_id),
+    INDEX idx_spawn_list_id (spawn_list_id),
+    INDEX idx_monster_id (monster_id),
+    INDEX idx_is_active (is_active),
+    INDEX idx_priority (priority)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='出現リスト内モンスター設定テーブル';
+```
+
+#### monster_spawn_lists テーブル
+**責務**: 場所別モンスター出現設定管理
+
+```sql
+CREATE TABLE monster_spawn_lists (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    location_id VARCHAR(255) NOT NULL COMMENT '場所ID',
+    monster_id VARCHAR(255) NOT NULL COMMENT 'モンスターID',
+    
+    -- 出現設定
+    spawn_rate DECIMAL(5,2) NOT NULL COMMENT '出現確率（%）',
+    priority INT DEFAULT 0 COMMENT '出現優先度',
+    min_level INT NULL COMMENT '出現最小レベル',
+    max_level INT NULL COMMENT '出現最大レベル',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '出現有効状態',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (location_id) REFERENCES routes(id) ON DELETE CASCADE,
+    FOREIGN KEY (monster_id) REFERENCES monsters(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_location_monster (location_id, monster_id),
+    INDEX idx_location_id (location_id),
+    INDEX idx_monster_id (monster_id),
+    INDEX idx_is_active (is_active),
+    INDEX idx_priority (priority)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='場所別モンスター出現設定テーブル';
+```
+
+### 2.4 キャラクター管理系テーブル
 
 #### characters テーブル  
 **責務**: ゲーム内キャラクター情報・ステータス・位置情報管理
@@ -236,10 +651,10 @@ CREATE TABLE active_effects (
 COMMENT='アクティブ効果（バフ・デバフ）管理テーブル';
 ```
 
-### 2.3 アイテム・装備系テーブル
+### 2.5 アイテム・装備系テーブル
 
-#### items テーブル
-**責務**: ゲーム内アイテムマスターデータ管理
+#### items テーブル (レガシー)
+**責務**: 従来のアイテムマスターデータ管理（後方互換性維持）
 
 ```sql
 CREATE TABLE items (
@@ -255,8 +670,7 @@ CREATE TABLE items (
     max_durability INT NULL COMMENT '最大耐久度（装備品用）',
     effects JSON NULL COMMENT 'アイテム効果詳細(JSON)',
     
-    -- レアリティ・価値
-    rarity INT DEFAULT 1 COMMENT 'レアリティ(1-6)',
+    -- 価値
     value INT DEFAULT 0 COMMENT '基本価値',
     sell_price INT NULL COMMENT '売却価格',
     
@@ -270,40 +684,63 @@ CREATE TABLE items (
     -- インデックス
     INDEX idx_category (category),
     INDEX idx_name (name),
-    INDEX idx_rarity (rarity),
     FULLTEXT idx_name_description (name, description)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='アイテムマスターデータテーブル';
+COMMENT='アイテムマスターデータテーブル（レガシー）';
 ```
 
-**アイテムカテゴリ体系**:
-```php
-// ItemCategory Enum
-const CATEGORIES = [
-    'weapon' => '武器',
-    'body_equipment' => '体防具', 
-    'head_equipment' => '頭防具',
-    'foot_equipment' => '足防具',
-    'shield' => '盾',
-    'accessory' => 'アクセサリー',
-    'potion' => 'ポーション',
-    'material' => '素材',
-    'tool' => '道具',
-    'key_item' => '重要アイテム'
-];
+#### standard_items テーブル (新標準システム)
+**責務**: 新しい標準アイテムシステム・拡張アイテム管理
+
+```sql
+CREATE TABLE standard_items (
+    id VARCHAR(255) NOT NULL PRIMARY KEY COMMENT '標準アイテムID',
+    name VARCHAR(255) NOT NULL COMMENT 'アイテム名',
+    description TEXT NULL COMMENT 'アイテム説明',
+    category VARCHAR(255) NOT NULL COMMENT 'アイテムカテゴリ',
+    category_name VARCHAR(255) NOT NULL COMMENT 'カテゴリ表示名',
+    
+    -- アイテム効果・特性
+    effects JSON NOT NULL COMMENT 'アイテム効果詳細(JSON)',
+    value INT NOT NULL COMMENT '基本価値',
+    sell_price INT NULL COMMENT '売却価格',
+    stack_limit INT DEFAULT 1 COMMENT 'スタック上限',
+    max_durability INT NULL COMMENT '最大耐久度',
+    
+    -- 装備・使用可能性
+    is_equippable BOOLEAN DEFAULT FALSE COMMENT '装備可能フラグ',
+    is_usable BOOLEAN DEFAULT FALSE COMMENT '使用可能フラグ',
+    weapon_type VARCHAR(255) NULL COMMENT '武器種別',
+    is_standard BOOLEAN DEFAULT TRUE COMMENT '標準アイテムフラグ',
+    
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_category (category),
+    INDEX idx_is_equippable (is_equippable),
+    INDEX idx_is_usable (is_usable),
+    INDEX idx_weapon_type (weapon_type),
+    INDEX idx_is_standard (is_standard)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='標準アイテムマスターデータテーブル';
 ```
 
-**レアリティシステム**:
-```php
-// 1-6段階のレアリティ
-const RARITY = [
-    1 => ['name' => 'コモン', 'color' => '#9ca3af'],
-    2 => ['name' => 'アンコモン', 'color' => '#22c55e'],
-    3 => ['name' => 'レア', 'color' => '#3b82f6'],
-    4 => ['name' => 'スーパーレア', 'color' => '#a855f7'],
-    5 => ['name' => 'ウルトラレア', 'color' => '#f59e0b'], 
-    6 => ['name' => 'レジェンダリー', 'color' => '#ef4444']
-];
+**標準アイテム効果JSON例**:
+```json
+{
+  "stat_bonus": {
+    "attack": 15,
+    "defense": 8,
+    "accuracy": 5
+  },
+  "special_effects": [
+    {"type": "fire_damage", "value": 3}
+  ],
+  "usage_effects": {
+    "heal_hp": 50,
+    "heal_mp": 20
+  }
+}
 ```
 
 #### inventories テーブル
@@ -530,7 +967,7 @@ COMMENT='ショップ商品管理テーブル';
 
 ### 2.6 錬金システム系テーブル
 
-#### custom_items テーブル
+#### custom_items テーブル (錬金システム)
 **責務**: プレイヤーが錬金で作成したカスタムアイテム管理
 
 ```sql
@@ -544,9 +981,8 @@ CREATE TABLE custom_items (
     base_stats JSON NOT NULL COMMENT 'ベースアイテムの元ステータス', 
     material_bonuses JSON NOT NULL COMMENT '素材による効果ボーナス',
     
-    -- 耐久度管理
+    -- 耐久度管理 (2025年8月25日にdurabilityカラム削除)
     base_durability INT NOT NULL COMMENT 'ベースアイテムの現在耐久度',
-    durability INT NOT NULL COMMENT '現在耐久度',
     max_durability INT NOT NULL COMMENT '最大耐久度',
     
     -- 特殊属性
@@ -565,6 +1001,11 @@ CREATE TABLE custom_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='カスタムアイテム（錬金生成品）管理テーブル';
 ```
+
+**重要な設計変更 (2025年8月25日)**:
+- `durability` カラムを削除：耐久度はインベントリ側で管理
+- カスタムアイテムは生成時の設計図として機能
+- 実際の使用・耐久度管理はインベントリシステムが担当
 
 **custom_stats JSON構造例**:
 ```json
@@ -1363,7 +1804,7 @@ $character->update(['hp' => $newHp]);
 
 ### 8.1 マイグレーション履歴
 
-#### 実装済みマイグレーション
+#### 基本システム (2025年7月)
 ```
 2025_07_15_041506_create_equipment_table.php
 2025_07_16_045341_create_shops_table.php  
@@ -1379,19 +1820,92 @@ $character->update(['hp' => $newHp]);
 2025_07_23_051003_create_inventories_table.php
 2025_07_23_061416_create_active_battles_table.php
 2025_07_23_063521_add_session_tracking_to_users_table.php
+```
 
--- Character→Player移行関連
+#### Character→Player移行 (2025年7月26-27日)
+```
 2025_07_26_121937_create_players_table.php
 2025_07_26_122032_migrate_characters_to_players_data.php
 2025_07_26_122143_update_foreign_keys_to_players.php
 2025_07_27_111752_add_gold_to_players.php
 2025_07_27_111952_fix_player_default_gold.php
+```
 
--- 錬金システム関連 (2025年7月29日実装)
+#### 錬金システム (2025年7月29日)
+```
 2025_07_29_043244_remove_rarity_from_items_table.php
 2025_07_29_081617_create_custom_items_table.php      -- カスタムアイテム管理
 2025_07_29_081645_create_alchemy_materials_table.php -- 錬金素材効果データ
 ```
+
+#### 管理者システム (2025年8月13日)
+```
+2025_08_13_035226_add_admin_system_to_users_table.php    -- ユーザーテーブルに管理者機能追加
+2025_08_13_035226_create_admin_permissions_table.php    -- 管理者権限マスター
+2025_08_13_035227_create_admin_audit_logs_table.php     -- 管理者操作ログ
+2025_08_13_035227_create_admin_roles_table.php          -- 管理者ロール
+```
+
+#### モンスター・戦闘システム (2025年8月19-20日)
+```
+2025_08_19_044721_create_monsters_table.php             -- モンスター基本情報
+2025_08_19_044726_create_location_connections_table.php -- 場所間接続
+2025_08_19_044726_create_locations_table.php            -- 場所・経路情報
+2025_08_19_044726_create_monster_spawns_table.php       -- モンスター出現設定
+2025_08_19_044726_create_spawn_lists_table.php          -- 出現リスト
+2025_08_19_044727_create_standard_items_table.php       -- 新標準アイテムシステム
+2025_08_19_045330_update_location_connections_enum.php  -- 接続タイプ更新
+
+2025_08_20_024009_create_monster_spawn_lists_table.php  -- 場所別モンスター出現
+2025_08_20_024426_add_spawn_fields_to_game_locations_table.php -- 場所にスポーン情報追加
+2025_08_20_095043_create_dungeons_desc_table.php        -- ダンジョン説明
+2025_08_20_095115_add_dungeon_id_to_game_locations_table.php   -- ダンジョンID追加
+```
+
+#### 場所システム再構築 (2025年8月21日)
+```
+2025_08_21_022026_rename_game_locations_tables.php      -- locations → routes へリネーム
+```
+
+#### 採集・施設システム (2025年8月25-26日)
+```
+2025_08_25_024902_create_gathering_mappings_table.php   -- 採集アイテム管理
+2025_08_25_074151_remove_durability_from_custom_items_table.php -- カスタムアイテム耐久度削除
+
+2025_08_26_012740_create_town_facilities_table.php      -- 町施設システム
+2025_08_26_012929_rename_shop_items_to_facility_items.php -- ショップ→施設アイテムへ移行
+2025_08_26_013225_migrate_shops_to_town_facilities.php   -- ショップデータ移行
+2025_08_26_013429_drop_shops_table.php                  -- 旧ショップテーブル削除
+```
+
+#### 実装済みテーブル一覧 (2025年8月27日現在)
+**総テーブル数**: 36テーブル
+
+**ユーザー・認証系**:
+- users, password_reset_tokens, sessions
+- admin_roles, admin_permissions, admin_audit_logs
+
+**キャラクター・プレイヤー系**:
+- characters (レガシー), players, skills, active_effects
+
+**アイテム・装備系**:
+- items (レガシー), standard_items, custom_items, alchemy_materials
+- inventories, equipment
+
+**場所・世界系**:
+- routes (旧locations), route_connections, dungeons_desc
+- gathering_mappings
+
+**施設・経済系**:
+- town_facilities, facility_items (旧shop_items)
+
+**モンスター・戦闘系**:
+- monsters, spawn_lists, monster_spawns, monster_spawn_lists
+- active_battles, battle_logs
+
+**システム・技術系**:
+- cache, cache_locks, jobs, job_batches, failed_jobs
+- migrations, connections
 
 ### 8.2 マイグレーション運用方針
 
@@ -1421,11 +1935,22 @@ public function down(): void
 
 このデータベース設計により、test_smgは現在の機能要件を満たしつつ、将来的な拡張にも対応できる堅牢で柔軟なデータ基盤を提供しています。1ユーザー1プレイヤーのシンプルな構造を基本としながら、JSONカラムやモジュラー設計により拡張性を確保し、適切な制約とインデックスによりパフォーマンスと整合性を両立しています。
 
-**2025年7月29日更新内容**:
-- 錬金システム関連テーブル追加（custom_items, alchemy_materials）
-- Character→Player移行に伴うリレーション更新
-- 錬金システム特化設計の詳細追加
-- ShopType ALCHEMY_SHOP の追加
+**2025年8月27日 大幅更新内容**:
+- 管理者システム完全実装（users拡張 + admin_* テーブル群）
+- ワールドシステム大幅拡張（routes, route_connections, dungeons_desc）
+- モンスター・戦闘システム実装（monsters, spawn_lists, monster_spawns）
+- 新アイテムシステム実装（standard_items）
+- 採集システム実装（gathering_mappings）
+- 施設システム実装（town_facilities, facility_items）
+- ショップシステムから施設システムへの移行完了
+- カスタムアイテムシステム改良（耐久度管理方式変更）
+- 総テーブル数：36テーブル
 
-**最終更新**: 2025年7月29日  
+**Version 2.0 主要変更点**:
+1. **システム規模**: 基本システム(13テーブル) → 包括的ゲームシステム(36テーブル)
+2. **機能範囲**: 認証+基本ゲーム → 管理者+ワールド+戦闘+採集+施設
+3. **設計方針**: レガシー互換性維持 + 新機能モジュラー設計
+4. **スケーラビリティ**: 小規模対応 → 中規模MMO対応基盤
+
+**最終更新**: 2025年8月27日  
 **次回レビュー**: データベース構造変更時または四半期レビュー時

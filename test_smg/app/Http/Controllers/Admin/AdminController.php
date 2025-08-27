@@ -46,9 +46,9 @@ abstract class AdminController extends Controller
             $canManageUsers = $this->hasPermission('users.view');
             $canManageItems = $this->hasPermission('items.view');
             $canManageMonsters = $this->hasPermission('monsters.view');
-            $canManageShops = $this->hasPermission('shops.view');
+            $canManageFacilities = $this->hasPermission('town_facilities.view');
             $canManageLocations = $this->hasPermission('locations.view');
-            $canManageGameData = $canManageItems || $canManageMonsters || $canManageShops || $canManageLocations;
+            $canManageGameData = $canManageItems || $canManageMonsters || $canManageFacilities || $canManageLocations;
             $canManageSystem = $this->hasPermission('system.view') || $this->hasPermission('admin.roles') || $this->user->admin_level === 'super';
 
 
@@ -59,7 +59,7 @@ abstract class AdminController extends Controller
                 'canManageUsers' => $canManageUsers,
                 'canManageItems' => $canManageItems,
                 'canManageMonsters' => $canManageMonsters,
-                'canManageShops' => $canManageShops,
+                'canManageFacilities' => $canManageFacilities,
                 'canManageLocations' => $canManageLocations,
                 'canManageGameData' => $canManageGameData,
                 'canManageSystem' => $canManageSystem,
@@ -125,7 +125,7 @@ abstract class AdminController extends Controller
         if (str_contains($action, 'users.')) return 'users';
         if (str_contains($action, 'items.')) return 'items';  
         if (str_contains($action, 'monsters.')) return 'monsters';
-        if (str_contains($action, 'shops.')) return 'shops';
+        if (str_contains($action, 'town_facilities.')) return 'town_facilities';
         if (str_contains($action, 'locations.')) return 'locations';
         if (str_contains($action, 'page.')) return 'navigation';
         

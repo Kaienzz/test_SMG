@@ -46,6 +46,11 @@ class Monster extends Model
         return $this->hasMany(MonsterSpawn::class, 'monster_id');
     }
 
+    public function monsterSpawnLists()
+    {
+        return $this->hasMany(MonsterSpawnList::class, 'monster_id');
+    }
+
     public function spawnLists()
     {
         return $this->belongsToMany(SpawnList::class, 'monster_spawns', 'monster_id', 'spawn_list_id')

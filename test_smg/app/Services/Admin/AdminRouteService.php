@@ -481,16 +481,16 @@ class AdminRouteService
                 ];
             }
 
-            // ショップ情報モジュール（将来実装用のプレースホルダー）
-            if (in_array('shops', $modules)) {
-                $detail['modules']['shops'] = [
-                    'title' => 'ショップ・商人',
+            // 施設情報モジュール（将来実装用のプレースホルダー）
+            if (in_array('facilities', $modules)) {
+                $detail['modules']['facilities'] = [
+                    'title' => '施設・商人',
                     'icon' => 'fas fa-store',
                     'priority' => 6,
                     'data' => [
-                        'shops' => [], // 将来実装
+                        'facilities' => [], // 将来実装
                         'traveling_merchants' => [],
-                        'shop_count' => 0,
+                        'facility_count' => 0,
                         'available_items' => [],
                     ]
                 ];

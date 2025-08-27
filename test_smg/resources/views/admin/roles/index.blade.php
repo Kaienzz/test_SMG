@@ -68,7 +68,7 @@
                 <div style="padding: 1rem; border: 1px solid var(--admin-border); border-radius: 6px;">
                     <h5 style="margin: 0 0 0.5rem 0; color: var(--admin-primary);">ゲームデータ</h5>
                     <p style="margin: 0; font-size: 0.875rem; color: var(--admin-secondary);">
-                        items.*, monsters.*, shops.*
+                        items.*, monsters.*, town_facilities.*
                     </p>
                 </div>
                 <div style="padding: 1rem; border: 1px solid var(--admin-border); border-radius: 6px;">

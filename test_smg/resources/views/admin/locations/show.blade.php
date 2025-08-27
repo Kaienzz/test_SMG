@@ -117,8 +117,8 @@
                         @include('admin.locations.modules.gathering', ['data' => $module['data']])
                     @elseif($moduleKey === 'events')
                         @include('admin.locations.modules.events', ['data' => $module['data']])
-                    @elseif($moduleKey === 'shops')
-                        @include('admin.locations.modules.shops', ['data' => $module['data']])
+                    @elseif($moduleKey === 'town_facilities')
+                        @include('admin.locations.modules.town-facilities', ['data' => $module['data']])
                     @else
                         <!-- 汎用モジュール表示 -->
                         <div style="text-align: center; padding: 3rem; color: var(--admin-secondary);">

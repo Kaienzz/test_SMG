@@ -4,42 +4,42 @@
     
     @if($player->location_type === 'town')
         @php
-            $townShops = \App\Models\Shop::getShopsByLocation($player->location_id, 'town');
+            $townFacilities = \App\Models\TownFacility::getFacilitiesByLocation($player->location_id, 'town');
         @endphp
         
-        {{-- お店メニュー（水色ボックス） - 町別のお店を表示 --}}
-        <div class="shop-menu" style="background-color: #e0f7fa; border: 2px solid #00acc1; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+        {{-- 施設メニュー（水色ボックス） - 町別の施設を表示 --}}
+        <div class="facility-menu" style="background-color: #e0f7fa; border: 2px solid #00acc1; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
             <h3>町の施設</h3>
-            @if($townShops->count() > 0)
-                @foreach($townShops as $shop)
+            @if($townFacilities->count() > 0)
+                @foreach($townFacilities as $facility)
                     @php
-                        $shopType = \App\Enums\ShopType::from($shop->shop_type);
-                        $routeName = match($shopType) {
-                            \App\Enums\ShopType::ITEM_SHOP => 'shops.item.index',
-                            \App\Enums\ShopType::BLACKSMITH => 'shops.blacksmith.index',
-                            \App\Enums\ShopType::TAVERN => 'shops.tavern.index',
+                        $facilityType = \App\Enums\FacilityType::from($facility->facility_type);
+                        $routeName = match($facilityType) {
+                            \App\Enums\FacilityType::ITEM_SHOP => 'facilities.item.index',
+                            \App\Enums\FacilityType::BLACKSMITH => 'facilities.blacksmith.index',
+                            \App\Enums\FacilityType::TAVERN => 'facilities.tavern.index',
                             default => null
                         };
                     @endphp
                     
                     @if($routeName && \Route::has($routeName))
-                        <a href="{{ route($routeName) }}" class="btn btn-primary" title="{{ $shop->description ?? $shopType->getDescription() }}" style="margin: 5px;">
-                            <span class="shop-icon">{{ $shopType->getIcon() }}</span>
-                            {{ $shop->name }}
+                        <a href="{{ route($routeName) }}" class="btn btn-primary" title="{{ $facility->description ?? $facilityType->getDescription() }}" style="margin: 5px;">
+                            <span class="facility-icon">{{ $facilityType->getIcon() }}</span>
+                            {{ $facility->name }}
                         </a>
                     @endif
                 @endforeach
             @else
-                {{-- フォールバック: お店データがない場合の基本表示 --}}
-                @if(\Route::has('shops.item.index'))
-                    <a href="{{ route('shops.item.index') }}" class="btn btn-primary" title="道具屋" style="margin: 5px;">
-                        <span class="shop-icon">🏪</span>
+                {{-- フォールバック: 施設データがない場合の基本表示 --}}
+                @if(\Route::has('facilities.item.index'))
+                    <a href="{{ route('facilities.item.index') }}" class="btn btn-primary" title="道具屋" style="margin: 5px;">
+                        <span class="facility-icon">🏪</span>
                         道具屋
                     </a>
                 @endif
-                @if(\Route::has('shops.blacksmith.index'))
-                    <a href="{{ route('shops.blacksmith.index') }}" class="btn btn-primary" title="鍛冶屋" style="margin: 5px;">
-                        <span class="shop-icon">⚒️</span>
+                @if(\Route::has('facilities.blacksmith.index'))
+                    <a href="{{ route('facilities.blacksmith.index') }}" class="btn btn-primary" title="鍛冶屋" style="margin: 5px;">
+                        <span class="facility-icon">⚒️</span>
                         鍛冶屋
                     </a>
                 @endif

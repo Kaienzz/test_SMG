@@ -6,7 +6,7 @@
 @section('content')
 <div class="admin-content-container">
     
-    <form method="POST" action="{{ route('admin.items.update', $item) }}" id="item-edit-form">
+    <form method="POST" action="{{ route('admin.items.update', $item->id) }}" id="item-edit-form">
         @csrf
         @method('PUT')
         
@@ -18,6 +18,23 @@
             <div class="admin-card-body">
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem;">
                     <div>
+                        <!-- アイテムID -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <label for="item_id" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                アイテムID <span style="color: #dc2626;">*</span>
+                                @if(isset($item->is_standard) && $item->is_standard)
+                                    <small style="color: var(--admin-warning);">(標準アイテム用: std_1, std_2など)</small>
+                                @endif
+                            </label>
+                            <input type="text" id="item_id" name="item_id" value="{{ old('item_id', $item->id) }}" 
+                                   class="admin-input @error('item_id') admin-input-error @enderror" 
+                                   required pattern="[a-zA-Z][a-zA-Z0-9_-]*"
+                                   placeholder="例: std_1, custom_sword_1">
+                            @error('item_id')
+                                <div class="admin-error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
                         <!-- アイテム名 -->
                         <div style="margin-bottom: 1.5rem;">
                             <label for="name" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
@@ -52,9 +69,9 @@
                                     class="admin-select @error('category') admin-input-error @enderror" required
                                     onchange="updateCategorySettings()">
                                 <option value="">カテゴリを選択...</option>
-                                @foreach($categories as $category)
-                                <option value="{{ $category->value }}" {{ old('category', $item->category->value ?? $item->category) === $category->value ? 'selected' : '' }}>
-                                    {{ $category->name }}
+                                @foreach($categories as $key => $name)
+                                <option value="{{ $key }}" {{ old('category', $item->category) === $key ? 'selected' : '' }}>
+                                    {{ $name }}
                                 </option>
                                 @endforeach
                             </select>
@@ -62,6 +79,33 @@
                                 <div class="admin-error-message">{{ $message }}</div>
                             @enderror
                         </div>
+
+                        <!-- カテゴリ名（標準アイテム用） -->
+                        @if(isset($item->is_standard) && $item->is_standard)
+                        <div style="margin-bottom: 1.5rem;">
+                            <label for="category_name" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                カテゴリ名 <span style="color: #dc2626;">*</span>
+                            </label>
+                            <input type="text" id="category_name" name="category_name" value="{{ old('category_name', $item->category_name) }}" 
+                                   class="admin-input @error('category_name') admin-input-error @enderror" required>
+                            @error('category_name')
+                                <div class="admin-error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <!-- 絵文字（標準アイテム用） -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <label for="emoji" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                絵文字
+                            </label>
+                            <input type="text" id="emoji" name="emoji" value="{{ old('emoji', $item->emoji ?? '📦') }}" 
+                                   class="admin-input @error('emoji') admin-input-error @enderror" 
+                                   style="width: 80px; text-align: center; font-size: 1.5rem;" maxlength="4">
+                            @error('emoji')
+                                <div class="admin-error-message">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        @endif
                     </div>
 
                     <div>
@@ -84,7 +128,11 @@
                         <!-- 売却価格 -->
                         <div style="margin-bottom: 1.5rem;">
                             <label for="sell_price" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
-                                売却価格 <small style="color: var(--admin-secondary);">(空の場合は自動算出: {{ number_format($item->getSellPrice()) }}G)</small>
+                                @if(isset($item->is_standard) && $item->is_standard)
+                                    売却価格 <small style="color: var(--admin-secondary);">(標準アイテムは直接設定)</small>
+                                @else
+                                    売却価格 <small style="color: var(--admin-secondary);">(空の場合は自動算出: {{ number_format($item->getSellPrice()) }}G)</small>
+                                @endif
                             </label>
                             <div style="position: relative;">
                                 <input type="number" id="sell_price" name="sell_price" value="{{ old('sell_price', $item->sell_price) }}" 
@@ -127,9 +175,21 @@
                         <div style="margin-bottom: 1.5rem;">
                             <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">作成・更新情報</label>
                             <div style="padding: 0.75rem; background: #f9fafb; border-radius: 4px; font-size: 0.875rem;">
-                                <div>作成日: {{ $item->created_at->format('Y/m/d H:i') }}</div>
+                                <div>作成日: 
+                                    @if(isset($item->is_standard) && $item->is_standard)
+                                        {{ $item->created_at }}
+                                    @else
+                                        {{ $item->created_at->format('Y/m/d H:i') }}
+                                    @endif
+                                </div>
                                 @if($item->updated_at != $item->created_at)
-                                <div style="margin-top: 0.25rem;">更新日: {{ $item->updated_at->format('Y/m/d H:i') }}</div>
+                                <div style="margin-top: 0.25rem;">更新日: 
+                                    @if(isset($item->is_standard) && $item->is_standard)
+                                        {{ $item->updated_at }}
+                                    @else
+                                        {{ $item->updated_at->format('Y/m/d H:i') }}
+                                    @endif
+                                </div>
                                 @endif
                             </div>
                         </div>
@@ -175,6 +235,31 @@
                                 <div class="admin-error-message">{{ $message }}</div>
                             @enderror
                         </div>
+
+                        <!-- 標準アイテム用フィールド -->
+                        @if(isset($item->is_standard) && $item->is_standard)
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                                アイテム設定
+                            </label>
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="hidden" name="is_equippable" value="0">
+                                    <input type="checkbox" name="is_equippable" value="1" 
+                                           {{ old('is_equippable', $item->is_equippable ?? false) ? 'checked' : '' }}
+                                           style="margin-right: 0.5rem;">
+                                    装備可能
+                                </label>
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="hidden" name="is_usable" value="0">
+                                    <input type="checkbox" name="is_usable" value="1" 
+                                           {{ old('is_usable', $item->is_usable ?? false) ? 'checked' : '' }}
+                                           style="margin-right: 0.5rem;">
+                                    使用可能
+                                </label>
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -196,19 +281,19 @@
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_attack" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">攻撃力</label>
-                            <input type="number" id="effect_attack" name="effect_attack" value="{{ old('effect_attack', $item->getEffectValue('attack')) }}" 
+                            <input type="number" id="effect_attack" name="effect_attack" value="{{ old('effect_attack', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['attack'] ?? 0) : $item->getEffectValue('attack')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_defense" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">防御力</label>
-                            <input type="number" id="effect_defense" name="effect_defense" value="{{ old('effect_defense', $item->getEffectValue('defense')) }}" 
+                            <input type="number" id="effect_defense" name="effect_defense" value="{{ old('effect_defense', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['defense'] ?? 0) : $item->getEffectValue('defense')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_agility" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">敏捷性</label>
-                            <input type="number" id="effect_agility" name="effect_agility" value="{{ old('effect_agility', $item->getEffectValue('agility')) }}" 
+                            <input type="number" id="effect_agility" name="effect_agility" value="{{ old('effect_agility', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['agility'] ?? 0) : $item->getEffectValue('agility')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                     </div>
@@ -219,19 +304,19 @@
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_magic_attack" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">魔法攻撃力</label>
-                            <input type="number" id="effect_magic_attack" name="effect_magic_attack" value="{{ old('effect_magic_attack', $item->getEffectValue('magic_attack')) }}" 
+                            <input type="number" id="effect_magic_attack" name="effect_magic_attack" value="{{ old('effect_magic_attack', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['magic_attack'] ?? 0) : $item->getEffectValue('magic_attack')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_accuracy" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">命中率</label>
-                            <input type="number" id="effect_accuracy" name="effect_accuracy" value="{{ old('effect_accuracy', $item->getEffectValue('accuracy')) }}" 
+                            <input type="number" id="effect_accuracy" name="effect_accuracy" value="{{ old('effect_accuracy', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['accuracy'] ?? 0) : $item->getEffectValue('accuracy')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_evasion" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">回避率</label>
-                            <input type="number" id="effect_evasion" name="effect_evasion" value="{{ old('effect_evasion', $item->getEffectValue('evasion')) }}" 
+                            <input type="number" id="effect_evasion" name="effect_evasion" value="{{ old('effect_evasion', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['evasion'] ?? 0) : $item->getEffectValue('evasion')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                     </div>
@@ -242,19 +327,19 @@
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_heal_hp" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">HP回復</label>
-                            <input type="number" id="effect_heal_hp" name="effect_heal_hp" value="{{ old('effect_heal_hp', $item->getEffectValue('heal_hp')) }}" 
+                            <input type="number" id="effect_heal_hp" name="effect_heal_hp" value="{{ old('effect_heal_hp', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['heal_hp'] ?? 0) : $item->getEffectValue('heal_hp')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_heal_mp" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">MP回復</label>
-                            <input type="number" id="effect_heal_mp" name="effect_heal_mp" value="{{ old('effect_heal_mp', $item->getEffectValue('heal_mp')) }}" 
+                            <input type="number" id="effect_heal_mp" name="effect_heal_mp" value="{{ old('effect_heal_mp', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['heal_mp'] ?? 0) : $item->getEffectValue('heal_mp')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                         
                         <div style="margin-bottom: 1rem;">
                             <label for="effect_inventory_slots" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">インベントリ拡張</label>
-                            <input type="number" id="effect_inventory_slots" name="effect_inventory_slots" value="{{ old('effect_inventory_slots', $item->getEffectValue('inventory_slots')) }}" 
+                            <input type="number" id="effect_inventory_slots" name="effect_inventory_slots" value="{{ old('effect_inventory_slots', (isset($item->is_standard) && $item->is_standard) ? ($item->effects['inventory_slots'] ?? 0) : $item->getEffectValue('inventory_slots')) }}" 
                                    class="admin-input" placeholder="0">
                         </div>
                     </div>
@@ -264,7 +349,7 @@
 
         <!-- 操作ボタン -->
         <div style="display: flex; gap: 1rem; justify-content: end;">
-            <a href="{{ route('admin.items.show', $item) }}" class="admin-btn admin-btn-secondary">
+            <a href="{{ route('admin.items.show', $item->id) }}" class="admin-btn admin-btn-secondary">
                 ← 詳細に戻る
             </a>
             <button type="button" onclick="resetForm()" class="admin-btn admin-btn-secondary">
@@ -329,7 +414,7 @@ function resetForm() {
         
         // エフェクトのリセット
         @foreach(['attack', 'defense', 'agility', 'magic_attack', 'accuracy', 'evasion', 'heal_hp', 'heal_mp', 'inventory_slots'] as $effect)
-        document.getElementById('effect_{{ $effect }}').value = '{{ $item->getEffectValue($effect) }}';
+        document.getElementById('effect_{{ $effect }}').value = '{{ (isset($item->is_standard) && $item->is_standard) ? ($item->effects[$effect] ?? 0) : $item->getEffectValue($effect) }}';
         @endforeach
         
         updateCategorySettings();

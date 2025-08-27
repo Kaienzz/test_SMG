@@ -193,13 +193,29 @@
     </div>
     @endif
 
-    {{-- 接続管理セクション --}}
+    {{-- 接続管理セクション（編集時のみ表示） --}}
+    @if(isset($road))
     <div style="margin-top: 2rem;">
         @include('admin.shared._route_connections', [
             'location' => $road ?? null,
             'form_prefix' => 'connections'
         ])
     </div>
+    @else
+    {{-- 新規作成時は接続管理を非表示 --}}
+    <div class="admin-card" style="margin-top: 2rem;">
+        <div class="admin-card-header">
+            <h3 class="admin-card-title">接続管理</h3>
+        </div>
+        <div class="admin-card-body">
+            <div style="text-align: center; padding: 2rem; color: var(--admin-secondary);">
+                <i class="fas fa-info-circle fa-2x" style="margin-bottom: 1rem;"></i>
+                <p>接続管理は、Roadを作成した後に利用できます。</p>
+                <p>まずRoadを作成してから、編集画面で他のロケーションとの接続を設定してください。</p>
+            </div>
+        </div>
+    </div>
+    @endif
 
 </div>
 
@@ -208,7 +224,7 @@
     <a href="{{ route('admin.roads.index') }}" class="admin-btn admin-btn-secondary">
         <i class="fas fa-times"></i> キャンセル
     </a>
-    <button type="submit" class="admin-btn admin-btn-primary">
+    <button type="submit" class="admin-btn admin-btn-primary" onclick="console.log('Submit button clicked for:', '{{ isset($road) ? 'UPDATE' : 'CREATE' }}', new Date());">
         <i class="fas fa-save"></i> {{ isset($road) ? '更新' : '作成' }}
     </button>
 </div>

@@ -15,7 +15,38 @@ use Illuminate\Support\Facades\Log;
  */
 class LocationService
 {
+    /**
+     * JSON設定データ
+     * @var array
+     */
+    private array $configData = [];
 
+    /**
+     * 設定データロード済みフラグ
+     * @var bool
+     */
+    private bool $dataLoaded = false;
+
+    /**
+     * JSON設定データを読み込む（SQLite使用時はスキップ）
+     * @return void
+     */
+    private function loadConfigData(): void
+    {
+        if ($this->dataLoaded) {
+            return;
+        }
+        
+        // SQLite使用時は空の配列で初期化（JSON設定は使用しない）
+        $this->configData = [
+            'towns' => [],
+            'roads' => [],
+            'dungeons' => [],
+            'pathways' => []
+        ];
+        
+        $this->dataLoaded = true;
+    }
 
     /**
      * 道路名を取得（SQLiteのみ）
@@ -983,10 +1014,10 @@ class LocationService
                     ]
                 ];
 
-            case 'shop_access':
+            case 'facility_access':
                 return [
                     'success' => true,
-                    'type' => 'shop',
+                    'type' => 'facility',
                     'message' => $action['name'] . 'を利用できます',
                     'data' => [
                         'items' => $data['items'] ?? []

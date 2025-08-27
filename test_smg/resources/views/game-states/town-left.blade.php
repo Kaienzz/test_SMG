@@ -52,29 +52,29 @@
 <div class="town-facilities">
     <h4>町の施設</h4>
     @php
-        // 実装済みショップを取得
-        $townShops = \App\Models\Shop::getShopsByLocation($player->location_id ?? 'town_a', 'town');
+        // 実装済み施設を取得
+        $townFacilities = \App\Models\TownFacility::getFacilitiesByLocation($player->location_id ?? 'town_a', 'town');
     @endphp
 
     <div class="facility-list">
-        @if($townShops->count() > 0)
-            @foreach($townShops as $shop)
+        @if($townFacilities->count() > 0)
+            @foreach($townFacilities as $facility)
                 @php
-                    $shopType = \App\Enums\ShopType::from($shop->shop_type);
-                    $routeName = match($shopType) {
-                        \App\Enums\ShopType::ITEM_SHOP => 'shops.item.index',
-                        \App\Enums\ShopType::BLACKSMITH => 'shops.blacksmith.index',
-                        \App\Enums\ShopType::TAVERN => 'shops.tavern.index',
-                        \App\Enums\ShopType::ALCHEMY_SHOP => 'shops.alchemy.index',
+                    $facilityType = \App\Enums\FacilityType::from($facility->facility_type);
+                    $routeName = match($facilityType) {
+                        \App\Enums\FacilityType::ITEM_SHOP => 'facilities.item.index',
+                        \App\Enums\FacilityType::BLACKSMITH => 'facilities.blacksmith.index',
+                        \App\Enums\FacilityType::TAVERN => 'facilities.tavern.index',
+                        \App\Enums\FacilityType::ALCHEMY_SHOP => 'facilities.alchemy.index',
                         default => null
                     };
                 @endphp
                 
                 @if($routeName && \Route::has($routeName))
-                    <div class="facility-item" title="{{ $shop->description ?? $shopType->getDescription() }}">
+                    <div class="facility-item" title="{{ $facility->description ?? $facilityType->getDescription() }}">
                         <a href="{{ route($routeName) }}" class="facility-link">
-                            <span class="facility-icon">{{ $shopType->getIcon() }}</span>
-                            <span class="facility-name">{{ $shop->name }}</span>
+                            <span class="facility-icon">{{ $facilityType->getIcon() }}</span>
+                            <span class="facility-name">{{ $facility->name }}</span>
                         </a>
                     </div>
                 @endif

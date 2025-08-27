@@ -243,4 +243,206 @@ class Route extends Model
     {
         return $this->category === 'dungeon' && !empty($this->dungeon_id);
     }
+
+    // ==========================================
+    // 採集システム関連メソッド
+    // ==========================================
+
+    /**
+     * 採集マッピングリレーション
+     */
+    public function gatheringMappings()
+    {
+        return $this->hasMany(GatheringMapping::class, 'route_id', 'id')
+                    ->where('is_active', true)
+                    ->orderBy('required_skill_level')
+                    ->orderBy('success_rate', 'desc');
+    }
+
+    /**
+     * すべての採集マッピング（非アクティブ含む）
+     */
+    public function allGatheringMappings()
+    {
+        return $this->hasMany(GatheringMapping::class, 'route_id', 'id')
+                    ->orderBy('required_skill_level')
+                    ->orderBy('success_rate', 'desc');
+    }
+
+    /**
+     * アクティブな採集アイテム（Many-to-Many through GatheringMapping）
+     */
+    public function gatheringItems()
+    {
+        return $this->belongsToMany(Item::class, 'gathering_mappings', 'route_id', 'item_id')
+                    ->withPivot([
+                        'required_skill_level',
+                        'success_rate', 
+                        'quantity_min',
+                        'quantity_max',
+                        'is_active'
+                    ])
+                    ->wherePivot('is_active', true)
+                    ->withTimestamps();
+    }
+
+    /**
+     * 採集可能判定（Road・Dungeon対応）
+     */
+    public function hasGatheringItems(): bool
+    {
+        return in_array($this->category, ['road', 'dungeon']) 
+               && $this->gatheringMappings()->exists();
+    }
+
+    /**
+     * 採集可能ルート判定（カテゴリベース）
+     */
+    public function isGatheringEligible(): bool
+    {
+        return in_array($this->category, ['road', 'dungeon']);
+    }
+
+    /**
+     * プレイヤーレベルに適した採集アイテム取得
+     */
+    public function getGatheringItemsForSkillLevel(int $skillLevel, ?int $playerLevel = null)
+    {
+        $query = $this->gatheringMappings()
+                      ->with('item')
+                      ->forSkillLevel($skillLevel);
+
+        // ダンジョンの場合はプレイヤーレベル制限も考慮
+        if ($this->category === 'dungeon' && $playerLevel !== null && $this->min_level) {
+            // プレイヤーレベルが足りない場合は空のコレクションを返す
+            if ($playerLevel < $this->min_level) {
+                return collect();
+            }
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * 採集統計情報を取得
+     */
+    public function getGatheringStats(): array
+    {
+        $allMappings = $this->allGatheringMappings;
+        $activeMappings = $allMappings->where('is_active', true);
+
+        return [
+            'total_items' => $allMappings->count(),
+            'active_items' => $activeMappings->count(),
+            'inactive_items' => $allMappings->where('is_active', false)->count(),
+            'skill_level_range' => [
+                'min' => $allMappings->min('required_skill_level') ?? 0,
+                'max' => $allMappings->max('required_skill_level') ?? 0,
+            ],
+            'success_rate_range' => [
+                'min' => $allMappings->min('success_rate') ?? 0,
+                'max' => $allMappings->max('success_rate') ?? 0,
+                'avg' => round($allMappings->avg('success_rate') ?? 0, 1),
+            ],
+            'quantity_range' => [
+                'min_total' => $allMappings->min('quantity_min') ?? 0,
+                'max_total' => $allMappings->max('quantity_max') ?? 0,
+            ],
+            'environment' => $this->category === 'road' ? '道路' : ($this->category === 'dungeon' ? 'ダンジョン' : '不明'),
+            'has_level_requirement' => $this->category === 'dungeon' && !empty($this->min_level),
+            'min_player_level' => $this->min_level,
+        ];
+    }
+
+    /**
+     * 採集設定の検証
+     */
+    public function validateGatheringConfiguration(): array
+    {
+        $issues = [];
+        $mappings = $this->allGatheringMappings;
+
+        // 基本チェック
+        if (!$this->isGatheringEligible()) {
+            $issues[] = 'このルートタイプ（' . $this->category . '）は採集に対応していません';
+            return $issues;
+        }
+
+        // アクティブな設定があるかチェック
+        $activeCount = $mappings->where('is_active', true)->count();
+        if ($activeCount === 0 && $mappings->count() > 0) {
+            $issues[] = 'アクティブな採集設定がありません';
+        }
+
+        // 重複チェック（同じアイテムが複数設定されていないか）
+        $itemIds = $mappings->pluck('item_id');
+        if ($itemIds->count() !== $itemIds->unique()->count()) {
+            $issues[] = '同じアイテムが重複して設定されています';
+        }
+
+        // スキルレベル要件の妥当性チェック
+        $invalidSkillLevels = $mappings->where('required_skill_level', '<=', 0)
+                                      ->orWhere('required_skill_level', '>', 100);
+        if ($invalidSkillLevels->count() > 0) {
+            $issues[] = '無効なスキルレベル要件があります（1-100の範囲外）';
+        }
+
+        // 成功率の妥当性チェック  
+        $invalidSuccessRates = $mappings->where('success_rate', '<=', 0)
+                                       ->orWhere('success_rate', '>', 100);
+        if ($invalidSuccessRates->count() > 0) {
+            $issues[] = '無効な成功率があります（1-100の範囲外）';
+        }
+
+        // 数量設定の妥当性チェック
+        $invalidQuantities = $mappings->where(function($mapping) {
+            return $mapping->quantity_min <= 0 || 
+                   $mapping->quantity_max <= 0 || 
+                   $mapping->quantity_min > $mapping->quantity_max;
+        });
+        if ($invalidQuantities->count() > 0) {
+            $issues[] = '無効な数量設定があります';
+        }
+
+        return $issues;
+    }
+
+    /**
+     * プレイヤー用採集情報取得（API用）
+     */
+    public function getPlayerGatheringInfo(int $skillLevel, ?int $playerLevel = null): array
+    {
+        if (!$this->hasGatheringItems()) {
+            return [
+                'can_gather' => false,
+                'reason' => 'このエリアでは採集できません',
+                'items' => [],
+            ];
+        }
+
+        $availableItems = $this->getGatheringItemsForSkillLevel($skillLevel, $playerLevel);
+        
+        if ($availableItems->isEmpty()) {
+            $reason = $this->category === 'dungeon' && $playerLevel && $this->min_level && $playerLevel < $this->min_level
+                ? "プレイヤーレベルが不足しています（必要Lv.{$this->min_level}）"
+                : 'スキルレベルが不足しています';
+                
+            return [
+                'can_gather' => false,
+                'reason' => $reason,
+                'items' => [],
+            ];
+        }
+
+        return [
+            'can_gather' => true,
+            'reason' => null,
+            'environment' => $this->category === 'road' ? '道路' : 'ダンジョン',
+            'location_name' => $this->name,
+            'available_items_count' => $availableItems->count(),
+            'items' => $availableItems->map(function($mapping) use ($skillLevel) {
+                return $mapping->getGatheringInfo($skillLevel);
+            })->toArray(),
+        ];
+    }
 }

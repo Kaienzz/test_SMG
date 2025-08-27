@@ -265,6 +265,11 @@
                                         編集
                                     </a>
                                     @endif
+                                    @if(isset($item['is_standard']) && $item['is_standard'])
+                                    <span class="admin-badge admin-badge-info" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                        標準アイテム
+                                    </span>
+                                    @endif
                                 </div>
                             </td>
                         </tr>

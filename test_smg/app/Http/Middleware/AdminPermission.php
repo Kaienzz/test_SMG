@@ -67,7 +67,7 @@ class AdminPermission
     private function hasPermission($user, string $permission): bool
     {
         // ユーザー個別権限をチェック
-        $userPermissions = json_decode($user->admin_permissions ?? '[]', true);
+        $userPermissions = $user->admin_permissions ?? [];
         if (in_array($permission, $userPermissions) || in_array('*', $userPermissions)) {
             return true;
         }
@@ -101,7 +101,7 @@ class AdminPermission
      */
     private function hasWildcardPermission($user): bool
     {
-        $userPermissions = json_decode($user->admin_permissions ?? '[]', true);
+        $userPermissions = $user->admin_permissions ?? [];
         return in_array('*', $userPermissions);
     }
 

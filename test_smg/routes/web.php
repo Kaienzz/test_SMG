@@ -5,10 +5,10 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\BattleController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\SyncController;
-use App\Http\Controllers\ItemShopController;
-use App\Http\Controllers\BlacksmithController;
-use App\Http\Controllers\TavernController;
-use App\Http\Controllers\AlchemyShopController;
+use App\Http\Controllers\ItemFacilityController;
+use App\Http\Controllers\BlacksmithFacilityController;
+use App\Http\Controllers\TavernFacilityController;
+use App\Http\Controllers\AlchemyFacilityController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\SkillController;
@@ -361,7 +361,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/game/roll-dice', [GameController::class, 'rollDice'])->name('game.rollDice');
     
     // API ルート（町の施設データ取得用）
-    Route::get('/api/location/shops', [GameController::class, 'getLocationShops'])->name('api.location.shops');
+    Route::get('/api/location/facilities', [GameController::class, 'getLocationFacilities'])->name('api.location.facilities');
     
     // 戦闘関連のルート
     Route::get('/battle', [BattleController::class, 'index'])->name('battle.index');
@@ -396,20 +396,21 @@ Route::middleware('auth')->group(function () {
     Route::get('/inventory/item-info', [InventoryController::class, 'getItemInfo'])->name('inventory.itemInfo');
     Route::post('/inventory/move-item', [InventoryController::class, 'moveItem'])->name('inventory.moveItem');
     
-    // ショップ関連のルート
-    Route::prefix('shops')->group(function () {
-        Route::get('/item', [ItemShopController::class, 'index'])->name('shops.item.index');
-        Route::post('/item/transaction', [ItemShopController::class, 'processTransaction'])->name('shops.item.transaction');
+    // 町施設関連のルート
+    Route::prefix('facilities')->group(function () {
+        Route::get('/item', [ItemFacilityController::class, 'index'])->name('facilities.item.index');
+        Route::post('/item/transaction', [ItemFacilityController::class, 'processTransaction'])->name('facilities.item.transaction');
+        Route::get('/item/inventory', [ItemFacilityController::class, 'inventory'])->name('facilities.item.inventory');
         
-        Route::get('/blacksmith', [BlacksmithController::class, 'index'])->name('shops.blacksmith.index');
-        Route::post('/blacksmith/transaction', [BlacksmithController::class, 'processTransaction'])->name('shops.blacksmith.transaction');
+        Route::get('/blacksmith', [BlacksmithFacilityController::class, 'index'])->name('facilities.blacksmith.index');
+        Route::post('/blacksmith/transaction', [BlacksmithFacilityController::class, 'processTransaction'])->name('facilities.blacksmith.transaction');
         
-        Route::get('/tavern', [TavernController::class, 'index'])->name('shops.tavern.index');
-        Route::post('/tavern/transaction', [TavernController::class, 'processTransaction'])->name('shops.tavern.transaction');
+        Route::get('/tavern', [TavernFacilityController::class, 'index'])->name('facilities.tavern.index');
+        Route::post('/tavern/transaction', [TavernFacilityController::class, 'processTransaction'])->name('facilities.tavern.transaction');
         
-        Route::get('/alchemy', [AlchemyShopController::class, 'index'])->name('shops.alchemy.index');
-        Route::post('/alchemy/perform', [AlchemyShopController::class, 'performAlchemy'])->name('shops.alchemy.perform');
-        Route::post('/alchemy/preview', [AlchemyShopController::class, 'previewAlchemy'])->name('shops.alchemy.preview');
+        Route::get('/alchemy', [AlchemyFacilityController::class, 'index'])->name('facilities.alchemy.index');
+        Route::post('/alchemy/perform', [AlchemyFacilityController::class, 'performAlchemy'])->name('facilities.alchemy.perform');
+        Route::post('/alchemy/preview', [AlchemyFacilityController::class, 'previewAlchemy'])->name('facilities.alchemy.preview');
     });
 });
 

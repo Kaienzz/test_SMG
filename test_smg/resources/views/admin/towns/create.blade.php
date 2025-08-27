@@ -64,8 +64,8 @@
                         <div class="mb-3">
                             <label class="form-label">サービス</label>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="services[]" value="shop" id="service_shop">
-                                <label class="form-check-label" for="service_shop">ショップ</label>
+                                <input class="form-check-input" type="checkbox" name="services[]" value="general_store" id="service_general_store">
+                                <label class="form-check-label" for="service_general_store">雑貨屋</label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="services[]" value="inn" id="service_inn">

@@ -51,8 +51,10 @@ class AdminSystemSeeder extends Seeder
             ['name' => 'monsters.view', 'category' => 'monsters', 'action' => 'view', 'display_name' => 'モンスター表示', 'required_level' => 10],
             ['name' => 'monsters.edit', 'category' => 'monsters', 'action' => 'edit', 'display_name' => 'モンスター編集', 'required_level' => 30],
             
-            ['name' => 'shops.view', 'category' => 'shops', 'action' => 'view', 'display_name' => 'ショップ表示', 'required_level' => 10],
-            ['name' => 'shops.edit', 'category' => 'shops', 'action' => 'edit', 'display_name' => 'ショップ編集', 'required_level' => 25],
+            ['name' => 'town_facilities.view', 'category' => 'town_facilities', 'action' => 'view', 'display_name' => '町施設表示', 'required_level' => 10],
+            ['name' => 'town_facilities.edit', 'category' => 'town_facilities', 'action' => 'edit', 'display_name' => '町施設編集', 'required_level' => 25],
+            ['name' => 'town_facilities.create', 'category' => 'town_facilities', 'action' => 'create', 'display_name' => '町施設作成', 'required_level' => 30],
+            ['name' => 'town_facilities.delete', 'category' => 'town_facilities', 'action' => 'delete', 'display_name' => '町施設削除', 'required_level' => 50, 'is_dangerous' => true],
 
             // 分析・監視権限
             ['name' => 'analytics.view', 'category' => 'analytics', 'action' => 'view', 'display_name' => '分析データ表示', 'required_level' => 15],
@@ -126,7 +128,7 @@ class AdminSystemSeeder extends Seeder
                 'description' => 'ゲーム運営の主要管理権限',
                 'level' => 70,
                 'permissions' => [
-                    'users.*', 'players.*', 'items.*', 'monsters.*', 'shops.*',
+                    'users.*', 'players.*', 'items.*', 'monsters.*', 'town_facilities.*',
                     'analytics.view', 'analytics.export', 'system.logs'
                 ],
                 'is_system_role' => true,
@@ -159,7 +161,7 @@ class AdminSystemSeeder extends Seeder
                 'description' => 'ゲーム内容・バランス調整',
                 'level' => 50,
                 'permissions' => [
-                    'items.*', 'monsters.*', 'shops.*',
+                    'items.*', 'monsters.*', 'town_facilities.*',
                     'players.view', 'players.stats',
                     'analytics.view', 'analytics.advanced'
                 ],
@@ -177,7 +179,7 @@ class AdminSystemSeeder extends Seeder
                 'level' => 30,
                 'permissions' => [
                     'analytics.*', 'users.view', 'players.view',
-                    'items.view', 'monsters.view', 'shops.view'
+                    'items.view', 'monsters.view', 'town_facilities.view'
                 ],
                 'is_system_role' => true,
                 'can_access_analytics' => true,

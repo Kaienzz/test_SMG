@@ -1377,21 +1377,65 @@ class RoadStateManager {
         const gatheringBtn = document.getElementById('gathering-btn');
         if (gatheringBtn) {
             gatheringBtn.disabled = true;
-            gatheringBtn.textContent = '採集中...';
+            gatheringBtn.innerHTML = '<span class="btn-icon">⏳</span><span class="btn-text">採集中...</span>';
         }
 
-        // Simulate gathering (replace with actual endpoint)
-        setTimeout(() => {
-            const items = ['薬草', '木の実', '鉱石', 'キノコ'];
-            const randomItem = items[Math.floor(Math.random() * items.length)];
+        try {
+            const response = await this.gameManager.makeRequest('/api/gathering/gather', 'POST');
             
-            this.gameManager.showNotification(`${randomItem}を発見しました！`, 'success');
+            if (response && response.success) {
+                // 成功時の処理
+                let message = response.message;
+                if (response.item && response.quantity) {
+                    message = `${response.item}を${response.quantity}個採集しました！`;
+                }
+                
+                this.gameManager.showNotification(message, 'success');
+                
+                // プレイヤー情報を更新
+                if (response.remaining_sp !== undefined) {
+                    this.gameManager.updatePlayerStats({
+                        sp: response.remaining_sp
+                    });
+                }
+                
+                // 経験値情報を表示
+                if (response.experience_gained > 0) {
+                    setTimeout(() => {
+                        this.gameManager.showNotification(`採集経験値: +${response.experience_gained}`, 'info');
+                    }, 1000);
+                }
+                
+            } else {
+                // 失敗時の処理
+                const errorMessage = response && response.message ? response.message : '採集に失敗しました。';
+                this.gameManager.showNotification(errorMessage, 'warning');
+                
+                // SPなどの更新情報があれば反映
+                if (response && response.remaining_sp !== undefined) {
+                    this.gameManager.updatePlayerStats({
+                        sp: response.remaining_sp
+                    });
+                }
+            }
             
+        } catch (error) {
+            console.error('Gathering error:', error);
+            let errorMessage = '採集中にエラーが発生しました。';
+            
+            if (error.message && error.message.includes('error')) {
+                const errorData = JSON.parse(error.message);
+                errorMessage = errorData.error || errorMessage;
+            }
+            
+            this.gameManager.showNotification(errorMessage, 'error');
+        } finally {
+            // ボタンを元に戻す
             if (gatheringBtn) {
                 gatheringBtn.disabled = false;
-                gatheringBtn.textContent = '採集する';
+                gatheringBtn.innerHTML = '<span class="btn-icon">🌿</span><span class="btn-text">採集する</span>';
             }
-        }, 2000);
+        }
     }
 
     handleEncounter(monster) {
@@ -2118,10 +2162,324 @@ function toggleAutoMove() {
 }
 
 // Additional utility functions
-function showGatheringInfo() {
-    if (gameManager) {
-        gameManager.showNotification('採集可能なアイテム: 薬草、木の実、鉱石', 'info');
+async function showGatheringInfo() {
+    if (!gameManager) {
+        console.error('Game manager not available');
+        return;
     }
+
+    try {
+        const response = await gameManager.makeRequest('/api/gathering/info', 'GET');
+        
+        if (response) {
+            // 採集情報を表示する詳細なモーダルまたは通知を作成
+            const gatheringInfoHtml = createGatheringInfoDisplay(response);
+            
+            // モーダル表示（既存の通知システムを拡張）
+            showGatheringInfoModal(gatheringInfoHtml, response);
+            
+        } else {
+            gameManager.showNotification('採集情報の取得に失敗しました。', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Gathering info error:', error);
+        let errorMessage = '採集情報の取得中にエラーが発生しました。';
+        
+        if (error.message && error.message.includes('error')) {
+            const errorData = JSON.parse(error.message);
+            errorMessage = errorData.error || errorMessage;
+        }
+        
+        gameManager.showNotification(errorMessage, 'error');
+    }
+}
+
+function createGatheringInfoDisplay(gatheringData) {
+    const environmentName = gatheringData.environment_name || '不明なエリア';
+    const locationName = gatheringData.location_name || '不明な場所';
+    const skillLevel = gatheringData.skill_level || 0;
+    const spCost = gatheringData.sp_cost || 0;
+    const currentSp = gatheringData.current_sp || 0;
+    const canGather = gatheringData.can_gather;
+    
+    let itemsHtml = '';
+    if (gatheringData.all_items && gatheringData.all_items.length > 0) {
+        itemsHtml = gatheringData.all_items.map(item => {
+            const statusClass = item.can_gather ? 'available' : 'unavailable';
+            const statusIcon = item.can_gather ? '✅' : '❌';
+            const actualRate = item.actual_success_rate || item.base_success_rate || 0;
+            
+            return `
+                <div class="gathering-item ${statusClass}">
+                    <div class="item-header">
+                        <span class="item-status">${statusIcon}</span>
+                        <span class="item-name">${item.item_name}</span>
+                        <span class="item-category">(${item.item_category})</span>
+                    </div>
+                    <div class="item-details">
+                        <span class="item-requirement">必要スキル: Lv.${item.required_skill_level}</span>
+                        <span class="item-success-rate">成功率: ${actualRate}%</span>
+                        <span class="item-quantity">数量: ${item.quantity_range}個</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else {
+        itemsHtml = '<p class="no-items">このエリアでは採集できるアイテムがありません。</p>';
+    }
+    
+    const levelRequirementHtml = gatheringData.min_level_requirement ? 
+        `<p class="level-requirement">最低レベル要求: ${gatheringData.min_level_requirement} (現在レベル: ${gatheringData.player_level})</p>` : '';
+    
+    return `
+        <div class="gathering-info-content">
+            <div class="gathering-header">
+                <h3>📍 ${locationName} (${environmentName})</h3>
+                <div class="gathering-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">採集スキル:</span>
+                        <span class="stat-value">Lv.${skillLevel}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">消費SP:</span>
+                        <span class="stat-value">${spCost} (残り: ${currentSp})</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">採集可否:</span>
+                        <span class="stat-value ${canGather ? 'can-gather' : 'cannot-gather'}">
+                            ${canGather ? '可能' : '不可'}
+                        </span>
+                    </div>
+                </div>
+                ${levelRequirementHtml}
+            </div>
+            <div class="gathering-items">
+                <h4>採集可能アイテム (${gatheringData.available_items_count || 0}種類)</h4>
+                ${itemsHtml}
+            </div>
+        </div>
+    `;
+}
+
+function showGatheringInfoModal(content, data) {
+    // 既存のモーダルがあれば削除
+    const existingModal = document.getElementById('gathering-info-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'gathering-info-modal';
+    modal.className = 'gathering-modal';
+    modal.innerHTML = `
+        <div class="modal-overlay" onclick="closeGatheringModal()">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2>🌿 採集情報</h2>
+                    <button class="modal-close" onclick="closeGatheringModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    ${content}
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeGatheringModal()">閉じる</button>
+                    ${data.can_gather ? '<button class="btn btn-success" onclick="closeGatheringModal(); performGathering()">採集開始</button>' : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // スタイルを追加
+    addGatheringModalStyles();
+}
+
+function closeGatheringModal() {
+    const modal = document.getElementById('gathering-info-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function addGatheringModalStyles() {
+    // スタイルが既に追加されているかチェック
+    if (document.getElementById('gathering-modal-styles')) {
+        return;
+    }
+    
+    const styles = document.createElement('style');
+    styles.id = 'gathering-modal-styles';
+    styles.textContent = `
+        .gathering-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .gathering-modal .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+        
+        .gathering-modal .modal-content {
+            position: relative;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            margin: 20px;
+        }
+        
+        .gathering-modal .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .gathering-modal .modal-header h2 {
+            margin: 0;
+            color: #2d3748;
+        }
+        
+        .gathering-modal .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        
+        .gathering-modal .modal-close:hover {
+            background: #f7fafc;
+        }
+        
+        .gathering-modal .modal-body {
+            padding: 20px;
+        }
+        
+        .gathering-modal .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .gathering-info-content .gathering-header h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        .gathering-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .gathering-stats .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .gathering-stats .stat-label {
+            font-weight: bold;
+            color: #4a5568;
+        }
+        
+        .gathering-stats .can-gather {
+            color: #38a169;
+        }
+        
+        .gathering-stats .cannot-gather {
+            color: #e53e3e;
+        }
+        
+        .gathering-items h4 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .gathering-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .gathering-item.available {
+            background: #f0fff4;
+            border-color: #68d391;
+        }
+        
+        .gathering-item.unavailable {
+            background: #fffaf0;
+            border-color: #fc8181;
+            opacity: 0.8;
+        }
+        
+        .gathering-item .item-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        
+        .gathering-item .item-name {
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .gathering-item .item-category {
+            color: #718096;
+            font-size: 12px;
+        }
+        
+        .gathering-item .item-details {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #4a5568;
+        }
+        
+        .level-requirement {
+            color: #d69e2e;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .no-items {
+            text-align: center;
+            color: #718096;
+            font-style: italic;
+            padding: 20px;
+        }
+    `;
+    
+    document.head.appendChild(styles);
 }
 
 function takeRest() {

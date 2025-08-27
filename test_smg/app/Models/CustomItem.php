@@ -14,7 +14,6 @@ class CustomItem extends Model
         'base_stats', 
         'material_bonuses', 
         'base_durability', 
-        'durability', 
         'max_durability', 
         'is_masterwork'
     ];
@@ -24,7 +23,6 @@ class CustomItem extends Model
         'base_stats' => 'array', 
         'material_bonuses' => 'array',
         'base_durability' => 'integer',
-        'durability' => 'integer',
         'max_durability' => 'integer',
         'is_masterwork' => 'boolean'
     ];
@@ -79,16 +77,14 @@ class CustomItem extends Model
     }
 
     /**
-     * 耐久度継承情報取得
+     * 耐久度マスター情報取得（個別耐久度はインベントリで管理）
      */
     public function getDurabilityInfo(): array
     {
         return [
             'base_durability' => $this->base_durability,
-            'current_durability' => $this->durability,
             'max_durability' => $this->max_durability,
-            'durability_percentage' => $this->max_durability > 0 ? 
-                round(($this->durability / $this->max_durability) * 100, 2) : 0,
+            'durability_note' => '個別の耐久度はインベントリシステムで管理されます',
         ];
     }
 
@@ -116,7 +112,6 @@ class CustomItem extends Model
             'custom_stats' => $this->custom_stats,
             'base_stats' => $this->base_stats,
             'material_bonuses' => $this->material_bonuses,
-            'durability' => $this->durability,
             'max_durability' => $this->max_durability,
             'base_durability' => $this->base_durability,
             'durability_info' => $durabilityInfo,
@@ -145,42 +140,40 @@ class CustomItem extends Model
     }
 
     /**
-     * 耐久度を消費
+     * 耐久度管理はインベントリシステムで実行
+     * マスターデータとしては耐久度操作は行わない
      */
     public function consumeDurability(int $amount): bool
     {
-        if ($this->durability <= 0) {
-            return false;
-        }
-        
-        $this->durability = max(0, $this->durability - $amount);
-        $this->save();
-        
-        return true;
+        // マスターデータでは個別耐久度を管理しないため、
+        // 実際の耐久度操作はインベントリシステムで実行
+        return false;
     }
 
     /**
-     * 耐久度を修理
+     * 耐久度修理もインベントリシステムで実行
      */
     public function repairDurability(int $amount): void
     {
-        $this->durability = min($this->max_durability, $this->durability + $amount);
-        $this->save();
+        // マスターデータでは個別耐久度を管理しないため、
+        // 実際の耐久度操作はインベントリシステムで実行
     }
 
     /**
-     * アイテムが使用可能かチェック
+     * 使用可能性はインベントリ内の個別アイテムで判定
      */
     public function isUsable(): bool
     {
-        return $this->durability > 0;
+        // マスターデータとしては基本的に使用不可（装備のみ）
+        return false;
     }
 
     /**
-     * アイテムが破損しているかチェック
+     * 破損状態もインベントリ内の個別アイテムで判定
      */
     public function isBroken(): bool
     {
-        return $this->durability <= 0;
+        // マスターデータでは破損状態を持たない
+        return false;
     }
 }

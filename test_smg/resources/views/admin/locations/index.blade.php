@@ -91,21 +91,21 @@
             <div class="admin-card-body">
                     <div class="row">
                         <div class="col-md-4 mb-3">
-                            <a href="{{ route('admin.locations.roads') }}" class="btn btn-outline-primary btn-block py-3">
+                            <a href="{{ route('admin.roads.index') }}" class="btn btn-outline-primary btn-block py-3">
                                 <i class="fas fa-road fa-2x d-block mb-2"></i>
                                 <h6 class="mb-0">道路管理</h6>
                                 <small class="text-muted">道路の追加・編集・削除</small>
                             </a>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <a href="{{ route('admin.locations.towns') }}" class="btn btn-outline-success btn-block py-3">
+                            <a href="{{ route('admin.towns.index') }}" class="btn btn-outline-success btn-block py-3">
                                 <i class="fas fa-city fa-2x d-block mb-2"></i>
                                 <h6 class="mb-0">町管理</h6>
                                 <small class="text-muted">町の追加・編集・削除</small>
                             </a>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <a href="{{ route('admin.locations.dungeons') }}" class="btn btn-outline-info btn-block py-3">
+                            <a href="{{ route('admin.dungeons.index') }}" class="btn btn-outline-info btn-block py-3">
                                 <i class="fas fa-dungeon fa-2x d-block mb-2"></i>
                                 <h6 class="mb-0">ダンジョン管理</h6>
                                 <small class="text-muted">ダンジョンの追加・編集・削除</small>
@@ -114,7 +114,7 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <a href="{{ route('admin.locations.connections') }}" class="btn btn-outline-warning btn-block py-3">
+                            <a href="{{ route('admin.route-connections.index') }}" class="btn btn-outline-warning btn-block py-3">
                                 <i class="fas fa-project-diagram fa-2x d-block mb-2"></i>
                                 <h6 class="mb-0">接続関係管理</h6>
                                 <small class="text-muted">ロケーション間の接続を管理</small>

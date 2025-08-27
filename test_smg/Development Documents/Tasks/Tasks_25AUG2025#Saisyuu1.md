@@ -123,12 +123,6 @@ CREATE TABLE gathering_mappings (
     success_rate INT NOT NULL,
     quantity_min INT NOT NULL DEFAULT 1,
     quantity_max INT NOT NULL DEFAULT 1,
-    rarity_weight DECIMAL(5,3) DEFAULT 1.000,
-    sp_cost_modifier DECIMAL(3,2) DEFAULT 1.00,
-    
-    -- 🆕 環境別採集設定
-    gathering_environment ENUM('road', 'dungeon') NOT NULL DEFAULT 'road',
-    environment_difficulty_modifier DECIMAL(3,2) DEFAULT 1.00,  -- 環境による難易度補正
     
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP NULL,
@@ -136,7 +130,6 @@ CREATE TABLE gathering_mappings (
     
     INDEX idx_route_id (route_id),
     INDEX idx_item_id (item_id),
-    INDEX idx_environment (gathering_environment),
     INDEX idx_skill_level (required_skill_level),
     INDEX idx_active (is_active),
     
@@ -152,30 +145,12 @@ CREATE TABLE gathering_mappings (
 // app/Models/Route.php に追加
 
 /**
- * 採集環境タイプを判定（シンプル版）
- */
-public function getGatheringEnvironmentAttribute(): string
-{
-    return $this->category === 'dungeon' ? 'dungeon' : 'road';
-}
-
-/**
  * 採集可能判定（Road・Dungeon対応）
  */
 public function hasGatheringItems(): bool
 {
     return in_array($this->category, ['road', 'dungeon']) 
            && $this->gatheringMappings()->exists();
-}
-
-/**
- * 採集環境別のアイテム取得
- */
-public function gatheringItemsByEnvironment()
-{
-    return $this->gatheringMappings()
-                ->where('gathering_environment', $this->gathering_environment)
-                ->with('item');
 }
 ```
 
@@ -195,8 +170,6 @@ CREATE TABLE gathering_mappings (
     success_rate INT NOT NULL,        -- 1-100
     quantity_min INT NOT NULL DEFAULT 1,
     quantity_max INT NOT NULL DEFAULT 1,
-    rarity_weight DECIMAL(5,3) DEFAULT 1.000,
-    sp_cost_modifier DECIMAL(3,2) DEFAULT 1.00,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL,
@@ -247,8 +220,6 @@ class GatheringMapping extends Model
         'success_rate',
         'quantity_min',
         'quantity_max',
-        'rarity_weight',
-        'sp_cost_modifier',
         'is_active',
     ];
 
@@ -257,8 +228,6 @@ class GatheringMapping extends Model
         'success_rate' => 'integer',
         'quantity_min' => 'integer',
         'quantity_max' => 'integer',
-        'rarity_weight' => 'decimal:3',
-        'sp_cost_modifier' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 
@@ -289,10 +258,7 @@ class GatheringMapping extends Model
     {
         $baseRate = $this->success_rate;
         $skillBonus = max(0, ($playerSkillLevel - $this->required_skill_level) * 5);
-        
-        // 🆕 環境補正適用
-        $environmentModifier = $this->environment_difficulty_modifier ?? 1.00;
-        $finalRate = ($baseRate + $skillBonus) * $environmentModifier;
+        $finalRate = $baseRate + $skillBonus;
         
         return min(100, (int)$finalRate);
     }
@@ -338,9 +304,7 @@ public function gatheringItems()
                     'required_skill_level',
                     'success_rate', 
                     'quantity_min',
-                    'quantity_max',
-                    'rarity_weight',
-                    'sp_cost_modifier'
+                    'quantity_max'
                 ])
                 ->wherePivot('is_active', true);
 }
@@ -593,15 +557,13 @@ class AdminGatheringController extends AdminController
 
         try {
             // フィルタ処理
-            $filters = $request->only(['route_id', 'item_category', 'skill_level', 'is_active', 'gathering_environment']);
+            $filters = $request->only(['route_id', 'item_category', 'skill_level', 'is_active']);
             
             // データ取得
             $gatheringMappings = $this->gatheringService->getGatheringMappings($filters);
-            $environmentStats = $this->gatheringService->getGatheringStatsByEnvironment();
             $routeStats = $this->gatheringService->getGatheringStatsByRoute();
             $routes = Route::whereIn('category', ['road', 'dungeon'])->orderBy('name')->get();
             $itemCategories = Item::distinct('category')->pluck('category');
-            $gatheringEnvironments = ['road', 'dungeon'];
 
             $this->auditLog('gathering.index.viewed', [
                 'total_mappings' => $gatheringMappings->count(),
@@ -610,11 +572,9 @@ class AdminGatheringController extends AdminController
 
             return view('admin.gathering.index', compact(
                 'gatheringMappings',
-                'environmentStats',
                 'routeStats', 
                 'routes',
                 'itemCategories',
-                'gatheringEnvironments',
                 'filters'
             ));
 
@@ -626,11 +586,9 @@ class AdminGatheringController extends AdminController
             return view('admin.gathering.index', [
                 'error' => '採集データの読み込みに失敗しました: ' . $e->getMessage(),
                 'gatheringMappings' => collect(),
-                'environmentStats' => [],
                 'routeStats' => [],
                 'routes' => collect(),
                 'itemCategories' => collect(),
-                'gatheringEnvironments' => ['road', 'dungeon'],
                 'filters' => [],
             ]);
         }
@@ -651,11 +609,6 @@ class AdminGatheringController extends AdminController
             'success_rate' => ['required', 'integer', 'min:1', 'max:100'],
             'quantity_min' => ['required', 'integer', 'min:1'],
             'quantity_max' => ['required', 'integer', 'min:1', 'gte:quantity_min'],
-            'rarity_weight' => ['nullable', 'numeric', 'min:0.001', 'max:10.000'],
-            'sp_cost_modifier' => ['nullable', 'numeric', 'min:0.10', 'max:5.00'],
-            // 🆕 環境別設定
-            'gathering_environment' => ['required', 'in:road,dungeon'],
-            'environment_difficulty_modifier' => ['nullable', 'numeric', 'min:0.10', 'max:3.00'],
             'is_active' => ['boolean'],
         ]);
 
@@ -724,11 +677,11 @@ public function show(Request $request, string $id)
                            ->with('error', 'Route が見つかりませんでした。');
         }
 
-        // 採集統計計算（環境別対応）
+        // 採集統計計算
         $gatheringStats = [
             'total_items' => $road->gatheringMappings->count(),
             'active_items' => $road->gatheringMappings->where('is_active', true)->count(),
-            'environment_type' => $road->gathering_environment ?? 'road',
+            'route_type' => $road->route_type,
             'skill_level_range' => [
                 'min' => $road->gatheringMappings->min('required_skill_level') ?? 0,
                 'max' => $road->gatheringMappings->max('required_skill_level') ?? 0,
@@ -739,7 +692,7 @@ public function show(Request $request, string $id)
         $this->auditLog('roads.show.viewed', [
             'road_id' => $id,
             'road_name' => $road->name,
-            'route_category' => $road->category,
+            'route_type' => $road->route_type,
             'gathering_items_count' => $gatheringStats['total_items'],
         ]);
 
@@ -903,9 +856,9 @@ Route::middleware(['admin.permission:locations.view'])->group(function () {
             </div>
             <div class="admin-stat-content">
                 <div class="admin-stat-label">ダンジョン採集</div>
-                <div class="admin-stat-value">{{ $gatheringMappings->where('gathering_environment', '!=', 'road')->count() }}</div>
+                <div class="admin-stat-value">{{ $gatheringMappings->where('gathering_environment', 'dungeon')->count() }}</div>
                 <div class="admin-stat-subtitle">
-                    特殊環境での採集設定
+                    ダンジョン環境での採集設定
                 </div>
             </div>
         </div>
@@ -1166,7 +1119,6 @@ public function gather(Request $request): JsonResponse
             'item_obtained' => [
                 'name' => $selectedMapping->item->name,
                 'quantity' => $quantity,
-                'rarity_weight' => $selectedMapping->rarity_weight,
             ],
             'sp_consumed' => $spCost,
             'remaining_sp' => $player->sp,
@@ -1220,7 +1172,6 @@ public function getGatheringInfo(Request $request): JsonResponse
             'actual_success_rate' => $actualSuccessRate,
             'quantity_range' => $mapping->quantity_min . '-' . $mapping->quantity_max,
             'can_gather' => $canGather,
-            'rarity_weight' => $mapping->rarity_weight,
         ];
     });
 
@@ -1239,34 +1190,22 @@ public function getGatheringInfo(Request $request): JsonResponse
 }
 
 /**
- * 重み付きランダム選択
+ * ランダム選択（シンプル版）
  */
 private function selectRandomMapping($mappings): GatheringMapping
 {
-    $totalWeight = $mappings->sum('rarity_weight');
-    $random = mt_rand(1, (int)($totalWeight * 1000)) / 1000;
-    
-    $currentWeight = 0;
-    foreach ($mappings as $mapping) {
-        $currentWeight += $mapping->rarity_weight;
-        if ($random <= $currentWeight) {
-            return $mapping;
-        }
-    }
-    
-    return $mappings->first(); // フォールバック
+    return $mappings->random();
 }
 
 /**
- * 採集経験値計算
+ * 採集経験値計算（シンプル版）
  */
 private function calculateGatheringExperience(GatheringMapping $mapping, int $quantity): int
 {
     $baseExp = $mapping->required_skill_level * 2;
     $quantityBonus = $quantity - 1;
-    $rarityBonus = (int)($mapping->rarity_weight * 5);
     
-    return $baseExp + $quantityBonus + $rarityBonus;
+    return $baseExp + $quantityBonus;
 }
 ```
 

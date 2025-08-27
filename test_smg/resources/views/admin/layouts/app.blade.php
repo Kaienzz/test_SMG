@@ -1067,11 +1067,11 @@
                                 モンスタースポーン管理（統合版）
                             </a>
                         </div>
-                        <a href="{{ route('admin.shops.index') }}" class="admin-nav-item {{ request()->routeIs('admin.shops.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.town-facilities.index') }}" class="admin-nav-item {{ request()->routeIs('admin.town-facilities.*') ? 'active' : '' }}">
                             <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 2L3 7v11a2 2 0 002 2h10a2 2 0 002-2V7l-7-5zM8 15a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"></path>
                             </svg>
-                            ショップ管理
+                            町施設管理
                         </a>
                         <a href="{{ route('admin.locations.index') }}" class="admin-nav-item {{ request()->routeIs('admin.locations.*') ? 'active' : '' }}">
                             <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
@@ -1104,6 +1104,15 @@
                                 </svg>
                                 ダンジョン管理
                             </a>
+                            {{-- 🆕 採集管理を追加 --}}
+                            @if($canManageLocations ?? false)
+                            <a href="{{ route('admin.gathering.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.gathering*') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                </svg>
+                                採集管理
+                            </a>
+                            @endif
                         </div>
                     </div>
                     @endif
@@ -1157,10 +1166,10 @@
                         @if($index > 0)
                             <span class="breadcrumb-separator">></span>
                         @endif
-                        @if($item['active'])
+                        @if(isset($item['active']) && $item['active'])
                             <span class="breadcrumb-item active">{{ $item['title'] }}</span>
                         @else
-                            <a href="{{ $item['url'] }}" class="breadcrumb-item">{{ $item['title'] }}</a>
+                            <a href="{{ $item['url'] ?? '#' }}" class="breadcrumb-item">{{ $item['title'] }}</a>
                         @endif
                     @endforeach
                 </nav>

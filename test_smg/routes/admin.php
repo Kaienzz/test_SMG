@@ -10,8 +10,9 @@ use App\Http\Controllers\Admin\AdminLocationController;
 use App\Http\Controllers\Admin\AdminRoadController;
 use App\Http\Controllers\Admin\AdminDungeonController;
 use App\Http\Controllers\Admin\AdminTownController;
-use App\Http\Controllers\Admin\AdminShopController;
+use App\Http\Controllers\Admin\AdminTownFacilityController;
 use App\Http\Controllers\Admin\AdminRouteConnectionController;
+use App\Http\Controllers\Admin\AdminGatheringController;
 
 /*
 |--------------------------------------------------------------------------
@@ -74,9 +75,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::middleware(['admin.permission:items.view'])->group(function () {
         // カスタムアイテム管理
         Route::get('/items', [AdminItemController::class, 'index'])->name('items.index');
-        Route::get('/items/{item}', [AdminItemController::class, 'show'])->name('items.show');
+        Route::get('/items/{itemId}', [AdminItemController::class, 'show'])->name('items.show');
         Route::get('/items/create', [AdminItemController::class, 'create'])->name('items.create');
-        Route::get('/items/{item}/edit', [AdminItemController::class, 'edit'])->name('items.edit');
         
         
         // カスタムアイテム作成・編集（追加権限チェック）
@@ -85,13 +85,17 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         });
         
         Route::middleware(['admin.permission:items.edit'])->group(function () {
-            Route::put('/items/{item}', [AdminItemController::class, 'update'])->name('items.update');
+            Route::get('/items/{itemId}/edit', [AdminItemController::class, 'edit'])->name('items.edit')
+                 ->where('itemId', '[a-zA-Z][a-zA-Z0-9_-]*');
+            Route::put('/items/{itemId}', [AdminItemController::class, 'update'])->name('items.update')
+                 ->where('itemId', '[a-zA-Z][a-zA-Z0-9_-]*');
             Route::post('/items/bulk-action', [AdminItemController::class, 'bulkAction'])->name('items.bulk_action');
         });
         
         // アイテム削除（特別権限）
         Route::middleware(['admin.permission:items.delete'])->group(function () {
-            Route::delete('/items/{item}', [AdminItemController::class, 'destroy'])->name('items.destroy');
+            Route::delete('/items/{itemId}', [AdminItemController::class, 'destroy'])->name('items.destroy')
+                 ->where('itemId', '[a-zA-Z][a-zA-Z0-9_-]*');
         });
     });
     
@@ -126,16 +130,35 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         });
     });
         
-    // ショップ管理（権限チェック付き）
-    Route::middleware(['admin.permission:shops.view'])->group(function () {
-        Route::get('/shops', [AdminShopController::class, 'index'])->name('shops.index');
-        Route::get('/shops/{shop}', [AdminShopController::class, 'show'])->name('shops.show');
-        
-        // ショップ作成・編集（追加権限チェック）
-        Route::middleware(['admin.permission:shops.create'])->group(function () {
-            Route::get('/shops/create', [AdminShopController::class, 'create'])->name('shops.create');
-            Route::post('/shops', [AdminShopController::class, 'store'])->name('shops.store');
-        });
+    // 町施設管理（権限チェック付き）
+    // ⚠️ 重要：固定パス（create）を動的パス（{facility}）より先に登録
+    
+    // Create権限（最優先）
+    Route::middleware(['admin.permission:town_facilities.create'])->group(function () {
+        Route::get('/town-facilities/create', [AdminTownFacilityController::class, 'create'])->name('town-facilities.create');
+        Route::post('/town-facilities', [AdminTownFacilityController::class, 'store'])->name('town-facilities.store');
+        Route::post('/town-facilities/check-duplicate', [AdminTownFacilityController::class, 'checkDuplicate'])->name('town-facilities.check-duplicate');
+    });
+    
+    // View権限
+    Route::middleware(['admin.permission:town_facilities.view'])->group(function () {
+        Route::get('/town-facilities', [AdminTownFacilityController::class, 'index'])->name('town-facilities.index');
+        Route::get('/town-facilities/{facility}', [AdminTownFacilityController::class, 'show'])->name('town-facilities.show');
+    });
+    
+    // Edit権限
+    Route::middleware(['admin.permission:town_facilities.edit'])->group(function () {
+        Route::get('/town-facilities/{facility}/edit', [AdminTownFacilityController::class, 'edit'])->name('town-facilities.edit');
+        Route::put('/town-facilities/{facility}', [AdminTownFacilityController::class, 'update'])->name('town-facilities.update');
+        Route::patch('/town-facilities/{facility}/config', [AdminTownFacilityController::class, 'updateConfig'])->name('town-facilities.update-config');
+        Route::post('/town-facilities/{facility}/items', [AdminTownFacilityController::class, 'addItem'])->name('town-facilities.add-item');
+        Route::put('/town-facilities/{facility}/items/{item}', [AdminTownFacilityController::class, 'updateItem'])->name('town-facilities.update-item');
+        Route::delete('/town-facilities/{facility}/items/{item}', [AdminTownFacilityController::class, 'deleteItem'])->name('town-facilities.delete-item');
+    });
+    
+    // Delete権限
+    Route::middleware(['admin.permission:town_facilities.delete'])->group(function () {
+        Route::delete('/town-facilities/{facility}', [AdminTownFacilityController::class, 'destroy'])->name('town-facilities.destroy');
     });
     
     // ロケーション管理（統計・ダッシュボード）
@@ -147,6 +170,13 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/locations/{locationId}', [AdminLocationController::class, 'show'])
              ->name('locations.show')
              ->where('locationId', '[a-zA-Z][a-zA-Z0-9_-]*');
+             
+        // ロケーションデータのエクスポート
+        Route::get('/locations/export', [AdminLocationController::class, 'export'])->name('locations.export');
+        
+        // ロケーションデータのインポート・復元
+        Route::post('/locations/import', [AdminLocationController::class, 'import'])->name('locations.import');
+        Route::post('/locations/restore', [AdminLocationController::class, 'restore'])->name('locations.restore');
              
         // スポーンリスト管理（モンスター管理と統合予定）
         // 削除: 重複ルート - /monster-spawns で代替
@@ -174,6 +204,29 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('route-connections-debug', function () {
             return view('admin.route-connections.debug');
         })->name('route-connections.debug');
+    });
+    
+    // 採集管理（新統合システム）
+    Route::middleware(['admin.permission:gathering.view'])->group(function () {
+        Route::get('/gathering', [AdminGatheringController::class, 'index'])->name('gathering.index');
+        Route::get('/gathering/stats', [AdminGatheringController::class, 'stats'])->name('gathering.stats');
+        Route::get('/gathering/routes/{routeId}', [AdminGatheringController::class, 'getRouteGatheringData'])->name('gathering.routes.data');
+         
+        Route::middleware(['admin.permission:gathering.create'])->group(function () {
+            Route::get('/gathering/create', [AdminGatheringController::class, 'create'])->name('gathering.create');
+            Route::post('/gathering', [AdminGatheringController::class, 'store'])->name('gathering.store');
+            Route::post('/gathering/migrate-from-legacy', [AdminGatheringController::class, 'migrateFromLegacy'])->name('gathering.migrate-from-legacy');
+        });
+        
+        Route::middleware(['admin.permission:gathering.edit'])->group(function () {
+            Route::get('/gathering/{mapping}/edit', [AdminGatheringController::class, 'edit'])->name('gathering.edit');
+            Route::put('/gathering/{mapping}', [AdminGatheringController::class, 'update'])->name('gathering.update');
+            Route::patch('/gathering/{mapping}/toggle', [AdminGatheringController::class, 'toggle'])->name('gathering.toggle');
+        });
+        
+        Route::middleware(['admin.permission:gathering.delete'])->group(function () {
+            Route::delete('/gathering/{mapping}', [AdminGatheringController::class, 'destroy'])->name('gathering.destroy');
+        });
     });
     
     // Dungeon管理（新分離型システム - DungeonDescベース）

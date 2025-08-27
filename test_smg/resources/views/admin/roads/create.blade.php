@@ -73,42 +73,58 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // フォームバリデーション
-    const form = document.querySelector('form');
-    form.addEventListener('submit', function(e) {
-        const id = document.getElementById('id').value;
-        const name = document.getElementById('name').value;
-        const length = document.getElementById('length').value;
-        const difficulty = document.getElementById('difficulty').value;
-        
-        // 必須項目チェック
-        if (!id || !name || !length || !difficulty) {
-            e.preventDefault();
-            alert('必須項目をすべて入力してください。');
-            return;
-        }
-        
-        // ID形式チェック
-        if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(id)) {
-            e.preventDefault();
-            alert('Road IDは英字で始まり、英数字とアンダースコアのみ使用してください。');
-            return;
-        }
-        
-        // 長さチェック
-        if (length < 1 || length > 1000) {
-            e.preventDefault();
-            alert('長さは1-1000の範囲で入力してください。');
-            return;
-        }
-        
-        // エンカウント率チェック
-        const encounterRate = document.getElementById('encounter_rate').value;
-        if (encounterRate && (encounterRate < 0 || encounterRate > 1)) {
-            e.preventDefault();
-            alert('エンカウント率は0.00-1.00の範囲で入力してください。');
-            return;
-        }
-    });
+    const form = document.querySelector('form[method="POST"]');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            console.log('Form submission started...');
+            
+            const id = document.getElementById('id') ? document.getElementById('id').value.trim() : '';
+            const name = document.getElementById('name') ? document.getElementById('name').value.trim() : '';
+            const length = document.getElementById('length') ? document.getElementById('length').value : '';
+            const difficulty = document.getElementById('difficulty') ? document.getElementById('difficulty').value : '';
+            
+            console.log('Form values:', { id, name, length, difficulty });
+            
+            // 必須項目チェック
+            if (!id || !name || !length || !difficulty) {
+                e.preventDefault();
+                alert('必須項目をすべて入力してください。\n\nID: ' + (id ? '✓' : '✗') + '\n名前: ' + (name ? '✓' : '✗') + '\n長さ: ' + (length ? '✓' : '✗') + '\n難易度: ' + (difficulty ? '✓' : '✗'));
+                return false;
+            }
+            
+            // ID形式チェック（より緩和）
+            if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(id)) {
+                e.preventDefault();
+                alert('Road IDは英字で始まり、英数字・アンダースコア・ハイフンのみ使用してください。\n現在の入力値: "' + id + '"');
+                return false;
+            }
+            
+            // 長さチェック
+            const lengthNum = parseInt(length);
+            if (isNaN(lengthNum) || lengthNum < 1 || lengthNum > 1000) {
+                e.preventDefault();
+                alert('長さは1-1000の範囲の数値で入力してください。\n現在の入力値: "' + length + '"');
+                return false;
+            }
+            
+            // エンカウント率チェック
+            const encounterRateElement = document.getElementById('encounter_rate');
+            const encounterRate = encounterRateElement ? encounterRateElement.value : '';
+            if (encounterRate && encounterRate.trim() !== '') {
+                const encounterRateNum = parseFloat(encounterRate);
+                if (isNaN(encounterRateNum) || encounterRateNum < 0 || encounterRateNum > 1) {
+                    e.preventDefault();
+                    alert('エンカウント率は0.00-1.00の範囲で入力してください。\n現在の入力値: "' + encounterRate + '"');
+                    return false;
+                }
+            }
+            
+            console.log('Form validation passed, submitting...');
+            return true;
+        });
+    } else {
+        console.error('Form not found!');
+    }
 });
 </script>
 @endsection

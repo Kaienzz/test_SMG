@@ -117,7 +117,7 @@ class AdminPermissionService
      */
     private function hasWildcardPermission($user): bool
     {
-        $userPermissions = json_decode($user->admin_permissions ?? '[]', true);
+        $userPermissions = $user->admin_permissions ?? [];
         return in_array('*', $userPermissions);
     }
 
@@ -126,7 +126,7 @@ class AdminPermissionService
      */
     public function grantPermission($user, string $permission): bool
     {
-        $currentPermissions = json_decode($user->admin_permissions ?? '[]', true);
+        $currentPermissions = $user->admin_permissions ?? [];
         
         if (!in_array($permission, $currentPermissions)) {
             $currentPermissions[] = $permission;
@@ -153,7 +153,7 @@ class AdminPermissionService
      */
     public function revokePermission($user, string $permission): bool
     {
-        $currentPermissions = json_decode($user->admin_permissions ?? '[]', true);
+        $currentPermissions = $user->admin_permissions ?? [];
         $key = array_search($permission, $currentPermissions);
         
         if ($key !== false) {

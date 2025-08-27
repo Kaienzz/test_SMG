@@ -46,10 +46,10 @@
     </div>
 
     <!-- アクションバー -->
-    <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
         <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Road一覧</h2>
         <div style="display: flex; gap: 1rem;">
-            @if(auth()->user()->can('locations.edit'))
+            @if($canManageGameData ?? true)
             <a href="{{ route('admin.roads.create') }}" class="admin-btn admin-btn-primary">
                 <i class="fas fa-plus"></i> 新規Road作成
             </a>
@@ -144,13 +144,13 @@
                                        class="admin-btn admin-btn-sm admin-btn-info" title="詳細">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    @if(auth()->user()->can('locations.edit'))
+                                    @if($canManageGameData ?? true)
                                     <a href="{{ route('admin.roads.edit', $road->id) }}" 
                                        class="admin-btn admin-btn-sm admin-btn-warning" title="編集">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     @endif
-                                    @if(auth()->user()->can('locations.delete'))
+                                    @if($canManageGameData ?? true)
                                     <form method="POST" action="{{ route('admin.roads.destroy', $road->id) }}" 
                                           style="display: inline;" 
                                           onsubmit="return confirm('このRoadを削除してもよろしいですか？')">
@@ -184,7 +184,7 @@
                 <p style="color: var(--admin-secondary); margin-bottom: 2rem;">
                     新規Roadを作成してください。
                 </p>
-                @if(auth()->user()->can('locations.edit'))
+                @if($canManageGameData ?? true)
                 <a href="{{ route('admin.roads.create') }}" class="admin-btn admin-btn-primary">
                     <i class="fas fa-plus"></i> 新規Road作成
                 </a>
