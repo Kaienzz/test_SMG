@@ -60,10 +60,10 @@ class GameStateManager
         $direction = $request->input('direction');
         $steps = $request->input('steps');
         
-        // 左右の移動を前後の移動に変換
-        if ($direction === 'left') {
+        // 北南の移動を前後の移動に変換
+        if ($direction === 'south') {
             $direction = 'backward';
-        } elseif ($direction === 'right') {
+        } elseif ($direction === 'north') {
             $direction = 'forward';
         }
         

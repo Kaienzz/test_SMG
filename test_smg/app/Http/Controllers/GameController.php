@@ -131,6 +131,24 @@ class GameController extends Controller
             $townConnections = $this->locationService->getTownConnections($player->location_id);
         }
         
+        // 利用可能な接続情報を追加（町・道路両方で取得）
+        $availableConnections = [];
+        try {
+            $availableConnections = $this->locationService->getAvailableConnectionsWithData($player);
+            \Log::info('Available connections loaded', [
+                'player_id' => $player->id,
+                'location_type' => $player->location_type,
+                'location_id' => $player->location_id,
+                'game_position' => $player->game_position,
+                'connections_count' => count($availableConnections)
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to load available connections', [
+                'error' => $e->getMessage(),
+                'player_id' => $player->id
+            ]);
+        }
+        
         return [
             'gameState' => $gameState,
             'player' => $player,
@@ -141,6 +159,7 @@ class GameController extends Controller
             'monster' => $viewData['monster'] ?? null,
             'battle' => $viewData['battle'] ?? null,
             'townConnections' => $townConnections, // 町の実際の接続情報
+            'availableConnections' => $availableConnections, // 道路での利用可能接続情報
         ];
     }
     
@@ -191,7 +210,7 @@ class GameController extends Controller
     public function move(Request $request): JsonResponse
     {
         $request->validate([
-            'direction' => 'required|in:left,right,forward,backward',
+            'direction' => 'required|in:north,south,forward,backward',
             'steps' => 'required|integer|min:1|max:30'
         ]);
         
@@ -270,15 +289,74 @@ class GameController extends Controller
     
     public function moveToDirection(Request $request): JsonResponse
     {
+        // 新旧両システム + left/right対応のバリデーション
         $request->validate([
-            'direction' => 'required|string|in:north,south,east,west'
+            'direction' => 'required|string|in:north,south,east,west,left,right,move_north,move_south,move_east,move_west,turn_left,turn_right'
         ]);
         
         $player = $this->getOrCreatePlayer();
         $direction = $request->input('direction');
+        
+        // left/rightを道路軸に応じて適切な方角に変換
+        if ($direction === 'left' || $direction === 'right') {
+            $direction = $this->locationService->convertLeftRightToDirection($player, $direction);
+        }
+        
+        // 新システム: action_labelが送信された場合、connection_idベースで移動
+        if (str_starts_with($direction, 'move_') || str_starts_with($direction, 'turn_')) {
+            return $this->moveByActionLabel($player, $direction);
+        }
+        
+        // 旧システム: 従来の方向移動
         $result = $this->gameStateManager->moveToDirection($player, $direction);
         
         return response()->json($result->toArray());
+    }
+    
+    /**
+     * 新システム: action_labelベースでの移動処理
+     */
+    private function moveByActionLabel(Player $player, string $actionLabel): JsonResponse
+    {
+        try {
+            // 利用可能な接続から該当するaction_labelを検索
+            $connections = $this->locationService->getAvailableConnections($player);
+            
+            $targetConnection = $connections->first(function ($conn) use ($actionLabel) {
+                return $conn->action_label === $actionLabel;
+            });
+            
+            if (!$targetConnection) {
+                \Log::warning('No connection found for action label', [
+                    'player_location' => $player->location_id,
+                    'player_position' => $player->game_position,
+                    'action_label' => $actionLabel,
+                    'available_connections' => $connections->pluck('action_label')->toArray()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'error' => 'この方向への移動はできません'
+                ]);
+            }
+            
+            // 新システムのmoveToConnectionTargetを使用
+            $result = $this->locationService->moveToConnectionTarget($player, $targetConnection->id);
+            
+            return response()->json($result);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error in moveByActionLabel', [
+                'action_label' => $actionLabel,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'サーバーエラーが発生しました。管理者にお問い合わせください。'
+            ], 500);
+        }
     }
     
     public function reset(): JsonResponse
@@ -330,5 +408,165 @@ class GameController extends Controller
             'connections' => $connections
         ]);
     }
+    
+    /**
+     * Get available connections at current player position (New Logic)
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getAvailableConnections(Request $request): JsonResponse
+    {
+        try {
+            $player = $this->getOrCreatePlayer();
+            $connections = $this->locationService->getAvailableConnectionsWithData($player);
+            
+            return response()->json([
+                'success' => true,
+                'connections' => $connections,
+                'current_location' => [
+                    'type' => $player->location_type,
+                    'id' => $player->location_id,
+                    'position' => $player->game_position
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to get available connections', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => '接続情報の取得に失敗しました',
+                'connections' => []
+            ], 500);
+        }
+    }
+    
+    /**
+     * Move to specific connection (New Logic)
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function moveToConnection(Request $request): JsonResponse
+    {
+        $request->validate([
+            'connection_id' => 'required|string|exists:route_connections,id'
+        ]);
+        
+        try {
+            $player = $this->getOrCreatePlayer();
+            $connectionId = $request->input('connection_id');
+            
+            \Log::info('Moving to connection', [
+                'player_id' => $player->id,
+                'connection_id' => $connectionId,
+                'current_position' => [
+                    'location_type' => $player->location_type,
+                    'location_id' => $player->location_id,
+                    'game_position' => $player->game_position
+                ]
+            ]);
+            
+            $result = $this->locationService->moveToConnectionTarget($player, $connectionId);
+            
+            if ($result['success']) {
+                \Log::info('Successfully moved to connection', [
+                    'player_id' => $player->id,
+                    'destination' => $result['destination'],
+                    'action_performed' => $result['action_performed']
+                ]);
+            } else {
+                \Log::warning('Failed to move to connection', [
+                    'player_id' => $player->id,
+                    'error' => $result['error']
+                ]);
+            }
+            
+            return response()->json($result);
+            
+        } catch (\Exception $e) {
+            \Log::error('Exception during connection movement', [
+                'connection_id' => $request->input('connection_id'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => '移動に失敗しました: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Move using keyboard shortcut (New Logic)
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function moveByKeyboard(Request $request): JsonResponse
+    {
+        $request->validate([
+            'key' => 'required|in:up,down,left,right'
+        ]);
+        
+        try {
+            $player = $this->getOrCreatePlayer();
+            $key = $request->input('key');
+            
+            // Find connection with matching keyboard shortcut
+            $connection = \App\Models\RouteConnection::where('source_location_id', $player->location_id)
+                                                  ->where('keyboard_shortcut', $key)
+                                                  ->enabled()
+                                                  ->first();
+            
+            if (!$connection) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'このキーに割り当てられた移動先がありません'
+                ]);
+            }
+            
+            // Check if connection is available at current position
+            if (!$this->locationService->shouldShowConnectionAtPosition($connection, $player->game_position ?? 0)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'この移動先は現在の位置では利用できません'
+                ]);
+            }
+            
+            \Log::info('Moving by keyboard shortcut', [
+                'player_id' => $player->id,
+                'key' => $key,
+                'connection_id' => $connection->id
+            ]);
+            
+            $result = $this->locationService->moveToConnectionTarget($player, $connection->id);
+            
+            // Add keyboard shortcut info to response
+            if ($result['success']) {
+                $result['keyboard_shortcut'] = $key;
+                $result['keyboard_used'] = true;
+            }
+            
+            return response()->json($result);
+            
+        } catch (\Exception $e) {
+            \Log::error('Exception during keyboard movement', [
+                'key' => $request->input('key'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'キーボード移動に失敗しました: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
 
 }

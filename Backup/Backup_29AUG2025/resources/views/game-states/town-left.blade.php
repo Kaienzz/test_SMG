@@ -4,29 +4,51 @@
 <div class="movement-section">
     <h3>移動先選択</h3>
     
-    {{-- Actual Town Connections from LocationService --}}
+    {{-- New System: Connection-based Movement --}}
     <div class="connection-options">
-        @if(isset($townConnections) && !empty($townConnections))
-            @foreach($townConnections as $direction => $connection)
+        @if(isset($availableConnections) && !empty($availableConnections))
+            @foreach($availableConnections as $connection)
                 @php
-                    $directionIcons = [
-                        'north' => '⬆️',
-                        'south' => '⬇️', 
-                        'east' => '➡️',
-                        'west' => '⬅️'
-                    ];
-                    $icon = $directionIcons[$direction] ?? '🚪';
+                    $actionText = $connection['action_text'] ?? ($connection['target_location']->name . 'に移動する');
+                    $keyboardDisplay = $connection['keyboard_display'] ?? '';
+                    $targetName = $connection['target_location']->name ?? '不明な場所';
+                    
+                    // Edge type based icons
+                    $icon = match($connection['edge_type']) {
+                        'portal' => '🌀',
+                        'exit' => '🚪',
+                        'enter' => '↩️',
+                        'branch' => '🔀',
+                        default => '🚶'
+                    };
+                    
+                    // Action label based icons (fallback)
+                    if ($icon === '🚶' && isset($connection['action_label'])) {
+                        $icon = match($connection['action_label']) {
+                            'move_north' => '⬆️',
+                            'move_south' => '⬇️',
+                            'move_east' => '➡️',
+                            'move_west' => '⬅️',
+                            'turn_left' => '↩️',
+                            'turn_right' => '↪️',
+                            default => '🧭'
+                        };
+                    }
                 @endphp
                 <button 
                     class="connection-btn"
-                    onclick="moveToDirection('{{ $direction }}')"
-                    title="{{ $connection['name'] ?? 'Unknown destination' }}"
-                    data-direction="{{ $direction }}"
+                    onclick="moveToConnection('{{ $connection['id'] }}')"
+                    title="{{ $actionText }}{{ $keyboardDisplay ? ' (' . $keyboardDisplay . ')' : '' }}"
+                    data-connection-id="{{ $connection['id'] }}"
+                    data-keyboard="{{ $connection['keyboard_shortcut'] }}"
                 >
                     <span class="direction-icon">{{ $icon }}</span>
                     <div class="direction-info">
-                        <span class="direction-label">{{ $connection['direction_label'] ?? ucfirst($direction) }}</span>
-                        <span class="destination-name">{{ $connection['name'] ?? 'Unknown' }}</span>
+                        <span class="direction-label">{{ $actionText }}</span>
+                        <span class="destination-name">{{ $targetName }}</span>
+                        @if($keyboardDisplay)
+                            <span class="keyboard-hint-town">{{ $keyboardDisplay }}</span>
+                        @endif
                     </div>
                 </button>
             @endforeach

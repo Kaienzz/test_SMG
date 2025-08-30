@@ -7,8 +7,12 @@ use App\Models\Route;
 use App\Models\RouteConnection;
 use App\Services\Admin\AdminRouteService;
 use App\Services\Admin\AdminAuditService;
+use App\Http\Requests\CreateRouteConnectionRequest;
+use App\Http\Requests\UpdateRouteConnectionRequest;
+use App\Helpers\ActionLabel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AdminRouteConnectionController extends AdminController
@@ -89,58 +93,93 @@ class AdminRouteConnectionController extends AdminController
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(CreateRouteConnectionRequest $request)
     {
         $this->initializeForRequest();
         $this->checkPermission('locations.edit');
 
-        $validated = $request->validate([
-            'source_location_id' => [
-                'required',
-                'string',
-                'exists:routes,id'
-            ],
-            'target_location_id' => [
-                'required',
-                'string',
-                'exists:routes,id',
-                'different:source_location_id'
-            ],
-            'connection_type' => 'required|in:start,end,bidirectional',
-            'position' => 'nullable|integer|min:0',
-            'direction' => 'nullable|string|max:255'
-        ]);
+        $validated = $request->validated();
+        $createBidirectional = $request->boolean('create_bidirectional');
 
         try {
-            // Check for existing connection
-            $existingConnection = RouteConnection::where(function($query) use ($validated) {
-                $query->where('source_location_id', $validated['source_location_id'])
-                      ->where('target_location_id', $validated['target_location_id']);
-            })->orWhere(function($query) use ($validated) {
-                $query->where('source_location_id', $validated['target_location_id'])
-                      ->where('target_location_id', $validated['source_location_id']);
-            })->first();
+            DB::beginTransaction();
 
-            if ($existingConnection) {
-                return back()->withInput()->with('error', 'この接続は既に存在します。');
-            }
-
-            $connection = RouteConnection::create($validated);
-
-            $this->auditLog('route_connections.created', [
-                'connection_id' => $connection->id,
-                'source_location' => $validated['source_location_id'],
-                'target_location' => $validated['target_location_id'],
-                'connection_type' => $validated['connection_type']
+            // メイン接続を作成
+            $connection = RouteConnection::create([
+                'source_location_id' => $validated['source_location_id'],
+                'target_location_id' => $validated['target_location_id'],
+                'source_position' => $validated['source_position'] ?? null,
+                'target_position' => $validated['target_position'] ?? null,
+                'edge_type' => $validated['edge_type'] ?? null,
+                'is_enabled' => $validated['is_enabled'] ?? true,
+                'action_label' => $validated['action_label'] ?? null,
+                'keyboard_shortcut' => $validated['keyboard_shortcut'] ?? null,
+                // レガシーフィールド（互換性）
+                'connection_type' => $validated['connection_type'] ?? null,
+                'position' => $validated['position'] ?? null,
+                'direction' => $validated['direction'] ?? null,
             ]);
 
+            $createdConnections = [$connection];
+
+            // 双方向接続の作成
+            if ($createBidirectional) {
+                $reverseData = [
+                    'source_location_id' => $validated['target_location_id'],
+                    'target_location_id' => $validated['source_location_id'],
+                    'source_position' => $validated['target_position'] ?? null,
+                    'target_position' => $validated['source_position'] ?? null,
+                    'edge_type' => ActionLabel::getOppositeEdgeType($validated['edge_type'] ?? null),
+                    'is_enabled' => $validated['is_enabled'] ?? true,
+                    'action_label' => ActionLabel::getOppositeActionLabel($validated['action_label'] ?? null),
+                    'keyboard_shortcut' => ActionLabel::getOppositeKeyboardShortcut($validated['keyboard_shortcut'] ?? null),
+                    // レガシーフィールド（互換性）
+                    'connection_type' => $validated['connection_type'] ?? null,
+                    'position' => $validated['position'] ?? null,
+                    'direction' => $validated['direction'] ?? null,
+                ];
+
+                // 重複チェック（反対方向）
+                $existingReverse = RouteConnection::where('source_location_id', $reverseData['source_location_id'])
+                                                 ->where('target_location_id', $reverseData['target_location_id'])
+                                                 ->where('source_position', $reverseData['source_position'])
+                                                 ->first();
+
+                if (!$existingReverse) {
+                    $reverseConnection = RouteConnection::create($reverseData);
+                    $createdConnections[] = $reverseConnection;
+                }
+            }
+
+            // 監査ログ記録
+            foreach ($createdConnections as $createdConnection) {
+                $this->auditLog('route_connections.created', [
+                    'connection_id' => $createdConnection->id,
+                    'source_location' => $createdConnection->source_location_id,
+                    'target_location' => $createdConnection->target_location_id,
+                    'edge_type' => $createdConnection->edge_type,
+                    'action_label' => $createdConnection->action_label,
+                    'keyboard_shortcut' => $createdConnection->keyboard_shortcut,
+                    'is_bidirectional_part' => count($createdConnections) > 1,
+                ]);
+            }
+
+            DB::commit();
+
+            $message = count($createdConnections) > 1 
+                ? 'ロケーション間の接続を作成しました（双方向: ' . count($createdConnections) . '件）。'
+                : 'ロケーション間の接続を作成しました。';
+
             return redirect()->route('admin.route-connections.index')
-                           ->with('success', 'ロケーション間の接続を作成しました。');
+                           ->with('success', $message);
 
         } catch (\Exception $e) {
+            DB::rollBack();
+            
             Log::error('Failed to create route connection', [
                 'error' => $e->getMessage(),
-                'data' => $validated
+                'data' => $validated,
+                'create_bidirectional' => $createBidirectional
             ]);
 
             return back()->withInput()->with('error', '接続の作成に失敗しました: ' . $e->getMessage());
@@ -204,47 +243,31 @@ class AdminRouteConnectionController extends AdminController
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateRouteConnectionRequest $request, string $id)
     {
         $this->initializeForRequest();
         $this->checkPermission('locations.edit');
 
-        $validated = $request->validate([
-            'source_location_id' => [
-                'required',
-                'string',
-                'exists:routes,id'
-            ],
-            'target_location_id' => [
-                'required',
-                'string',
-                'exists:routes,id',
-                'different:source_location_id'
-            ],
-            'connection_type' => 'required|in:start,end,bidirectional',
-            'position' => 'nullable|integer|min:0',
-            'direction' => 'nullable|string|max:255'
-        ]);
+        $validated = $request->validated();
 
         try {
             $connection = RouteConnection::findOrFail($id);
-            
-            // Check for existing connection (excluding current one)
-            $existingConnection = RouteConnection::where('id', '!=', $id)
-                ->where(function($query) use ($validated) {
-                    $query->where('source_location_id', $validated['source_location_id'])
-                          ->where('target_location_id', $validated['target_location_id']);
-                })->orWhere(function($query) use ($validated) {
-                    $query->where('source_location_id', $validated['target_location_id'])
-                          ->where('target_location_id', $validated['source_location_id']);
-                })->first();
-
-            if ($existingConnection) {
-                return back()->withInput()->with('error', 'この接続は既に存在します。');
-            }
-
             $oldData = $connection->toArray();
-            $connection->update($validated);
+            
+            $connection->update([
+                'source_location_id' => $validated['source_location_id'],
+                'target_location_id' => $validated['target_location_id'],
+                'source_position' => $validated['source_position'] ?? null,
+                'target_position' => $validated['target_position'] ?? null,
+                'edge_type' => $validated['edge_type'] ?? null,
+                'is_enabled' => $validated['is_enabled'] ?? true,
+                'action_label' => $validated['action_label'] ?? null,
+                'keyboard_shortcut' => $validated['keyboard_shortcut'] ?? null,
+                // レガシーフィールド（互換性）
+                'connection_type' => $validated['connection_type'] ?? null,
+                'position' => $validated['position'] ?? null,
+                'direction' => $validated['direction'] ?? null,
+            ]);
 
             $this->auditLog('route_connections.updated', [
                 'connection_id' => $id,
@@ -374,12 +397,28 @@ class AdminRouteConnectionController extends AdminController
             
             // エッジをCytoscape形式に変換
             $edges = collect($connections)->map(function($connection, $index) {
+                // 新仕様の情報を優先し、古い情報はフォールバック
+                $edgeType = $connection['edge_type'] ?? $connection['connection_type'] ?? '';
+                $actionLabel = $connection['action_label'] ?? '';
+                $keyboardShortcut = $connection['keyboard_shortcut'] ?? '';
+                
+                // ラベル作成（新仕様の情報を優先）
+                $label = $actionLabel ?: ($edgeType ?: $connection['connection_type']);
+                
                 return [
                     'data' => [
                         'id' => 'edge-' . $connection['id'],
                         'source' => $connection['source_location_id'],
                         'target' => $connection['target_location_id'],
-                        'label' => $connection['connection_type'],
+                        'label' => $label,
+                        // 新仕様フィールド
+                        'edge_type' => $edgeType,
+                        'action_label' => $actionLabel,
+                        'keyboard_shortcut' => $keyboardShortcut,
+                        'source_position' => $connection['source_position'] ?? null,
+                        'target_position' => $connection['target_position'] ?? null,
+                        'is_enabled' => $connection['is_enabled'] ?? true,
+                        // 旧フィールド（互換性）
                         'direction' => $connection['direction'] ?? '',
                         'connection_type' => $connection['connection_type'],
                         'connection_id' => $connection['id']

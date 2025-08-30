@@ -37,8 +37,11 @@
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 0.75rem; text-align: left; font-weight: 600;">種類</th>
                             <th style="padding: 0.75rem; text-align: left; font-weight: 600;">相手</th>
-                            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">タイプ</th>
-                            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">方向</th>
+                            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">位置</th>
+                            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">エッジ</th>
+                            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">アクション</th>
+                            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">キー</th>
+                            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">状態</th>
                             <th style="padding: 0.75rem; text-align: left; font-weight: 600;">操作</th>
                         </tr>
                     </thead>
@@ -49,12 +52,55 @@
                                 <span class="badge bg-info">このロケーションから</span>
                             </td>
                             <td style="padding: 0.75rem;">
-                                <a href="{{ route('admin.locations.show', $connection->target_location_id) }}" target="_blank" style="color: var(--admin-primary, #007bff); text-decoration: none;">{{ $connection->targetLocation?->name ?? 'Unknown' }}</a>
+                                <div>
+                                    <a href="{{ route('admin.locations.show', $connection->target_location_id) }}" target="_blank" style="color: var(--admin-primary, #007bff); text-decoration: none;">{{ $connection->targetLocation?->name ?? 'Unknown' }}</a>
+                                    <br><small class="text-muted">{{ $connection->targetLocation?->category }}</small>
+                                </div>
                             </td>
                             <td style="padding: 0.75rem;">
-                                <span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">{{ $connection->connection_type }}</span>
+                                <div class="small">
+                                    @if($connection->source_position !== null)
+                                        <div><strong>出発:</strong> {{ $connection->source_position }}</div>
+                                    @endif
+                                    @if($connection->target_position !== null)
+                                        <div><strong>到着:</strong> {{ $connection->target_position }}</div>
+                                    @endif
+                                    @if($connection->source_position === null && $connection->target_position === null)
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </div>
                             </td>
-                            <td style="padding: 0.75rem;">{{ $connection->direction ?? 'N/A' }}</td>
+                            <td style="padding: 0.75rem;">
+                                @if($connection->edge_type)
+                                    <span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">{{ $connection->edge_type }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td style="padding: 0.75rem;">
+                                @if($connection->action_label)
+                                    <div class="small">
+                                        {{ \App\Helpers\ActionLabel::getActionLabelText($connection->action_label) }}
+                                        <br><code style="font-size: 0.7rem;">{{ $connection->action_label }}</code>
+                                    </div>
+                                @else
+                                    <span class="text-muted">自動</span>
+                                @endif
+                            </td>
+                            <td style="padding: 0.75rem;">
+                                @if($connection->keyboard_shortcut)
+                                    <span style="background: #343a40; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-family: monospace;">{{ \App\Helpers\ActionLabel::getKeyboardShortcutDisplay($connection->keyboard_shortcut) }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td style="padding: 0.75rem;">
+                                @if($connection->is_enabled ?? true)
+                                    <span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">有効</span>
+                                @else
+                                    <span style="background: #ffc107; color: #212529; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">無効</span>
+                                @endif
+                            </td>
                             <td style="padding: 0.75rem;">
                                 <div style="display: flex; gap: 0.5rem;">
                                     <a href="{{ route('admin.route-connections.edit', $connection->id) }}" 
@@ -80,12 +126,55 @@
                                 <span class="badge bg-warning text-dark">このロケーションへ</span>
                             </td>
                             <td style="padding: 0.75rem;">
-                                <a href="{{ route('admin.locations.show', $connection->source_location_id) }}" target="_blank" style="color: var(--admin-primary, #007bff); text-decoration: none;">{{ $connection->sourceLocation?->name ?? 'Unknown' }}</a>
+                                <div>
+                                    <a href="{{ route('admin.locations.show', $connection->source_location_id) }}" target="_blank" style="color: var(--admin-primary, #007bff); text-decoration: none;">{{ $connection->sourceLocation?->name ?? 'Unknown' }}</a>
+                                    <br><small class="text-muted">{{ $connection->sourceLocation?->category }}</small>
+                                </div>
                             </td>
                             <td style="padding: 0.75rem;">
-                                <span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">{{ $connection->connection_type }}</span>
+                                <div class="small">
+                                    @if($connection->source_position !== null)
+                                        <div><strong>出発:</strong> {{ $connection->source_position }}</div>
+                                    @endif
+                                    @if($connection->target_position !== null)
+                                        <div><strong>到着:</strong> {{ $connection->target_position }}</div>
+                                    @endif
+                                    @if($connection->source_position === null && $connection->target_position === null)
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </div>
                             </td>
-                            <td style="padding: 0.75rem;">{{ $connection->direction ?? 'N/A' }}</td>
+                            <td style="padding: 0.75rem;">
+                                @if($connection->edge_type)
+                                    <span style="background: #6c757d; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">{{ $connection->edge_type }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td style="padding: 0.75rem;">
+                                @if($connection->action_label)
+                                    <div class="small">
+                                        {{ \App\Helpers\ActionLabel::getActionLabelText($connection->action_label) }}
+                                        <br><code style="font-size: 0.7rem;">{{ $connection->action_label }}</code>
+                                    </div>
+                                @else
+                                    <span class="text-muted">自動</span>
+                                @endif
+                            </td>
+                            <td style="padding: 0.75rem;">
+                                @if($connection->keyboard_shortcut)
+                                    <span style="background: #343a40; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-family: monospace;">{{ \App\Helpers\ActionLabel::getKeyboardShortcutDisplay($connection->keyboard_shortcut) }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td style="padding: 0.75rem;">
+                                @if($connection->is_enabled ?? true)
+                                    <span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">有効</span>
+                                @else
+                                    <span style="background: #ffc107; color: #212529; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">無効</span>
+                                @endif
+                            </td>
                             <td style="padding: 0.75rem;">
                                 <div style="display: flex; gap: 0.5rem;">
                                     <a href="{{ route('admin.route-connections.edit', $connection->id) }}" 
@@ -126,7 +215,7 @@
                     </button>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                     <div>
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">接続先ロケーション <span style="color: #dc3545;">*</span></label>
                         <select style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][target_location_id]" required disabled>
@@ -138,27 +227,71 @@
                     </div>
                     
                     <div>
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">接続タイプ <span style="color: #dc3545;">*</span></label>
-                        <select style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][connection_type]" required disabled>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">エッジタイプ</label>
+                        <select style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][edge_type]" disabled>
                             <option value="">選択してください</option>
-                            <option value="start">開始点</option>
-                            <option value="end">終了点</option>
-                            <option value="bidirectional">双方向</option>
+                            <option value="normal">通常</option>
+                            <option value="branch">分岐</option>
+                            <option value="portal">ポータル</option>
+                            <option value="exit">出口</option>
+                            <option value="enter">入口</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">出発位置</label>
+                        <input type="number" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][source_position]" min="0" max="100" placeholder="0-100" disabled>
+                        <small style="color: #6c757d; font-size: 0.75rem;">道路・ダンジョンの場合は必須</small>
+                    </div>
+                    
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">到着位置</label>
+                        <input type="number" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][target_position]" min="0" max="100" placeholder="0-100" disabled>
+                        <small style="color: #6c757d; font-size: 0.75rem;">道路・ダンジョンの場合は必須</small>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">アクションラベル</label>
+                        <select style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][action_label]" disabled>
+                            <option value="">自動設定</option>
+                            @foreach(\App\Helpers\ActionLabel::getAllActionLabels() as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
                         </select>
                     </div>
                     
                     <div>
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">位置</label>
-                        <input type="number" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][position]" min="0" placeholder="並び順" disabled>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">キーボードショートカット</label>
+                        <select style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][keyboard_shortcut]" disabled>
+                            <option value="">なし</option>
+                            @foreach(\App\Helpers\ActionLabel::getAllKeyboardShortcuts() as $key => $display)
+                                <option value="{{ $key }}">{{ $display }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-top: 1.5rem;">
+                            <input type="checkbox" name="{{ $form_prefix }}[INDEX][is_enabled]" value="1" checked disabled style="transform: scale(1.2);">
+                            <span style="font-weight: 600; font-size: 0.875rem;">有効</span>
+                        </label>
                     </div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
-                    <div>
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">方向</label>
-                        <input type="text" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][direction]" placeholder="例: 北、南東" disabled>
+                <!-- Legacy fields (collapsed) -->
+                <details style="margin-top: 1rem;">
+                    <summary style="cursor: pointer; font-weight: 600; color: #6c757d; font-size: 0.875rem;">レガシーフィールド（互換性）</summary>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1rem; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.875rem;">方向（レガシー）</label>
+                            <input type="text" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.25rem; font-size: 0.875rem;" name="{{ $form_prefix }}[INDEX][direction]" placeholder="例: 北、南東" disabled>
+                        </div>
                     </div>
-                </div>
+                </details>
             </div>
         </div>
     </div>

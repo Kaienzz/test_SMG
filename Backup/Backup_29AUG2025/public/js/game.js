@@ -156,19 +156,19 @@ class MovementManager {
         
         // 境界チェック
         const currentPosition = this.gameManager.gameData.character.game_position || 0;
-        if (direction === 'left' && currentPosition <= 0) {
-            alert('道の端なので左に移動できません！');
+        if (direction === 'south' && currentPosition <= 0) {
+            alert('道の端なので南に移動できません！');
             return;
         }
-        if (direction === 'right' && currentPosition >= 100) {
-            alert('道の端なので右に移動できません！');
+        if (direction === 'north' && currentPosition >= 100) {
+            alert('道の端なので北に移動できません！');
             return;
         }
         
-        const moveLeft = document.getElementById('move-left');
-        const moveRight = document.getElementById('move-right');
-        if (moveLeft) moveLeft.disabled = true;
-        if (moveRight) moveRight.disabled = true;
+        const moveNorth = document.getElementById('move-north');
+        const moveSouth = document.getElementById('move-south');
+        if (moveNorth) moveNorth.disabled = true;
+        if (moveSouth) moveSouth.disabled = true;
         
         const requestData = {
             direction: direction,
@@ -279,10 +279,10 @@ class MovementManager {
     }
 
     reenableMovementButtons() {
-        const moveLeft = document.getElementById('move-left');
-        const moveRight = document.getElementById('move-right');
-        if (moveLeft) moveLeft.disabled = false;
-        if (moveRight) moveRight.disabled = false;
+        const moveNorth = document.getElementById('move-north');
+        const moveSouth = document.getElementById('move-south');
+        if (moveNorth) moveNorth.disabled = false;
+        if (moveSouth) moveSouth.disabled = false;
     }
 
     moveToNext() {
@@ -760,14 +760,14 @@ class UIManager {
         
         let buttonsHTML = '';
         
-        // 左ボタン：位置が0より大きい場合のみ表示
+        // 南ボタン：位置が0より大きい場合のみ表示（進歩を減らす）
         if (position > 0) {
-            buttonsHTML += '<button class="btn btn-warning" id="move-left" onclick="move(\'left\')">←左に移動</button>';
+            buttonsHTML += '<button class="btn btn-warning" id="move-south" onclick="move(\'south\')">⬇️南に移動（戻る）</button>';
         }
         
-        // 右ボタン：位置が100未満の場合のみ表示
+        // 北ボタン：位置が100未満の場合のみ表示（進歩を増やす）
         if (position < 100) {
-            buttonsHTML += '<button class="btn btn-warning" id="move-right" onclick="move(\'right\')">→右に移動</button>';
+            buttonsHTML += '<button class="btn btn-warning" id="move-north" onclick="move(\'north\')">⬆️北に移動（進む）</button>';
         }
         
         movementControls.innerHTML = buttonsHTML;
@@ -778,7 +778,7 @@ class UIManager {
             diceContainer.parentNode.insertBefore(movementControls, diceContainer.nextSibling);
         }
         
-        console.log('Movement controls created for position:', position, 'Left:', position > 0, 'Right:', position < 100);
+        console.log('Movement controls created for position:', position, 'South:', position > 0, 'North:', position < 100);
     }
 
     getDiceContainerHTML() {
@@ -1018,6 +1018,9 @@ function initializeGame(gameData) {
     gameManager.hideMovementControls = () => uiManager.hideMovementControls();
     gameManager.hideDiceResult = () => uiManager.hideDiceResult();
     gameManager.handleEncounter = (monster) => battleManager.handleEncounter(monster);
+    
+    // Initialize keyboard controls
+    initializeKeyboardControls();
 }
 
 // グローバル関数（HTMLから呼び出し用）
@@ -1031,6 +1034,163 @@ function move(direction) {
 
 function moveToNext() {
     movementManager.moveToNext();
+}
+
+// New connection-based movement functions
+function moveToConnection(connectionId) {
+    console.log('moveToConnection called with ID:', connectionId);
+    
+    const button = document.querySelector(`[data-connection-id="${connectionId}"]`);
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = button.innerHTML.replace(/^(.*)$/, '<span class="spinner">🔄</span> 移動中...');
+    }
+    
+    fetch('/api/game/move-to-connection', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            connection_id: connectionId
+        })
+    })
+    .then(response => ErrorHandler.handleApiResponse(
+        response,
+        (data) => {
+            console.log('Connection movement response:', data);
+            handleConnectionMovementSuccess(data);
+        },
+        (error) => {
+            handleConnectionMovementError(error, connectionId);
+        }
+    ))
+    .catch(error => {
+        ErrorHandler.handleApiError(error, 'コネクション移動');
+        resetConnectionButton(connectionId);
+    });
+}
+
+function handleConnectionMovementSuccess(data) {
+    // Update game display
+    if (gameManager && typeof gameManager.updateGameDisplay === 'function') {
+        const extendedData = {
+            ...data,
+            location_type: movementManager.getLocationTypeFromData(data)
+        };
+        gameManager.updateGameDisplay(extendedData);
+    }
+    
+    // Show success message if provided
+    if (data.message) {
+        showSuccessMessage(data.message);
+    }
+    
+    // Update game data
+    if (gameManager) {
+        gameManager.gameData.character.game_position = data.position;
+        gameManager.gameData.character.location_type = data.location_type || 
+            movementManager.getLocationTypeFromData(data);
+        gameManager.gameData.nextLocation = data.nextLocation;
+    }
+}
+
+function handleConnectionMovementError(error, connectionId) {
+    console.error('Connection movement error:', error);
+    const message = error.error || error.message || 'コネクション移動に失敗しました';
+    showErrorMessage(message);
+    resetConnectionButton(connectionId);
+}
+
+function resetConnectionButton(connectionId) {
+    const button = document.querySelector(`[data-connection-id="${connectionId}"]`);
+    if (button) {
+        button.disabled = false;
+        // Remove spinner and restore original content
+        button.innerHTML = button.innerHTML.replace(/<span class="spinner">🔄<\/span>\s*移動中\.\.\./, '');
+        
+        // If content is empty, restore from data attributes or default
+        if (button.innerHTML.trim() === '') {
+            const actionText = button.title || '移動する';
+            button.innerHTML = `<span class="btn-icon">🚶</span><span class="btn-text">${actionText}</span>`;
+        }
+    }
+}
+
+// Keyboard event handling for movement shortcuts
+function initializeKeyboardControls() {
+    document.addEventListener('keydown', function(event) {
+        // Only handle keyboard shortcuts if not typing in an input field
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || 
+            event.target.contentEditable === 'true') {
+            return;
+        }
+        
+        // Map keyboard keys to movement
+        const keyboardMap = {
+            'ArrowUp': 'up',
+            'ArrowDown': 'down',
+            'ArrowLeft': 'south',
+            'ArrowRight': 'north'
+        };
+        
+        const shortcut = keyboardMap[event.key];
+        if (shortcut) {
+            event.preventDefault();
+            moveByKeyboard(shortcut);
+        }
+    });
+    
+    console.log('Keyboard controls initialized');
+}
+
+function moveByKeyboard(shortcut) {
+    console.log('moveByKeyboard called with shortcut:', shortcut);
+    
+    // Find available connection with this keyboard shortcut
+    const button = document.querySelector(`[data-keyboard="${shortcut}"]`);
+    if (!button) {
+        console.log('No connection found for keyboard shortcut:', shortcut);
+        return;
+    }
+    
+    // Get connection ID from button
+    const connectionId = button.getAttribute('data-connection-id');
+    if (connectionId) {
+        console.log('Moving via keyboard shortcut to connection:', connectionId);
+        moveToConnection(connectionId);
+    } else {
+        console.error('Connection ID not found for keyboard shortcut button');
+    }
+}
+
+// API call for keyboard movement (alternative method)
+function moveByKeyboardAPI(shortcut) {
+    fetch('/api/game/move-by-keyboard', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            keyboard_shortcut: shortcut
+        })
+    })
+    .then(response => ErrorHandler.handleApiResponse(
+        response,
+        (data) => {
+            console.log('Keyboard movement response:', data);
+            handleConnectionMovementSuccess(data);
+        },
+        (error) => {
+            console.log('Keyboard movement failed:', error);
+            // Don't show error for keyboard shortcuts that don't exist
+        }
+    ))
+    .catch(error => {
+        console.log('Keyboard movement API error:', error);
+    });
 }
 
 function moveDirectly(direction = null, townDirection = null) {

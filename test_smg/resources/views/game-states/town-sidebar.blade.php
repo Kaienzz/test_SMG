@@ -11,30 +11,71 @@
         @if(isset($townConnections) && !empty($townConnections))
             @foreach($townConnections as $direction => $connection)
                 @php
+                    // Raw key from config may be an action label like 'move_north'
+                    $rawKey = strtolower($direction);
+
+                    // Normalize to compass direction for client logic
+                    $normalizeMap = [
+                        'move_north' => 'north',
+                        'move_south' => 'south',
+                        'move_east'  => 'east',
+                        'move_west'  => 'west',
+                    ];
+                    $normalizedDirection = $normalizeMap[$rawKey] ?? $rawKey;
+
+                    // Icons by normalized direction
                     $directionIcons = [
                         'north' => '⬆️',
                         'south' => '⬇️', 
                         'east' => '➡️',
                         'west' => '⬅️'
                     ];
-                    $icon = $directionIcons[$direction] ?? '🚪';
+                    $icon = $directionIcons[$normalizedDirection] ?? '🚪';
+
+                    // UI label: prefer clean Japanese for move_*; otherwise use server-provided label/name
+                    $directionLabelsJa = [
+                        'north' => '北に移動',
+                        'south' => '南に移動',
+                        'east'  => '東に移動',
+                        'west'  => '西に移動',
+                    ];
+
+                    // Detect valid action label from DB
+                    $actionLabel = \App\Helpers\ActionLabel::isValidActionLabel($rawKey) ? $rawKey : null;
+                    $uiLabel = null;
+                    if ($actionLabel && str_starts_with($actionLabel, 'move_')) {
+                        $uiLabel = $directionLabelsJa[$normalizedDirection] ?? 'この先へ移動';
+                    } elseif ($actionLabel) {
+                        $uiLabel = \App\Helpers\ActionLabel::getActionLabelText($actionLabel, $connection['name'] ?? null);
+                    } else {
+                        // Fallbacks: try compass label, then server label, then name-based generic
+                        $uiLabel = $directionLabelsJa[$normalizedDirection]
+                            ?? ($connection['direction_label'] ?? null)
+                            ?? (\App\Helpers\ActionLabel::getActionLabelText(null, $connection['name'] ?? null));
+                    }
+
+                    // Hide internal-like names in destination
+                    $destName = $connection['name'] ?? null;
+                    $showDest = $destName && !preg_match('/^(move_|turn_)/i', $destName);
                 @endphp
                 <button 
                     class="connection-btn"
-                    title="{{ $connection['name'] ?? 'Unknown destination' }}"
-                    data-direction="{{ $direction }}"
+                    title="{{ $uiLabel }}"
+                    data-direction="{{ $rawKey }}"
                 >
                     <span class="direction-icon">{{ $icon }}</span>
                     <div class="direction-info">
-                        <span class="direction-label">{{ $connection['direction_label'] ?? ucfirst($direction) }}</span>
-                        <span class="destination-name">{{ $connection['name'] ?? 'Unknown' }}</span>
+                        <span class="direction-label">{{ $uiLabel }}</span>
+                        @if($showDest)
+                            <span class="destination-name">{{ $destName }}</span>
+                        @endif
                     </div>
                 </button>
             @endforeach
         @else
             <div class="no-connections">
                 <p class="help-text">
-                    <span class="help-icon">🚫</span>
+                    <span class="help-icon">�</span>
                     この町からは移動できません
                 </p>
             </div>

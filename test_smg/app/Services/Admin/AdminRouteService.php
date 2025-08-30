@@ -271,6 +271,14 @@ class AdminRouteService
                     'target_location_id' => $connection->target_location_id,
                     'target_name' => $connection->targetLocation?->name,
                     'target_category' => $connection->targetLocation?->category,
+                    // Enhanced fields
+                    'source_position' => $connection->source_position,
+                    'target_position' => $connection->target_position,
+                    'edge_type' => $connection->edge_type,
+                    'action_label' => $connection->action_label,
+                    'keyboard_shortcut' => $connection->keyboard_shortcut,
+                    'is_enabled' => $connection->is_enabled,
+                    // Legacy fields (for compatibility)
                     'connection_type' => $connection->connection_type,
                     'direction' => $connection->direction,
                     'position' => $connection->position,

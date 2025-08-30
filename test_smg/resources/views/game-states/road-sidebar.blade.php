@@ -6,36 +6,63 @@
 <div class="movement-controls-section">
     <h3>移動制御</h3>
     
+    
     <div class="movement-controls hidden" id="movement-controls">
-        <button class="btn btn-warning movement-btn" id="move-left" onclick="move('left')" data-direction="left">
-            <span class="btn-icon">⬅️</span>
-            <span class="btn-text">左に移動</span>
+        <button class="btn btn-warning movement-btn" id="move-north" onclick="move('north')" data-direction="north">
+            <span class="btn-icon">⬆️</span>
+            <span class="btn-text">北に移動（進む）</span>
         </button>
-        <button class="btn btn-warning movement-btn" id="move-right" onclick="move('right')" data-direction="right">
-            <span class="btn-icon">➡️</span>
-            <span class="btn-text">右に移動</span>
+        <button class="btn btn-warning movement-btn" id="move-south" onclick="move('south')" data-direction="south">
+            <span class="btn-icon">⬇️</span>
+            <span class="btn-text">南に移動（戻る）</span>
         </button>
     </div>
 
     {{-- Next Location (only show when at road boundaries) --}}
     @php
         $showNextLocation = false;
-        if (isset($player) && isset($nextLocation)) {
-            // 道路の境界（0、50、100）にいる場合のみ表示
-            $showNextLocation = ($player->game_position === 0 || $player->game_position === 50 || $player->game_position === 100);
+        $nextName = null;
+        $nextConnId = null;
+
+        // 現在位置
+        $pos = (int) ($player->game_position ?? 0);
+        $atBoundary = ($pos <= 0) || ($pos === 50) || ($pos >= 100);
+
+        // 1) 優先: コントローラからの nextLocation
+        if (isset($nextLocation) && !empty($nextLocation)) {
+            $nextName = is_array($nextLocation) ? ($nextLocation['name'] ?? null) : ($nextLocation->name ?? null);
         }
+
+        // 2) Fallback: 利用可能接続から単一の接続を採用
+        if (empty($nextName) && isset($availableConnections) && is_array($availableConnections) && count($availableConnections) === 1) {
+            $only = $availableConnections[0] ?? null;
+            if ($only) {
+                // target_location 名称を取得（オブジェクト/配列対応）
+                $t = $only['target_location'] ?? null;
+                $name = is_array($t) ? ($t['name'] ?? null) : (is_object($t) ? ($t->name ?? null) : null);
+                if (!empty($name)) {
+                    $nextName = $name;
+                    $nextConnId = $only['id'] ?? null;
+                }
+            }
+        }
+
+        // 表示条件: 境界かつ名前が確定
+        $showNextLocation = $atBoundary && !empty($nextName);
     @endphp
     
-    <div class="next-location {{ $showNextLocation ? '' : 'hidden' }}" id="next-location-info">
-        <div class="next-location-header">
-            <h4>次の場所</h4>
-            <p class="destination-name">{{ $nextLocation->name ?? 'セカンダ町' }}</p>
+    @if($showNextLocation)
+        <div class="next-location" id="next-location-info">
+            <div class="next-location-header">
+                <h4>次の場所</h4>
+                <p class="destination-name">{{ $nextName }}</p>
+            </div>
+            <button class="btn btn-success btn-large" id="move-to-next" @if($nextConnId) onclick="moveToConnection('{{ $nextConnId }}')" @endif>
+                <span class="btn-icon">🚀</span>
+                <span class="btn-text">{{ $nextName }}に移動</span>
+            </button>
         </div>
-        <button class="btn btn-success btn-large" id="move-to-next">
-            <span class="btn-icon">🚀</span>
-            <span class="btn-text">{{ $nextLocation->name ?? 'セカンダ町' }}に移動</span>
-        </button>
-    </div>
+    @endif
 
     {{-- Movement Status --}}
     <div class="movement-status">
@@ -49,6 +76,7 @@
         </div>
     </div>
 </div>
+
 
 {{-- Environment Actions --}}
 @php
@@ -381,6 +409,36 @@
     line-height: 1.4;
 }
 
+/* Movement Controls Styling */
+.movement-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+    margin-bottom: 12px;
+}
+
+.movement-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-height: 44px;
+}
+
+.movement-btn .btn-icon {
+    font-size: 18px;
+}
+
+.movement-btn .btn-text {
+    font-weight: 500;
+}
+
 /* Environment Actions Styling */
 .environment-actions-section h3 {
     color: #2D3748;
@@ -442,4 +500,5 @@
 .notice-text {
     flex: 1;
 }
+
 </style>

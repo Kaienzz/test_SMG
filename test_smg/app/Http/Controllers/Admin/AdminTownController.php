@@ -113,6 +113,16 @@ class AdminTownController extends AdminController
 
             DB::commit();
 
+            // キャッシュをクリアして一覧に即時反映
+            try {
+                $this->adminRouteService->clearRoutesCache();
+                $this->adminRouteService->clearStatisticsCache();
+            } catch (\Throwable $cacheEx) {
+                \Log::warning('Failed to clear route/town caches after town create', [
+                    'error' => $cacheEx->getMessage(),
+                ]);
+            }
+
             $this->auditLog('towns.created', [
                 'town_id' => $town->id,
                 'town_name' => $town->name,
@@ -229,6 +239,17 @@ class AdminTownController extends AdminController
 
             DB::commit();
 
+            // キャッシュをクリアして一覧に即時反映
+            try {
+                $this->adminRouteService->clearRoutesCache();
+                $this->adminRouteService->clearStatisticsCache();
+            } catch (\Throwable $cacheEx) {
+                \Log::warning('Failed to clear route/town caches after town update', [
+                    'town_id' => $id,
+                    'error' => $cacheEx->getMessage(),
+                ]);
+            }
+
             $this->auditLog('towns.updated', [
                 'town_id' => $id,
                 'old_data' => $oldData,
@@ -274,6 +295,17 @@ class AdminTownController extends AdminController
             }
 
             $town->delete();
+
+            // キャッシュをクリアして一覧に即時反映
+            try {
+                $this->adminRouteService->clearRoutesCache();
+                $this->adminRouteService->clearStatisticsCache();
+            } catch (\Throwable $cacheEx) {
+                \Log::warning('Failed to clear route/town caches after town delete', [
+                    'town_id' => $id,
+                    'error' => $cacheEx->getMessage(),
+                ]);
+            }
 
             $this->auditLog('towns.deleted', [
                 'town_id' => $id,

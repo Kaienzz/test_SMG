@@ -206,9 +206,9 @@
 
             {{-- Next Location Button --}}
             <div class="next-location" id="next-location-info">
-                <p>次の場所: <strong>{{ $nextLocation->name ?? 'セカンダ町' }}</strong></p>
+                <p>次の場所: <strong>{{ $nextLocation->name ?? '不明な場所' }}</strong></p>
                 <button class="btn btn-success" id="move-to-next">
-                    {{ $nextLocation->name ?? 'セカンダ町' }}に移動する
+                    {{ $nextLocation->name ?? '不明な場所' }}に移動する
                 </button>
             </div>
 
@@ -255,7 +255,7 @@
             },
             nextLocation: {
                 id: "{{ $nextLocation->id ?? 'town_b' }}",
-                name: "{{ $nextLocation->name ?? 'セカンダ町' }}",
+                name: "{{ $nextLocation->name ?? '不明な場所' }}",
                 type: "{{ $nextLocation->type ?? 'town' }}"
             }
         };

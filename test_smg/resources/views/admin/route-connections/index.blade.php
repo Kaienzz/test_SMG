@@ -23,12 +23,6 @@
         <div class="alert alert-danger">{{ $error }}</div>
     @endif
 
-    <!-- デバッグ情報 -->
-    <div class="alert alert-info" id="debug-info" style="display: none;">
-        <h6>デバッグ情報</h6>
-        <div id="debug-log"></div>
-    </div>
-
     <!-- フィルター -->
     <div class="card mb-4">
         <div class="card-body">
@@ -92,15 +86,12 @@
                 <a href="{{ route('admin.route-connections.test-graph') }}" class="btn btn-sm btn-outline-info" target="_blank">
                     <i class="fas fa-bug"></i> API Test
                 </a>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="toggle-debug-btn">
-                    <i class="fas fa-eye"></i> デバッグ表示
-                </button>
             </div>
         </div>
         
         <div class="card-body">
             <!-- リスト表示 -->
-            <div id="list-content" class="tab-content">
+            <div id="list-content" class="tab-content" style="display: block;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">接続一覧 ({{ count($connections) }}件)</h5>
                 </div>
@@ -113,9 +104,10 @@
                                     <th>ID</th>
                                     <th>出発ロケーション</th>
                                     <th>到達ロケーション</th>
-                                    <th>接続タイプ</th>
-                                    <th>方向</th>
-                                    <th>位置</th>
+                                    <th>位置情報</th>
+                                    <th>タイプ・ラベル</th>
+                                    <th>キーボード</th>
+                                    <th>状態</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -144,10 +136,65 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge bg-primary">{{ $connection['connection_type'] }}</span>
+                                        <div class="small">
+                                            @if(!empty($connection['source_position']))
+                                                <div><strong>出発:</strong> {{ $connection['source_position'] }}</div>
+                                            @endif
+                                            @if(!empty($connection['target_position']))
+                                                <div><strong>到着:</strong> {{ $connection['target_position'] }}</div>
+                                            @endif
+                                            @if(empty($connection['source_position']) && empty($connection['target_position']))
+                                                <span class="text-muted">位置設定なし</span>
+                                            @endif
+                                        </div>
                                     </td>
-                                    <td>{{ $connection['direction'] ?? 'N/A' }}</td>
-                                    <td>{{ $connection['position'] ?? 'N/A' }}</td>
+                                    <td>
+                                        @php
+                                            $edgeType = $connection['edge_type'] ?? $connection['connection_type'] ?? '';
+                                            $actionLabel = $connection['action_label'] ?? '';
+                                            $actionText = $actionLabel ? \App\Helpers\ActionLabel::getActionLabelText($actionLabel) : '';
+                                        @endphp
+                                        
+                                        @if($actionLabel)
+                                            <div class="small">
+                                                <span class="badge bg-primary">{{ $actionText ?: $actionLabel }}</span>
+                                                @if($edgeType && $edgeType !== $actionLabel)
+                                                    <br><span class="badge bg-secondary mt-1">{{ $edgeType }}</span>
+                                                @endif
+                                            </div>
+                                        @elseif($edgeType)
+                                            <span class="badge bg-secondary">{{ $edgeType }}</span>
+                                        @else
+                                            <span class="text-muted small">未設定</span>
+                                        @endif
+                                        
+                                        @if(!empty($connection['direction']))
+                                            <div class="mt-1">
+                                                <small class="text-muted">旧: {{ $connection['direction'] }}</small>
+                                            </div>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if(!empty($connection['keyboard_shortcut']))
+                                            @php
+                                                $keyDisplay = \App\Helpers\ActionLabel::getKeyboardShortcutDisplay($connection['keyboard_shortcut']);
+                                            @endphp
+                                            <span class="badge bg-dark">{{ $keyDisplay ?? $connection['keyboard_shortcut'] }}</span>
+                                        @else
+                                            <span class="text-muted small">なし</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if(isset($connection['is_enabled']))
+                                            @if($connection['is_enabled'])
+                                                <span class="badge bg-success">有効</span>
+                                            @else
+                                                <span class="badge bg-warning">無効</span>
+                                            @endif
+                                        @else
+                                            <span class="text-muted small">未設定</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="{{ route('admin.route-connections.show', $connection['id']) }}" 
@@ -255,7 +302,34 @@
 </div>
 @endsection
 
-@section('scripts')
+@push('styles')
+<style>
+/* タブコンテンツの強制スタイル */
+.tab-content {
+    width: 100% !important;
+    min-height: 200px !important;
+}
+
+.tab-content.hidden {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+.tab-content.visible {
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* ボタンの状態 */
+.btn.active {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+    color: white !important;
+}
+</style>
+@endpush
+
+@push('scripts')
 <!-- Cytoscape.js CDN -->
 <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
 
@@ -263,69 +337,79 @@
 let cy = null;
 let currentFilters = {};
 
-// デバッグ機能
-window.debugLog = function(message) {
-    const debugInfo = document.getElementById('debug-info');
-    const debugLog = document.getElementById('debug-log');
-    if (debugInfo && debugLog) {
-        debugInfo.style.display = 'block';
-        const timestamp = new Date().toLocaleTimeString();
-        debugLog.innerHTML += `<div class="small">[${timestamp}] ${message}</div>`;
-    }
-    console.log(`[DEBUG] ${message}`);
-}
-
-window.toggleDebug = function() {
-    const debugInfo = document.getElementById('debug-info');
-    if (debugInfo) {
-        debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
-// タブ切り替え（デバッグ版）
-window.debugShowTab = function(tabName) {
-    debugLog(`debugShowTab('${tabName}') が呼ばれました`);
+// シンプルなタブ切り替え機能
+function showTab(tabName) {
+    console.log('🔄 Switching to tab:', tabName);
     
     try {
+        // 要素を取得
         const listContent = document.getElementById('list-content');
         const graphContent = document.getElementById('graph-content');
         const listTabBtn = document.getElementById('list-tab-btn');
         const graphTabBtn = document.getElementById('graph-tab-btn');
         
-        debugLog(`要素取得: list=${listContent ? 'OK' : 'NG'}, graph=${graphContent ? 'OK' : 'NG'}, listBtn=${listTabBtn ? 'OK' : 'NG'}, graphBtn=${graphTabBtn ? 'OK' : 'NG'}`);
-        
+        // 要素の存在確認
         if (!listContent || !graphContent || !listTabBtn || !graphTabBtn) {
-            debugLog('ERROR: 必要な要素が見つかりません');
+            console.error('❌ Required elements not found:', {
+                listContent: !!listContent,
+                graphContent: !!graphContent,
+                listTabBtn: !!listTabBtn,
+                graphTabBtn: !!graphTabBtn
+            });
             alert('エラー: 必要な要素が見つかりません');
             return;
         }
         
-        // すべてのコンテンツを隠す
+        console.log('✅ All elements found, switching tabs');
+        
+        // すべてのタブコンテンツを非表示（クラスベース + inline style）
+        listContent.className = 'tab-content hidden';
         listContent.style.display = 'none';
+        graphContent.className = 'tab-content hidden';
         graphContent.style.display = 'none';
         
-        // すべてのボタンからactiveクラスを削除
+        // すべてのタブボタンからactiveクラスを削除
         listTabBtn.classList.remove('active');
         graphTabBtn.classList.remove('active');
         
         // 選択されたタブを表示
         if (tabName === 'list') {
+            console.log('📋 Showing list tab');
+            listContent.className = 'tab-content visible';
             listContent.style.display = 'block';
+            listContent.style.visibility = 'visible';
             listTabBtn.classList.add('active');
-            debugLog('リストタブに切り替えました');
         } else if (tabName === 'graph') {
+            console.log('📊 Showing graph tab');
+            graphContent.className = 'tab-content visible';
             graphContent.style.display = 'block';
+            graphContent.style.visibility = 'visible';
             graphTabBtn.classList.add('active');
-            debugLog('グラフタブに切り替えました - データ読み込み開始');
-            loadGraphData();
+            
+            // グラフデータを読み込み
+            setTimeout(() => {
+                if (typeof loadGraphData === 'function') {
+                    loadGraphData();
+                } else {
+                    console.error('loadGraphData function not found');
+                }
+            }, 100);
         }
         
+        console.log('✅ Tab switch completed');
+        
     } catch (error) {
-        debugLog(`ERROR in debugShowTab: ${error.message}`);
-        console.error('debugShowTab error:', error);
-        alert(`エラーが発生しました: ${error.message}`);
+        console.error('❌ Error in showTab:', error);
+        alert('タブ切り替えエラー: ' + error.message);
     }
 }
+
+// デバッグ機能（簡易ログのみ）
+window.debugLog = function(message) {
+    console.log(`[DEBUG] ${message}`);
+}
+
+// 統合されたshowTab関数を使用（上記で定義済み）
 
 // グラフデータの読み込み
 window.loadGraphData = function() {
@@ -342,7 +426,7 @@ window.loadGraphData = function() {
     // クエリパラメータの構築
     const params = new URLSearchParams(currentFilters);
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    const url = `/admin/route-connections-graph-data?${params}`;
+    const url = `{{ route('admin.route-connections.graph-data') }}?${params}`;
     
     debugLog(`Fetching: ${url}`);
     debugLog(`CSRF Token: ${token ? 'あり' : 'なし'}`);
@@ -446,7 +530,31 @@ window.renderGraph = function(data) {
                         'line-color': '#666',
                         'target-arrow-color': '#666',
                         'target-arrow-shape': 'triangle',
-                        'curve-style': 'bezier'
+                        'curve-style': 'bezier',
+                        'label': 'data(label)',
+                        'font-size': '10px',
+                        'text-rotation': 'autorotate'
+                    }
+                },
+                {
+                    selector: 'edge[?is_enabled]',
+                    style: {
+                        'line-color': '#28a745',
+                        'target-arrow-color': '#28a745'
+                    }
+                },
+                {
+                    selector: 'edge[!is_enabled]',
+                    style: {
+                        'line-color': '#dc3545',
+                        'target-arrow-color': '#dc3545',
+                        'line-style': 'dashed'
+                    }
+                },
+                {
+                    selector: 'edge[keyboard_shortcut]',
+                    style: {
+                        'width': 4
                     }
                 }
             ],
@@ -534,24 +642,7 @@ function closeDeleteModal() {
     document.getElementById('deleteModal').style.display = 'none';
 }
 
-// タブ切り替え関数
-function showTab(tabName) {
-    console.log(`Tab switching to: ${tabName}`);
-    
-    // タブボタンの状態更新
-    document.getElementById('list-tab-btn').classList.remove('active');
-    document.getElementById('graph-tab-btn').classList.remove('active');
-    document.getElementById(tabName + '-tab-btn').classList.add('active');
-    
-    // コンテンツの表示切り替え
-    document.getElementById('list-content').style.display = tabName === 'list' ? 'block' : 'none';
-    document.getElementById('graph-content').style.display = tabName === 'graph' ? 'block' : 'none';
-    
-    // グラフタブの場合はデータ読み込み
-    if (tabName === 'graph') {
-        loadGraphData();
-    }
-}
+// 削除（上記のシンプル版を使用）
 
 // フィルター情報の更新
 window.updateFilters = function() {
@@ -563,91 +654,101 @@ window.updateFilters = function() {
     debugLog(`フィルター更新: ${JSON.stringify(currentFilters)}`);
 }
 
-// 初期化
+// シンプルな初期化
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOMContentLoaded - 初期化開始');
+    console.log('🚀 Initializing tab functionality...');
     
-    // Cytoscape.jsの読み込み確認
-    if (typeof cytoscape !== 'undefined') {
-        console.log('Cytoscape.js 正常に読み込まれました');
-    } else {
-        console.log('ERROR: Cytoscape.js が読み込まれていません');
-    }
-    
-    // 削除ボタンのイベントリスナーを設定
-    const deleteButtons = document.querySelectorAll('.delete-connection-btn');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const connectionId = this.dataset.connectionId;
-            const sourceName = this.dataset.sourceName;
-            const targetName = this.dataset.targetName;
-            
-            console.log('Delete button clicked:', { connectionId, sourceName, targetName });
-            showDeleteConfirmation(connectionId, sourceName, targetName);
+    try {
+        // 要素の存在確認
+        const listTabBtn = document.getElementById('list-tab-btn');
+        const graphTabBtn = document.getElementById('graph-tab-btn');
+        const listContent = document.getElementById('list-content');
+        const graphContent = document.getElementById('graph-content');
+        
+        console.log('🔍 Element check:', {
+            listTabBtn: !!listTabBtn,
+            graphTabBtn: !!graphTabBtn,
+            listContent: !!listContent,
+            graphContent: !!graphContent
         });
-    });
-    console.log(`${deleteButtons.length} 個の削除ボタンにイベントリスナーを設定しました`);
-    
-    // モーダルのクローズボタン
-    const closeModalBtn = document.querySelector('.btn-secondary[onclick="closeDeleteModal()"]');
-    if (closeModalBtn) {
-        closeModalBtn.removeAttribute('onclick');
-        closeModalBtn.addEventListener('click', closeDeleteModal);
-    }
-    
-    // タブ切り替えボタン
-    const listTabBtn = document.getElementById('list-tab-btn');
-    const graphTabBtn = document.getElementById('graph-tab-btn');
-    
-    if (listTabBtn) {
-        listTabBtn.addEventListener('click', () => showTab('list'));
-    }
-    if (graphTabBtn) {
-        graphTabBtn.addEventListener('click', () => showTab('graph'));
-    }
-    
-    // デバッグボタン
-    const toggleDebugBtn = document.getElementById('toggle-debug-btn');
-    if (toggleDebugBtn) {
-        toggleDebugBtn.addEventListener('click', function() {
-            const debugInfo = document.getElementById('debug-info');
-            if (debugInfo) {
-                debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
-            }
+        
+        if (!listTabBtn || !graphTabBtn || !listContent || !graphContent) {
+            console.error('❌ Critical elements missing!');
+            alert('エラー: 必要な要素が見つかりません。ページをリロードしてください。');
+            return;
+        }
+        
+        // 初期状態を強制設定（リスト表示をデフォルト）
+        console.log('🔧 Setting initial tab state...');
+        listContent.className = 'tab-content visible';
+        listContent.style.display = 'block';
+        listContent.style.visibility = 'visible';
+        graphContent.className = 'tab-content hidden';
+        graphContent.style.display = 'none';
+        graphContent.style.visibility = 'hidden';
+        listTabBtn.classList.add('active');
+        graphTabBtn.classList.remove('active');
+        
+        // タブボタンのイベント設定
+        listTabBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🖱️ List tab clicked');
+            showTab('list');
         });
-    }
-    
-    // グラフ操作ボタン
-    const refreshGraphBtn = document.getElementById('refresh-graph-btn');
-    const fitGraphBtn = document.getElementById('fit-graph-btn');
-    
-    if (refreshGraphBtn) {
-        refreshGraphBtn.addEventListener('click', () => loadGraphData());
-    }
-    if (fitGraphBtn) {
-        fitGraphBtn.addEventListener('click', () => {
-            if (window.cy) window.cy.fit();
+        
+        graphTabBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('🖱️ Graph tab clicked');
+            showTab('graph');
         });
-    }
-    
-    // フィルター変更時の処理
-    const filterForm = document.getElementById('filter-form');
-    if (filterForm) {
-        filterForm.addEventListener('change', function() {
-            updateFilters();
-            if (document.getElementById('graph-tab-btn').classList.contains('active')) {
-                loadGraphData();
-            }
+        
+        console.log('✅ Tab event handlers attached');
+        
+        // 削除ボタンの設定
+        document.querySelectorAll('.delete-connection-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const connectionId = this.dataset.connectionId;
+                const sourceName = this.dataset.sourceName;
+                const targetName = this.dataset.targetName;
+                showDeleteConfirmation(connectionId, sourceName, targetName);
+            });
         });
-        console.log('フィルターイベントハンドラ設定完了');
-    } else {
-        console.log('ERROR: filter-form要素が見つかりません');
+        
+        // その他のボタン設定
+        const refreshBtn = document.getElementById('refresh-graph-btn');
+        const fitBtn = document.getElementById('fit-graph-btn');
+    // const toggleDebugBtn = document.getElementById('toggle-debug-btn');
+        
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => loadGraphData());
+        }
+        if (fitBtn) {
+            fitBtn.addEventListener('click', () => {
+                if (cy) cy.fit();
+            });
+        }
+    // デバッグトグルは削除
+        
+        // フィルター設定
+        updateFilters();
+        
+        console.log('✅ Tab functionality initialized');
+        
+        // 手動テスト用関数をグローバルに設定
+        window.testTab = function(tabName) {
+            console.log(`🧪 Testing tab: ${tabName}`);
+            showTab(tabName);
+        };
+        
+        // 初期化完了後に1秒待ってからテスト実行可能をログ出力
+        setTimeout(() => {
+            console.log('💡 Manual test available: window.testTab("list") or window.testTab("graph")');
+        }, 1000);
+        
+    } catch (error) {
+        console.error('❌ Error during initialization:', error);
+        alert('初期化エラー: ' + error.message);
     }
-    
-    // 初期フィルター設定
-    updateFilters();
-    
-    console.log('初期化完了');
 });
 </script>
-@endsection
+@endpush

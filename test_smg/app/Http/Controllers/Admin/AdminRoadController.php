@@ -126,6 +126,7 @@ class AdminRoadController extends AdminController
                 'description' => 'nullable|string',
                 'length' => 'required|integer|min:1|max:1000',
                 'difficulty' => 'required|in:easy,normal,hard',
+                'default_movement_axis' => 'required|in:horizontal,vertical',
                 'encounter_rate' => 'nullable|numeric|between:0,1'
                 // 接続関連のバリデーションは新規作成時には不要
             ]);
@@ -241,6 +242,7 @@ class AdminRoadController extends AdminController
                     'description' => 'nullable|string',
                     'length' => 'required|integer|min:1|max:1000',
                     'difficulty' => 'required|in:easy,normal,hard',
+                    'default_movement_axis' => 'required|in:horizontal,vertical',
                     'encounter_rate' => 'nullable|numeric|between:0,1',
                     'is_active' => 'sometimes|in:0,1',  // checkboxで送信される値に対応
                 ]);

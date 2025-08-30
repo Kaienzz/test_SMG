@@ -3,7 +3,7 @@
 <div class="road-main">
     {{-- Current Position and Progress --}}
     <div class="position-info">
-        <h3>🛤️ {{ $currentLocation->name ?? 'プリマ街道' }}</h3>
+    <h3>🛤️ {{ $currentLocation->name ?? '' }}</h3>
         <p class="location-type">道を歩いています</p>
         
         {{-- Progress Bar --}}

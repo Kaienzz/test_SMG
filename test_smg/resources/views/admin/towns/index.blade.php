@@ -91,21 +91,24 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm" role="group">
+                                    <div style="display: flex; gap: 0.5rem;">
                                         <a href="{{ route('admin.towns.show', $town['id']) }}" 
-                                           class="btn btn-outline-info" title="詳細">
+                                           class="admin-btn admin-btn-sm admin-btn-info" title="詳細">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         <a href="{{ route('admin.towns.edit', $town['id']) }}" 
-                                           class="btn btn-outline-primary" title="編集">
+                                           class="admin-btn admin-btn-sm admin-btn-warning" title="編集">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <button type="button" class="btn btn-outline-danger" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#deleteModal{{ $town['id'] }}"
-                                                title="削除">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                        <form method="POST" action="{{ route('admin.towns.destroy', $town['id']) }}" 
+                                              style="display: inline;" 
+                                              onsubmit="return confirm('町「{{ $town['name'] }}」を削除してもよろしいですか？\n\nこの操作は取り消せません。')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="admin-btn admin-btn-sm admin-btn-danger" title="削除">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
                                     </div>
                                 </td>
                             </tr>
@@ -127,31 +130,5 @@
     </div>
 </div>
 
-@if(count($towns) > 0)
-    @foreach($towns as $town)
-    <!-- 削除確認モーダル -->
-    <div class="modal fade" id="deleteModal{{ $town['id'] }}" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">削除確認</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>町「{{ $town['name'] }}」を削除しますか？</p>
-                    <p class="text-danger"><strong>この操作は取り消せません。</strong></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                    <form action="{{ route('admin.towns.destroy', $town['id']) }}" method="POST" class="d-inline">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="btn btn-danger">削除実行</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    @endforeach
-@endif
+{{-- モーダルは使用せず、直接フォーム送信のconfirmで削除を行うため削除 --}}
 @endsection

@@ -136,6 +136,30 @@
                     @enderror
                 </div>
 
+                <!-- 移動軸設定 -->
+                <div>
+                    <label for="default_movement_axis" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                        移動方向 <span style="color: var(--admin-danger);">*</span>
+                    </label>
+                    <select id="default_movement_axis" name="default_movement_axis" class="admin-select" required>
+                        <option value="">選択してください</option>
+                        <option value="horizontal" {{ old('default_movement_axis', $road->default_movement_axis ?? 'horizontal') === 'horizontal' ? 'selected' : '' }}>
+                            水平移動（東西）
+                        </option>
+                        <option value="vertical" {{ old('default_movement_axis', $road->default_movement_axis ?? 'horizontal') === 'vertical' ? 'selected' : '' }}>
+                            垂直移動（南北）
+                        </option>
+                    </select>
+                    <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--admin-secondary);">
+                        このRoadの基本的な移動方向を設定します。UI表示と移動操作に影響します。
+                    </div>
+                    @error('default_movement_axis')
+                    <div style="margin-top: 0.5rem; color: var(--admin-danger); font-size: 0.875rem;">
+                        {{ $message }}
+                    </div>
+                    @enderror
+                </div>
+
                 <!-- エンカウント率 -->
                 <div>
                     <label for="encounter_rate" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">

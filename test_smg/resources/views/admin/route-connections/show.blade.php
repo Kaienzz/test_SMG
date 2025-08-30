@@ -34,6 +34,9 @@
                                     <h4>{{ $connection->sourceLocation?->name ?? 'Unknown' }}</h4>
                                     <p class="mb-0">
                                         <span class="badge bg-info">{{ $connection->sourceLocation?->category ?? 'Unknown' }}</span>
+                                        @if($connection->source_position !== null)
+                                            <br><span class="badge bg-secondary mt-1">位置: {{ $connection->source_position }}</span>
+                                        @endif
                                     </p>
                                     @if($connection->sourceLocation)
                                         <a href="{{ route('admin.locations.show', $connection->sourceLocation->id) }}" 
@@ -45,15 +48,58 @@
                         
                         <div class="col-md-2 d-flex align-items-center justify-content-center">
                             <div class="text-center">
-                                <i class="fas fa-arrow-right fa-2x text-primary"></i>
-                                <div class="mt-2">
-                                    <span class="badge bg-secondary">{{ $connection->connection_type }}</span>
-                                </div>
+                                @if($connection->edge_type)
+                                    @switch($connection->edge_type)
+                                        @case('portal')
+                                            <i class="fas fa-magic fa-2x text-primary"></i>
+                                            @break
+                                        @case('exit')
+                                            <i class="fas fa-sign-out-alt fa-2x text-warning"></i>
+                                            @break
+                                        @case('enter')
+                                            <i class="fas fa-sign-in-alt fa-2x text-success"></i>
+                                            @break
+                                        @case('branch')
+                                            <i class="fas fa-code-branch fa-2x text-info"></i>
+                                            @break
+                                        @default
+                                            <i class="fas fa-arrow-right fa-2x text-primary"></i>
+                                    @endswitch
+                                @else
+                                    <i class="fas fa-arrow-right fa-2x text-primary"></i>
+                                @endif
+                                
+                                @if($connection->edge_type)
+                                    <div class="mt-1">
+                                        <span class="badge bg-secondary">{{ $connection->edge_type }}</span>
+                                    </div>
+                                @endif
+                                
+                                @if($connection->action_label)
+                                    <div class="mt-1">
+                                        <small class="text-primary">{{ \App\Helpers\ActionLabel::getActionLabelText($connection->action_label) }}</small>
+                                    </div>
+                                @endif
+                                
+                                @if($connection->keyboard_shortcut)
+                                    <div class="mt-1">
+                                        <span class="badge bg-dark">{{ \App\Helpers\ActionLabel::getKeyboardShortcutDisplay($connection->keyboard_shortcut) }}</span>
+                                    </div>
+                                @endif
+                                
                                 @if($connection->direction)
                                     <div class="mt-1">
                                         <small class="text-muted">{{ $connection->direction }}</small>
                                     </div>
                                 @endif
+                                
+                                <div class="mt-2">
+                                    @if($connection->is_enabled ?? true)
+                                        <span class="badge bg-success">有効</span>
+                                    @else
+                                        <span class="badge bg-warning">無効</span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                         
@@ -64,6 +110,9 @@
                                     <h4>{{ $connection->targetLocation?->name ?? 'Unknown' }}</h4>
                                     <p class="mb-0">
                                         <span class="badge bg-info">{{ $connection->targetLocation?->category ?? 'Unknown' }}</span>
+                                        @if($connection->target_position !== null)
+                                            <br><span class="badge bg-secondary mt-1">位置: {{ $connection->target_position }}</span>
+                                        @endif
                                     </p>
                                     @if($connection->targetLocation)
                                         <a href="{{ route('admin.locations.show', $connection->targetLocation->id) }}" 
@@ -86,16 +135,66 @@
                         <dt class="col-sm-3">到達ロケーションID</dt>
                         <dd class="col-sm-9"><code>{{ $connection->target_location_id }}</code></dd>
                         
-                        <dt class="col-sm-3">接続タイプ</dt>
+                        <dt class="col-sm-3">出発位置</dt>
                         <dd class="col-sm-9">
-                            <span class="badge bg-primary">{{ $connection->connection_type }}</span>
+                            @if($connection->source_position !== null)
+                                <span class="badge bg-info">{{ $connection->source_position }}</span>
+                            @else
+                                <span class="text-muted">未設定</span>
+                            @endif
                         </dd>
                         
-                        <dt class="col-sm-3">位置</dt>
-                        <dd class="col-sm-9">{{ $connection->position ?? 'N/A' }}</dd>
+                        <dt class="col-sm-3">到着位置</dt>
+                        <dd class="col-sm-9">
+                            @if($connection->target_position !== null)
+                                <span class="badge bg-info">{{ $connection->target_position }}</span>
+                            @else
+                                <span class="text-muted">未設定</span>
+                            @endif
+                        </dd>
                         
-                        <dt class="col-sm-3">方向</dt>
-                        <dd class="col-sm-9">{{ $connection->direction ?? 'N/A' }}</dd>
+                        <dt class="col-sm-3">エッジタイプ</dt>
+                        <dd class="col-sm-9">
+                            @if($connection->edge_type)
+                                <span class="badge bg-secondary">{{ $connection->edge_type }}</span>
+                            @else
+                                <span class="text-muted">未設定</span>
+                            @endif
+                        </dd>
+                        
+                        <dt class="col-sm-3">アクションラベル</dt>
+                        <dd class="col-sm-9">
+                            @if($connection->action_label)
+                                <code>{{ $connection->action_label }}</code>
+                                <br><small class="text-muted">{{ \App\Helpers\ActionLabel::getActionLabelText($connection->action_label) }}</small>
+                            @else
+                                <span class="text-muted">自動設定</span>
+                            @endif
+                        </dd>
+                        
+                        <dt class="col-sm-3">キーボードショートカット</dt>
+                        <dd class="col-sm-9">
+                            @if($connection->keyboard_shortcut)
+                                <span class="badge bg-dark">{{ \App\Helpers\ActionLabel::getKeyboardShortcutDisplay($connection->keyboard_shortcut) }}</span>
+                                <small class="text-muted ms-2">{{ $connection->keyboard_shortcut }}</small>
+                            @else
+                                <span class="text-muted">なし</span>
+                            @endif
+                        </dd>
+                        
+                        <dt class="col-sm-3">状態</dt>
+                        <dd class="col-sm-9">
+                            @if($connection->is_enabled ?? true)
+                                <span class="badge bg-success">有効</span>
+                            @else
+                                <span class="badge bg-warning">無効</span>
+                            @endif
+                        </dd>
+                        
+                        <hr class="my-3">
+                        
+                        <dt class="col-sm-3">方向 (レガシー)</dt>
+                        <dd class="col-sm-9">{{ $connection->direction ?? '未設定' }}</dd>
                     </dl>
                 </div>
             </div>
@@ -141,23 +240,74 @@
 
             <div class="card mt-3">
                 <div class="card-header">
-                    <h6 class="mb-0">接続タイプについて</h6>
+                    <h6 class="mb-0">エッジタイプについて</h6>
                 </div>
                 <div class="card-body">
                     <small>
-                        @switch($connection->connection_type)
-                            @case('start')
-                                <strong>Start:</strong> 開始地点への接続。このロケーションから別のロケーションへの一方向接続です。
-                                @break
-                            @case('end')
-                                <strong>End:</strong> 終了地点への接続。別のロケーションからこのロケーションへの一方向接続です。
-                                @break
-                            @case('bidirectional')
-                                <strong>Bidirectional:</strong> 双方向接続。両方向に移動可能な接続です。
-                                @break
-                            @default
-                                接続タイプの詳細情報がありません。
-                        @endswitch
+                        @if($connection->edge_type)
+                            @switch($connection->edge_type)
+                                @case('normal')
+                                    <strong>Normal:</strong> 通常の移動接続。標準的な移動方法です。
+                                    @break
+                                @case('branch')
+                                    <strong>Branch:</strong> 分岐点。複数の選択肢がある接続です。
+                                    @break
+                                @case('portal')
+                                    <strong>Portal:</strong> ポータル接続。瞬間移動や特殊な移動手段です。
+                                    @break
+                                @case('exit')
+                                    <strong>Exit:</strong> 出口接続。建物やエリアからの退出に使用されます。
+                                    @break
+                                @case('enter')
+                                    <strong>Enter:</strong> 入口接続。建物やエリアへの入場に使用されます。
+                                    @break
+                                @default
+                                    <strong>{{ ucfirst($connection->edge_type) }}:</strong> カスタムエッジタイプです。
+                            @endswitch
+                        @else
+                            エッジタイプが設定されていません。通常の接続として扱われます。
+                        @endif
+                    </small>
+                    
+                    @if($connection->action_label)
+                        <hr class="my-2">
+                        <h6 class="h6 mb-2">アクション表示</h6>
+                        <div class="alert alert-info py-2">
+                            プレイヤーには「<strong>{{ \App\Helpers\ActionLabel::getActionLabelText($connection->action_label) }}</strong>」と表示されます
+                        </div>
+                    @endif
+                    
+                    @if($connection->keyboard_shortcut)
+                        <h6 class="h6 mb-2">キーボード操作</h6>
+                        <div class="alert alert-secondary py-2">
+                            <span class="badge bg-dark me-2">{{ \App\Helpers\ActionLabel::getKeyboardShortcutDisplay($connection->keyboard_shortcut) }}</span>
+                            キーで移動可能
+                        </div>
+                    @endif
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">位置設定について</h6>
+                </div>
+                <div class="card-body">
+                    <small>
+                        <dl class="mb-0">
+                            <dt>町の場合</dt>
+                            <dd>位置設定は不要です</dd>
+                            
+                            <dt>道路・ダンジョンの場合</dt>
+                            <dd>0-100の範囲で位置を設定します</dd>
+                            
+                            <dt>位置比較ルール</dt>
+                            <dd>
+                                <ul class="mb-0">
+                                    <li><strong>0, 100:</strong> ≤, ≥ 比較（端点）</li>
+                                    <li><strong>中間値:</strong> 完全一致比較</li>
+                                </ul>
+                            </dd>
+                        </dl>
                     </small>
                 </div>
             </div>

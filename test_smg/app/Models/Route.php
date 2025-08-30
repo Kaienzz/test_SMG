@@ -19,6 +19,7 @@ class Route extends Model
         'dungeon_id',
         'length',
         'difficulty',
+        'default_movement_axis',
         'encounter_rate',
         'spawn_list_id',
         'spawn_tags',

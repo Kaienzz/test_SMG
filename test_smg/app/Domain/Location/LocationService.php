@@ -130,7 +130,8 @@ class LocationService
     }
 
     /**
-     * 分岐設定を取得（SQLiteのみ）
+     * 分岐設定を取得（新スキーマ対応）
+     * @deprecated Use getAvailableConnectionsWithData() for consistent connection handling
      *
      * @param string $locationId
      * @param int $position
@@ -139,9 +140,11 @@ class LocationService
     private function getBranchesFromConfig(string $locationId, int $position): ?array
     {
         try {
+            // 新スキーマ: edge_type='branch' で指定位置の分岐を取得
             $connections = RouteConnection::where('source_location_id', $locationId)
-                                           ->where('connection_type', 'branch')
-                                           ->where('position', $position)
+                                           ->where('source_position', $position)
+                                           ->where('edge_type', 'branch')
+                                           ->enabled()
                                            ->with('targetLocation')
                                            ->get();
             
@@ -149,7 +152,9 @@ class LocationService
                 $branches = [];
                 foreach ($connections as $connection) {
                     if ($connection->targetLocation) {
-                        $branches[$connection->direction] = [
+                        // action_labelを方向キーとして使用
+                        $direction = $connection->action_label ?: 'default';
+                        $branches[$direction] = [
                             'type' => $connection->targetLocation->category,
                             'id' => $connection->targetLocation->id
                         ];
@@ -158,7 +163,7 @@ class LocationService
                 return !empty($branches) ? $branches : null;
             }
         } catch (\Exception $e) {
-            Log::error('Failed to get branches from SQLite', [
+            Log::error('Failed to get branches from new schema', [
                 'location_id' => $locationId,
                 'position' => $position,
                 'error' => $e->getMessage()
@@ -169,7 +174,8 @@ class LocationService
     }
 
     /**
-     * 町の接続設定を取得（SQLiteのみ）
+     * 町の接続設定を取得（新スキーマ対応）
+     * @deprecated Use getAvailableConnectionsWithData() for consistent connection handling
      *
      * @param string $townId
      * @return array|null
@@ -177,8 +183,10 @@ class LocationService
     private function getTownConnectionsFromConfig(string $townId): ?array
     {
         try {
+            // 新スキーマ: 町の接続はsource_position=NULLで取得
             $connections = RouteConnection::where('source_location_id', $townId)
-                                           ->whereIn('connection_type', ['town_connection', 'start', 'end', 'bidirectional'])
+                                           ->whereNull('source_position')
+                                           ->enabled()
                                            ->with('targetLocation')
                                            ->get();
             
@@ -186,7 +194,9 @@ class LocationService
                 $townConnections = [];
                 foreach ($connections as $connection) {
                     if ($connection->targetLocation) {
-                        $townConnections[$connection->direction ?: 'default'] = [
+                        // action_labelがあればそれを使用、なければdefaultキー
+                        $key = $connection->action_label ?: 'default';
+                        $townConnections[$key] = [
                             'type' => $connection->targetLocation->category,
                             'id' => $connection->targetLocation->id
                         ];
@@ -195,7 +205,7 @@ class LocationService
                 return !empty($townConnections) ? $townConnections : null;
             }
         } catch (\Exception $e) {
-            Log::error('Failed to get town connections from SQLite', [
+            Log::error('Failed to get town connections from new schema', [
                 'town_id' => $townId,
                 'error' => $e->getMessage()
             ]);
@@ -667,7 +677,8 @@ class LocationService
     }
 
     /**
-     * 道路からの次の位置を取得（SQLite優先、JSONフォールバック）
+     * 道路からの次の位置を取得（新スキーマ対応）
+     * @deprecated Use getAvailableConnectionsWithData() for multiple connections support
      *
      * @param string $locationId
      * @param int $position
@@ -676,30 +687,22 @@ class LocationService
     private function getNextLocationFromRoad(string $locationId, int $position): ?array
     {
         try {
-            // SQLiteから接続情報を取得
-            $connectionType = null;
-            if ($position === 0) {
-                $connectionType = 'start';
-            } elseif ($position === 100) {
-                $connectionType = 'end';
-            }
+            // 新スキーマ: source_positionベースで接続を取得
+            $connection = RouteConnection::where('source_location_id', $locationId)
+                                       ->where('source_position', $position)
+                                       ->enabled()
+                                       ->with('targetLocation')
+                                       ->first();
             
-            if ($connectionType) {
-                $connection = RouteConnection::where('source_location_id', $locationId)
-                                               ->where('connection_type', $connectionType)
-                                               ->with('targetLocation')
-                                               ->first();
-                
-                if ($connection && $connection->targetLocation) {
-                    return [
-                        'type' => $connection->targetLocation->category,
-                        'id' => $connection->targetLocation->id,
-                        'name' => $connection->targetLocation->name
-                    ];
-                }
+            if ($connection && $connection->targetLocation) {
+                return [
+                    'type' => $connection->targetLocation->category,
+                    'id' => $connection->targetLocation->id,
+                    'name' => $connection->targetLocation->name
+                ];
             }
         } catch (\Exception $e) {
-            Log::warning('Failed to get road connections from SQLite, falling back to JSON', [
+            Log::warning('Failed to get road connections from new schema, falling back to JSON', [
                 'location_id' => $locationId,
                 'position' => $position,
                 'error' => $e->getMessage()
@@ -1042,6 +1045,323 @@ class LocationService
                     'type' => 'error'
                 ];
         }
+    }
+    
+    /**
+     * Get available connections for current player position (New Logic)
+     *
+     * @param Player $player
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getAvailableConnections(Player $player): \Illuminate\Database\Eloquent\Collection
+    {
+        $currentLocationId = $player->location_id;
+        $currentPosition = $player->game_position ?? 0;
+        
+        // Get all potential connections from current location
+        $connections = RouteConnection::where('source_location_id', $currentLocationId)
+                                     ->enabled()
+                                     ->with(['targetLocation'])
+                                     ->get();
+        
+        // Filter connections based on position rules
+        return $connections->filter(function ($connection) use ($currentPosition) {
+            return $this->shouldShowConnectionAtPosition($connection, $currentPosition);
+        });
+    }
+    
+    /**
+     * Check if connection should be visible at current position (New Logic)
+     *
+     * @param RouteConnection $connection
+     * @param int $currentPosition
+     * @return bool
+     */
+    public function shouldShowConnectionAtPosition(RouteConnection $connection, int $currentPosition): bool
+    {
+        // If source_position is null (town connections), always show
+        if ($connection->source_position === null) {
+            return true;
+        }
+        
+        // Apply new position-based visibility rules
+        if ($connection->source_position === 0) {
+            return $currentPosition <= 0;
+        }
+        
+        if ($connection->source_position === 100) {
+            return $currentPosition >= 100;
+        }
+        
+        // For middle positions (like 50), exact match required
+        return $currentPosition === $connection->source_position;
+    }
+    
+    /**
+     * Get available connections with enhanced data (New Logic)
+     *
+     * @param Player $player
+     * @return array
+     */
+    public function getAvailableConnectionsWithData(Player $player): array
+    {
+        $connections = $this->getAvailableConnections($player);
+        
+        $result = [];
+        foreach ($connections as $connection) {
+            $result[] = [
+                'id' => $connection->id,
+                'target_location_id' => $connection->target_location_id,
+                'target_location' => $connection->targetLocation,
+                'source_position' => $connection->source_position,
+                'target_position' => $connection->target_position,
+                'action_label' => $connection->action_label,
+                'keyboard_shortcut' => $connection->keyboard_shortcut,
+                'edge_type' => $connection->edge_type,
+                'is_enabled' => $connection->is_enabled,
+                'action_text' => $this->getActionText($connection),
+                'keyboard_display' => $this->getKeyboardDisplay($connection->keyboard_shortcut)
+            ];
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * Get action text for connection
+     *
+     * @param RouteConnection $connection
+     * @return string
+     */
+    private function getActionText(RouteConnection $connection): string
+    {
+        if ($connection->action_label && class_exists('App\Helpers\ActionLabel')) {
+            return \App\Helpers\ActionLabel::getActionLabelText(
+                $connection->action_label,
+                $connection->targetLocation?->name
+            );
+        }
+        
+        $targetName = $connection->targetLocation?->name ?? 'Unknown';
+        return "{$targetName}に移動する";
+    }
+    
+    /**
+     * Get keyboard shortcut display
+     *
+     * @param string|null $keyboardShortcut
+     * @return string|null
+     */
+    private function getKeyboardDisplay(?string $keyboardShortcut): ?string
+    {
+        if (!$keyboardShortcut) {
+            return null;
+        }
+        
+        return match($keyboardShortcut) {
+            'up' => '↑',
+            'down' => '↓',
+            'left' => '←', 
+            'right' => '→',
+            default => strtoupper($keyboardShortcut)
+        };
+    }
+    
+    /**
+     * Move player using keyboard shortcut (New Logic)
+     *
+     * @param Player $player
+     * @param string $keyboardShortcut
+     * @return array
+     */
+    public function moveByKeyboard(Player $player, string $keyboardShortcut): array
+    {
+        $availableConnections = $this->getAvailableConnections($player);
+        
+        // キーボードショートカットに対応する接続を検索
+        $connection = $availableConnections->first(function ($conn) use ($keyboardShortcut) {
+            return $conn->keyboard_shortcut === $keyboardShortcut;
+        });
+        
+        if (!$connection) {
+            return [
+                'success' => false,
+                'error' => "キーボードショートカット '{$keyboardShortcut}' に対応する移動先が見つかりません"
+            ];
+        }
+        
+        return $this->moveToConnectionTarget($player, $connection->id);
+    }
+
+    /**
+     * Move player to target location (Enhanced)
+     *
+     * @param Player $player
+     * @param string $connectionId
+     * @return array
+     */
+    public function moveToConnectionTarget(Player $player, string $connectionId): array
+    {
+        try {
+            $connection = RouteConnection::with(['targetLocation'])->find($connectionId);
+            
+            if (!$connection) {
+                return [
+                    'success' => false,
+                    'error' => '接続が見つかりません'
+                ];
+            }
+            
+            // Verify connection is available at current position
+            if (!$this->shouldShowConnectionAtPosition($connection, $player->game_position ?? 0)) {
+                return [
+                    'success' => false,
+                    'error' => 'この接続は現在の位置では利用できません'
+                ];
+            }
+            
+            if (!$connection->targetLocation) {
+                return [
+                    'success' => false,
+                    'error' => '移動先が見つかりません'
+                ];
+            }
+            
+            // Update player position
+            $player->location_type = $connection->targetLocation->category;
+            $player->location_id = $connection->targetLocation->id;
+            
+            // Set new position based on target_position
+            if ($connection->target_position !== null) {
+                $player->game_position = $connection->target_position;
+            } else {
+                $player->game_position = 0; // Town default
+            }
+            
+            $player->save();
+            
+            return [
+                'success' => true,
+                'destination' => [
+                    'type' => $connection->targetLocation->category,
+                    'id' => $connection->targetLocation->id,
+                    'name' => $connection->targetLocation->name,
+                    'position' => $player->game_position
+                ],
+                'action_performed' => $this->getActionText($connection)
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to move to connection target', [
+                'player_id' => $player->id,
+                'connection_id' => $connectionId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => '移動に失敗しました: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * 道路の移動軸を取得
+     * GameControllerから移植：left/rightをnorth/south/east/westに変換するために使用
+     *
+     * @param string $roadId
+     * @return string 'vertical'|'horizontal'|'cross'|'mixed'
+     */
+    public function getRoadMovementAxis(string $roadId): string
+    {
+        try {
+            // データベースから道路情報を取得して移動軸を確認
+            $route = \App\Models\Route::where('id', $roadId)
+                                    ->where('category', 'road')
+                                    ->first();
+            
+            if ($route && !empty($route->default_movement_axis)) {
+                return $route->default_movement_axis;
+            }
+            
+            // データベースにない場合はフォールバック（パターンマッチング）
+            if (str_contains($roadId, 'north') || str_contains($roadId, 'south') || str_contains($roadId, 'vertical')) {
+                return 'vertical';
+            } elseif (str_contains($roadId, 'east') || str_contains($roadId, 'west') || str_contains($roadId, 'horizontal')) {
+                return 'horizontal';
+            }
+            
+            // 最終デフォルト（プリマ街道など既存の垂直道路）
+            return 'vertical';
+            
+        } catch (\Exception $e) {
+            \Log::error('Failed to get road movement axis from database', [
+                'road_id' => $roadId,
+                'error' => $e->getMessage()
+            ]);
+            
+            // エラー時はフォールバック
+            return 'vertical';
+        }
+    }
+
+    /**
+     * left/rightを道路軸に応じて適切な方角に変換
+     *
+     * @param Player $player
+     * @param string $leftRight 'left'|'right'
+     * @return string 変換後の方角 ('north'|'south'|'east'|'west'|元の値)
+     */
+    public function convertLeftRightToDirection(Player $player, string $leftRight): string
+    {
+        // 道路にいない場合はそのまま返す
+        if ($player->location_type !== 'road') {
+            return $leftRight;
+        }
+        
+        // 道路軸を取得
+        $roadAxis = $this->getRoadMovementAxis($player->location_id);
+        
+        // 軸に応じて変換
+        return match($roadAxis) {
+            'horizontal' => match($leftRight) {
+                'left' => 'west',   // 水平道路：左=西
+                'right' => 'east',  // 水平道路：右=東
+                default => $leftRight
+            },
+            'vertical' => match($leftRight) {
+                'left' => 'south',  // 垂直道路：左=南（位置減少・戻る）
+                'right' => 'north', // 垂直道路：右=北（位置増加・進む）
+                default => $leftRight
+            },
+            default => $leftRight // cross/mixedは従来通り
+        };
+    }
+
+    /**
+     * 道路軸に応じた移動ボタン表示情報を取得
+     *
+     * @param string $roadId
+     * @return array ['left' => ['text' => '南に移動', 'icon' => '⬇️'], 'right' => ['text' => '北に移動', 'icon' => '⬆️']]
+     */
+    public function getMovementButtonsInfo(string $roadId): array
+    {
+        $roadAxis = $this->getRoadMovementAxis($roadId);
+        
+        return match($roadAxis) {
+            'horizontal' => [
+                'left' => ['text' => '西に移動', 'icon' => '⬅️'],
+                'right' => ['text' => '東に移動', 'icon' => '➡️']
+            ],
+            'vertical' => [
+                'left' => ['text' => '南に移動', 'icon' => '⬇️'],  // 左=南（戻る）
+                'right' => ['text' => '北に移動', 'icon' => '⬆️'] // 右=北（進む）
+            ],
+            default => [ // cross/mixed or fallback
+                'left' => ['text' => '左に移動', 'icon' => '⬅️'],
+                'right' => ['text' => '右に移動', 'icon' => '➡️']
+            ]
+        };
     }
 
 }

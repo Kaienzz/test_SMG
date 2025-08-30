@@ -689,38 +689,66 @@ class TownStateManager {
         
         try {
             console.log('🚀 [TOWN] Making API request to /game/move-to-direction');
-            const result = await this.gameManager.makeRequest('/game/move-to-direction', 'POST', {
-                direction: direction
+            
+            const response = await fetch('/game/move-to-direction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    direction: direction
+                })
             });
-
+            
+            console.log('🚀 [TOWN] Response status:', response.status);
+            console.log('🚀 [TOWN] Response headers:', response.headers);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const contentType = response.headers.get('content-type');
+            console.log('🚀 [TOWN] Response content-type:', contentType);
+            
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('🚀 [TOWN] Expected JSON but got:', text.substring(0, 200));
+                throw new Error('Expected JSON response but received HTML. Check server logs.');
+            }
+            
+            const result = await response.json();
             this.gameManager.hideLoading();
 
             console.log('🚀 [TOWN] Move to direction result:', result);
 
             if (result && result.success) {
-                // Transition to road state using seamless transition
-                console.log('🚀 [TOWN] Move successful, starting seamless transition to road');
+                // Update game data directly without reload
+                console.log('🚀 [TOWN] Move successful, updating game data');
                 this.gameManager.showNotification('移動を開始しました', 'success');
                 
-                // シームレス遷移で道画面に移動
-                const newGameData = {
-                    gameState: 'road',
-                    player: result.player || this.gameManager.gameData.player,
-                    currentLocation: result.currentLocation,
-                    nextLocation: result.nextLocation
-                };
+                // Update gameData with new location info
+                this.gameManager.gameData.gameState = result.gameState || 'road';
+                this.gameManager.gameData.player = result.player || this.gameManager.gameData.player;
+                this.gameManager.gameData.currentLocation = result.currentLocation;
+                this.gameManager.gameData.nextLocation = result.nextLocation;
                 
-                console.log('🚀 [TOWN] Starting seamless transition with data:', newGameData);
-                setTimeout(async () => {
-                    try {
-                        await this.gameManager.transitionToState('road', newGameData);
-                        // 遷移成功後にフラグをリセット（deactivate()でもリセットされるが保険として）
-                        this.isMoving = false;
-                    } catch (error) {
-                        console.error('🚀 [TOWN] Seamless transition failed:', error);
-                        this.isMoving = false; // エラー時もフラグリセット
-                    }
-                }, 500);
+                // Update page title
+                if (result.currentLocation?.name) {
+                    document.title = `${result.currentLocation.name} - 町と道の冒険`;
+                }
+                
+                console.log('🚀 [TOWN] Transitioning to new state:', result.gameState);
+                
+                // Transition to new state dynamically
+                try {
+                    await this.gameManager.transitionToState(result.gameState || 'road', this.gameManager.gameData);
+                    this.isMoving = false;
+                } catch (error) {
+                    console.error('🚀 [TOWN] State transition failed:', error);
+                    // Fallback: reload page
+                    window.location.reload();
+                }
             } else {
                 // Show error message
                 const errorMessage = result?.message || result?.error || '移動に失敗しました';
@@ -729,9 +757,24 @@ class TownStateManager {
                 this.isMoving = false; // フラグリセット
             }
         } catch (error) {
-            console.error('🚀 [TOWN] Exception in moveToDirection:', error);
             this.gameManager.hideLoading();
-            this.gameManager.showNotification('移動中にエラーが発生しました: ' + error.message, 'error');
+            console.error('🚀 [TOWN] Exception in moveToDirection:', error);
+            
+            let errorMessage = '移動に失敗しました';
+            if (error.message.includes('Expected JSON response but received HTML')) {
+                errorMessage = 'サーバーエラーが発生しました。管理者にお問い合わせください。';
+                console.error('🚀 [TOWN] Server returned HTML instead of JSON. Check Laravel error logs.');
+            } else if (error.message.includes('HTTP 404')) {
+                errorMessage = 'APIエンドポイントが見つかりません。';
+            } else if (error.message.includes('HTTP 422')) {
+                errorMessage = 'リクエストデータに問題があります。';
+            } else if (error.message.includes('HTTP 500')) {
+                errorMessage = 'サーバー内部エラーが発生しました。';
+            } else {
+                errorMessage = `移動エラー: ${error.message}`;
+            }
+            
+            this.gameManager.showNotification(errorMessage, 'error');
             this.isMoving = false; // フラグリセット
         }
     }
@@ -798,6 +841,9 @@ class RoadStateManager {
         this.hideMovementControls();
         this.hideDiceResult();
         
+        // Initialize movement buttons as disabled (require dice roll first)
+        this.disableMovementButtons();
+        
         this.setupRoadEventListeners();
         this.updateProgressBar(gameData.player?.game_position || 0);
         
@@ -823,6 +869,7 @@ class RoadStateManager {
             this.hideNextLocationButton();
         }
     }
+
 
     setupRoadEventListeners() {
         console.log('🚀 [ROAD] Setting up road event listeners...');
@@ -983,6 +1030,13 @@ class RoadStateManager {
             
             diceTotal.classList.remove('hidden');
         }
+        
+        // Enable movement buttons after dice roll
+        this.enableMovementButtons();
+        console.log('Movement buttons enabled after dice roll');
+        
+        // Update movement hint text
+        this.updateMovementHints('移動可能');
     }
 
     showMovementControls() {
@@ -1150,7 +1204,7 @@ class RoadStateManager {
     updateMovementDirection(direction) {
         const directionEl = document.getElementById('movement-direction');
         if (directionEl) {
-            const directionText = direction === 'left' ? '左へ移動' : '右へ移動';
+            const directionText = direction === 'south' ? '南へ移動（戻る）' : '北へ移動（進む）';
             directionEl.textContent = directionText;
         }
     }
@@ -1191,37 +1245,59 @@ class RoadStateManager {
     
     disableMovementButtons() {
         console.log('Disabling movement buttons...');
-        const moveLeft = document.getElementById('move-left');
-        const moveRight = document.getElementById('move-right');
+        const moveNorth = document.getElementById('move-north');
+        const moveSouth = document.getElementById('move-south');
         
-        if (moveLeft) {
-            moveLeft.disabled = true;
-            console.log('Left movement button disabled');
+        if (moveNorth) {
+            moveNorth.disabled = true;
+            console.log('North movement button disabled');
         }
         
-        if (moveRight) {
-            moveRight.disabled = true;
-            console.log('Right movement button disabled');
+        if (moveSouth) {
+            moveSouth.disabled = true;
+            console.log('South movement button disabled');
         }
+        
+        // Update movement hints to show dice roll requirement
+        this.updateMovementHints('サイコロを振ってください');
     }
     
     enableMovementButtons() {
         console.log('Enabling movement buttons...');
-        const moveLeft = document.getElementById('move-left');
-        const moveRight = document.getElementById('move-right');
+        const moveNorth = document.getElementById('move-north');
+        const moveSouth = document.getElementById('move-south');
         
-        if (moveLeft) {
-            moveLeft.disabled = false;
-            console.log('Left movement button enabled');
+        if (moveNorth) {
+            moveNorth.disabled = false;
+            console.log('North movement button enabled');
         } else {
-            console.warn('Left movement button not found');
+            console.warn('North movement button not found');
         }
         
-        if (moveRight) {
-            moveRight.disabled = false;
-            console.log('Right movement button enabled');
+        if (moveSouth) {
+            moveSouth.disabled = false;
+            console.log('South movement button enabled');
         } else {
-            console.warn('Right movement button not found');
+            console.warn('South movement button not found');
+        }
+    }
+    
+    updateMovementHints(hintText) {
+        console.log('Updating movement hints to:', hintText);
+        const moveNorth = document.getElementById('move-north');
+        const moveSouth = document.getElementById('move-south');
+        
+        const hintElements = document.querySelectorAll('.movement-hint');
+        hintElements.forEach(hint => {
+            hint.textContent = hintText;
+        });
+        
+        // Show/hide hints based on button state
+        if (moveNorth && moveSouth) {
+            const showHints = moveNorth.disabled && moveSouth.disabled;
+            hintElements.forEach(hint => {
+                hint.style.display = showHints ? 'inline' : 'none';
+            });
         }
     }
 
@@ -2197,6 +2273,211 @@ function toggleSkillMenu() {
     }
 }
 
+// Global functions for next location movement (for button compatibility)
+function moveToNextFromTown() {
+    console.log('🚀 [GLOBAL] moveToNextFromTown called');
+    if (window.gameManager?.townManager) {
+        window.gameManager.townManager.moveToNext();
+    } else {
+        // Fallback implementation
+        fetch('/game/move-to-next', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update game state dynamically instead of reload
+                updateGameStateFromResponse(data);
+            } else {
+                alert('移動に失敗しました: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Move to next error:', error);
+            alert('移動に失敗しました');
+        });
+    }
+}
+
+function moveToNextFromRoad() {
+    console.log('🚀 [GLOBAL] moveToNextFromRoad called');
+    if (window.gameManager?.roadManager) {
+        window.gameManager.roadManager.moveToNext();
+    } else {
+        // Fallback implementation - same as above
+        fetch('/game/move-to-next', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateGameStateFromResponse(data);
+            } else {
+                alert('移動に失敗しました: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Move to next error:', error);
+            alert('移動に失敗しました');
+        });
+    }
+}
+
+// Helper function to update game state from API response
+function updateGameStateFromResponse(data) {
+    if (window.gameManager && data.gameState) {
+        // Update gameData
+        window.gameManager.gameData.gameState = data.gameState;
+        window.gameManager.gameData.player = data.player || window.gameManager.gameData.player;
+        window.gameManager.gameData.currentLocation = data.currentLocation;
+        window.gameManager.gameData.nextLocation = data.nextLocation;
+        
+        // Update page title
+        if (data.currentLocation?.name) {
+            document.title = `${data.currentLocation.name} - 町と道の冒険`;
+        }
+        
+        // Transition to new state
+        window.gameManager.transitionToState(data.gameState, window.gameManager.gameData);
+    } else {
+        // Fallback: reload page
+        window.location.reload();
+    }
+}
+
+// Simple test function 
+function testButtonClick(connectionId) {
+    console.log('🚀 [TEST] testButtonClick called with ID:', connectionId);
+    alert('ボタンクリックテスト成功！ Connection ID: ' + connectionId);
+}
+
+// Initialize connection button event listeners
+function initializeConnectionButtons() {
+    console.log('🚀 [INIT] Initializing connection buttons...');
+    
+    // Find all connection buttons
+    const connectionButtons = document.querySelectorAll('[data-connection-id]');
+    console.log('🚀 [INIT] Found connection buttons:', connectionButtons.length);
+    
+    connectionButtons.forEach(button => {
+        const connectionId = button.getAttribute('data-connection-id');
+        console.log('🚀 [INIT] Setting up button for connection:', connectionId);
+        
+        // Remove any existing event listeners
+        button.removeEventListener('click', handleConnectionClick);
+        
+        // Add new event listener
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            console.log('🚀 [CLICK] Button clicked via addEventListener:', connectionId);
+            handleConnectionClick(connectionId, event);
+        });
+        
+        // Also ensure onclick attribute works
+        if (!button.hasAttribute('onclick')) {
+            button.setAttribute('onclick', `moveToConnection('${connectionId}')`);
+        }
+        
+        console.log('🚀 [INIT] Button setup complete for:', connectionId);
+    });
+}
+
+// Handle connection button clicks
+function handleConnectionClick(connectionId, event = null) {
+    console.log('🚀 [HANDLE] handleConnectionClick called with ID:', connectionId);
+    console.log('🚀 [HANDLE] Event:', event);
+    moveToConnection(connectionId);
+}
+
+// Global moveToConnection function (for button clicks)
+function moveToConnection(connectionId) {
+    console.log('🚀 [MOVE] moveToConnection called with ID:', connectionId);
+    console.log('🚀 [MOVE] Event target:', event?.target);
+    console.log('🚀 [MOVE] gameManager exists:', !!window.gameManager);
+    
+    // Add visual feedback immediately
+    const button = document.querySelector(`[data-connection-id="${connectionId}"]`);
+    console.log('🚀 [MOVE] Button found:', !!button);
+    
+    if (button) {
+        console.log('🚀 [MOVE] Button before:', button.innerHTML);
+        button.disabled = true;
+        button.style.opacity = '0.5';
+        button.innerHTML = '<span class="spinner">🔄</span> 移動中...';
+        console.log('🚀 [MOVE] Button after:', button.innerHTML);
+    }
+    
+    // Check CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    console.log('🚀 [MOVE] CSRF token exists:', !!csrfToken);
+    
+    if (!csrfToken) {
+        console.error('🚀 [MOVE] CSRF token not found');
+        alert('セキュリティトークンが見つかりません。ページを再読み込みしてください。');
+        return;
+    }
+    
+    if (window.gameManager && window.gameManager.moveToConnection) {
+        console.log('🚀 [MOVE] Using gameManager.moveToConnection');
+        window.gameManager.moveToConnection(connectionId);
+    } else {
+        console.log('🚀 [MOVE] Using fallback implementation');
+        
+        const requestData = {
+            connection_id: connectionId
+        };
+        console.log('🚀 [MOVE] Request data:', requestData);
+        
+        fetch('/api/game/move-to-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => {
+            console.log('🚀 [MOVE] Response status:', response.status);
+            console.log('🚀 [MOVE] Response ok:', response.ok);
+            return response.json();
+        })
+        .then(data => {
+            console.log('🚀 [MOVE] Connection movement response:', data);
+            if (data.success) {
+                console.log('🚀 [MOVE] Movement successful, reloading...');
+                // Reload page to show new location
+                window.location.reload();
+            } else {
+                console.error('🚀 [MOVE] Movement failed:', data.error);
+                alert('移動に失敗しました: ' + (data.error || 'Unknown error'));
+                if (button) {
+                    button.disabled = false;
+                    button.style.opacity = '1';
+                    button.innerHTML = button.dataset.originalText || '移動';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('🚀 [MOVE] Connection movement error:', error);
+            alert('移動処理中にエラーが発生しました: ' + error.message);
+            if (button) {
+                button.disabled = false;
+                button.style.opacity = '1';
+                button.innerHTML = button.dataset.originalText || '移動';
+            }
+        });
+    }
+}
+
 function returnToGame() {
     if (gameManager?.battleManager) {
         gameManager.battleManager.returnToGame();
@@ -2999,6 +3280,11 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 [DEBUG] =============== PAGE LOADED ===============');
     console.log('🚀 [DEBUG] Current timestamp:', new Date().toISOString());
     console.log('🚀 [DEBUG] Current URL:', window.location.href);
+    
+    // Initialize connection buttons
+    setTimeout(() => {
+        initializeConnectionButtons();
+    }, 100);
     
     // セッションストレージから移動結果をチェック
     const debugMoveResult = sessionStorage.getItem('debug_move_result');
