@@ -19,5 +19,12 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // 基本シード
+        $this->call([
+            TownFacilitySeeder::class,
+            AlchemyMaterialsSeeder::class,
+            CompoundingSeeder::class,
+        ]);
     }
 }

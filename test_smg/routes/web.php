@@ -9,6 +9,7 @@ use App\Http\Controllers\ItemFacilityController;
 use App\Http\Controllers\BlacksmithFacilityController;
 use App\Http\Controllers\TavernFacilityController;
 use App\Http\Controllers\AlchemyFacilityController;
+use App\Http\Controllers\CompoundingFacilityController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\SkillController;
@@ -107,6 +108,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/alchemy', [AlchemyFacilityController::class, 'index'])->name('facilities.alchemy.index');
         Route::post('/alchemy/perform', [AlchemyFacilityController::class, 'performAlchemy'])->name('facilities.alchemy.perform');
         Route::post('/alchemy/preview', [AlchemyFacilityController::class, 'previewAlchemy'])->name('facilities.alchemy.preview');
+
+    // 調合（Compounding）
+    Route::get('/compounding', [CompoundingFacilityController::class, 'index'])->name('facilities.compounding.index');
+    Route::post('/compounding/transaction', [CompoundingFacilityController::class, 'processTransaction'])->name('facilities.compounding.transaction');
     });
 });
 

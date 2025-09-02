@@ -49,6 +49,7 @@ class TownFacilitySeeder extends Seeder
         $this->createBlacksmith('town_a', 'A町の鍛冶屋', '熟練の鍛冶職人が武器・防具の加工を承ります。');
         $this->createTavern('town_a', 'A町の酒場', '疲れた冒険者の憩いの場。HP、MP、SPを回復できます。');
         $this->createAlchemyShop('town_a', 'A町の錬金屋', '古い錬金術の秘伝で武器・防具を強化いたします。');
+    $this->createCompoundingShop('town_a', 'A町の調合店', '材料から薬品などを調合します。');
     }
 
     private function seedTownBFacilities(): void
@@ -57,6 +58,7 @@ class TownFacilitySeeder extends Seeder
         $this->createBlacksmith('town_b', 'B町の鍛冶屋', '伝統の技で最高の装備を提供いたします。');
         $this->createTavern('town_b', 'B町の酒場', '武闘の疲労を癒す最高の酒場です。');
         $this->createAlchemyShop('town_b', 'B町の錬金屋', '秘密の錬金術で装備を究極進化させます。');
+    $this->createCompoundingShop('town_b', 'B町の調合店', '材料から薬品などを調合します。');
     }
 
     private function seedTownPrimaFacilities(): void
@@ -65,6 +67,7 @@ class TownFacilitySeeder extends Seeder
         $this->createBlacksmith('town_prima', 'プリマ町の鍛冶屋', 'プリマ町で一番の腕を持つ鍛冶職人の店です。');
         $this->createTavern('town_prima', 'プリマ町の酒場', 'プリマ町の心温まる酒場で、疲れを癒しましょう。');
         $this->createAlchemyShop('town_prima', 'プリマ町の錬金屋', 'プリマ町の神秘的な錬金術師が装備を強化してくれます。');
+    $this->createCompoundingShop('town_prima', 'プリマ町の調合店', '材料から薬品などを調合します。');
     }
 
     private function createItemShop(string $locationId, string $name, string $description): void
@@ -176,6 +179,25 @@ class TownFacilitySeeder extends Seeder
                     'base_success_rate' => 95.0,
                     'masterwork_base_chance' => 5.0,
                     'available_services' => ['alchemy'],
+                ],
+            ]
+        );
+    }
+
+    private function createCompoundingShop(string $locationId, string $name, string $description): void
+    {
+        TownFacility::firstOrCreate(
+            [
+                'location_id' => $locationId,
+                'location_type' => 'town',
+                'facility_type' => FacilityType::COMPOUNDING_SHOP->value,
+            ],
+            [
+                'name' => $name,
+                'description' => $description,
+                'is_active' => true,
+                'facility_config' => [
+                    'available_services' => ['compounding'],
                 ],
             ]
         );

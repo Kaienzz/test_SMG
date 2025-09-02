@@ -9,15 +9,46 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <!-- New User Welcome Message -->
             @if(session('welcome_new_user'))
-                <div class="mb-8 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl p-8 shadow-lg">
-                    <div class="text-center">
-                        <h2 class="text-3xl font-bold mb-4">🎉 ようこそ、冒険者！</h2>
-                        <p class="text-blue-100 text-lg mb-6">
+                <div style="
+                    margin-bottom: 2rem;
+                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+                    color: #ffffff;
+                    border-radius: 1rem;
+                    padding: 2rem;
+                    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.2);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                ">
+                    <div style="text-align: center;">
+                        <h2 style="
+                            font-size: 2rem;
+                            font-weight: 700;
+                            margin-bottom: 1rem;
+                            color: #ffffff;
+                            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                        ">🎉 ようこそ、冒険者！</h2>
+                        <p style="
+                            color: #ffffff;
+                            font-size: 1.125rem;
+                            margin-bottom: 1.5rem;
+                            line-height: 1.6;
+                            opacity: 0.95;
+                        ">
                             アカウント作成ありがとうございます！あなた専用のキャラクターと装備が準備されました。<br>
                             A町から始まる壮大な冒険の世界へ旅立ちましょう！
                         </p>
-                        <div class="flex justify-center space-x-4">
-                            <a href="{{ route('game.index') }}" class="bg-white text-blue-600 font-semibold py-3 px-8 rounded-lg hover:bg-blue-50 transition-all duration-200 transform hover:-translate-y-1">
+                        <div style="display: flex; justify-content: center; gap: 1rem;">
+                            <a href="{{ route('game.index') }}" style="
+                                background: #ffffff;
+                                color: #2563eb;
+                                font-weight: 600;
+                                padding: 0.75rem 2rem;
+                                border-radius: 0.5rem;
+                                text-decoration: none;
+                                transition: all 0.2s ease;
+                                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                                border: 2px solid transparent;
+                            " onmouseover="this.style.backgroundColor='#f8fafc'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0, 0, 0, 0.15)'" 
+                               onmouseout="this.style.backgroundColor='#ffffff'; this.style.transform='translateY(0px)'; this.style.boxShadow='0 4px 8px rgba(0, 0, 0, 0.1)'">
                                 🚀 冒険を始める
                             </a>
                         </div>

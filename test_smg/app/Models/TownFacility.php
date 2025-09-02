@@ -26,7 +26,7 @@ class TownFacility extends Model
 
     public function facilityItems(): HasMany
     {
-        return $this->hasMany(FacilityItem::class);
+        return $this->hasMany(FacilityItem::class, 'facility_id');
     }
 
     public function availableItems(): HasMany

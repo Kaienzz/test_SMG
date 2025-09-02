@@ -40,7 +40,7 @@
     @endif
 
     <!-- フォーム -->
-    <form method="POST" action="{{ route('admin.roads.store') }}">
+    <form id="road-create-form" method="POST" action="{{ route('admin.roads.store') }}">
         @csrf
         
         @include('admin.roads._form')

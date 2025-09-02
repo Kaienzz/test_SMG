@@ -7,6 +7,8 @@ use App\Services\Admin\AdminAuditService;
 use App\Models\TownFacility;
 use App\Models\FacilityItem;
 use App\Models\Route;
+use App\Models\CompoundingRecipe;
+use App\Models\CompoundingRecipeLocation;
 use App\Enums\FacilityType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -134,6 +136,24 @@ class AdminTownFacilityController extends AdminController
                 ])
             ];
 
+            // 調合店の場合は調合レシピ情報も取得
+            if ($facility->facility_type === 'compounding_shop') {
+                // この施設で利用可能な調合レシピ取得
+                $availableRecipes = CompoundingRecipe::whereHas('locations', function($query) use ($facility) {
+                    $query->where('location_id', $facility->location_id)
+                          ->where('is_active', true);
+                })->with(['ingredients.item', 'productItem'])->get();
+
+                // 全ての調合レシピも取得（管理用）
+                $allRecipes = CompoundingRecipe::with(['ingredients.item', 'productItem'])
+                    ->where('is_active', true)
+                    ->get();
+
+                $data['availableRecipes'] = $availableRecipes;
+                $data['allRecipes'] = $allRecipes;
+                $data['currentRecipeIds'] = $availableRecipes->pluck('id')->toArray();
+            }
+
             $this->auditLog('town_facilities.show.viewed', [
                 'facility_id' => $facility->id,
                 'facility_name' => $facility->name,
@@ -243,6 +263,25 @@ class AdminTownFacilityController extends AdminController
             ])
         ];
 
+        // 調合店の場合、レシピ選択用のデータを追加
+        if ($facility->facility_type === 'compounding_shop') {
+            // 現在この施設で利用可能なレシピ
+            $currentRecipes = CompoundingRecipe::whereHas('locations', function($query) use ($facility) {
+                $query->where('location_id', $facility->location_id)
+                      ->where('is_active', true);
+            })->pluck('id')->toArray();
+
+            // 全ての有効な調合レシピ
+            $allRecipes = CompoundingRecipe::with(['ingredients.item', 'productItem'])
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
+
+            $data['allRecipes'] = $allRecipes;
+            $data['currentRecipeIds'] = $currentRecipes;
+            $data['availableRecipes'] = $allRecipes->whereIn('id', $currentRecipes);
+        }
+
         return view('admin.town-facilities.edit', $data);
     }
 
@@ -288,6 +327,119 @@ class AdminTownFacilityController extends AdminController
             return back()
                 ->withInput()
                 ->withError('施設の更新中にエラーが発生しました。');
+        }
+    }
+
+    /**
+     * 調合レシピ更新処理（調合店のみ）
+     */
+    public function updateRecipes(Request $request, TownFacility $facility)
+    {
+        $this->initializeForRequest();
+        $this->checkPermission('town_facilities.edit');
+
+        // 調合店以外は処理しない
+        if ($facility->facility_type !== 'compounding_shop') {
+            $errorMessage = 'この施設では調合レシピの管理はできません。';
+            
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $errorMessage
+                ], 400);
+            }
+            
+            return back()->withError($errorMessage);
+        }
+
+        $validated = $request->validate([
+            'recipes' => 'nullable|array',
+            'recipes.*' => 'exists:compounding_recipes,id'
+        ]);
+
+        try {
+            // 現在のレシピ割り当てを取得
+            $currentRecipeIds = CompoundingRecipeLocation::where('location_id', $facility->location_id)
+                ->where('is_active', true)
+                ->pluck('recipe_id')
+                ->toArray();
+
+            $newRecipeIds = $validated['recipes'] ?? [];
+
+            // 削除すべきレシピ（現在有効だが新しいリストにない）
+            $recipesToRemove = array_diff($currentRecipeIds, $newRecipeIds);
+            
+            // 追加すべきレシピ（現在無効だが新しいリストにある）
+            $recipesToAdd = array_diff($newRecipeIds, $currentRecipeIds);
+
+            // 削除処理：is_activeをfalseに設定
+            if (!empty($recipesToRemove)) {
+                CompoundingRecipeLocation::where('location_id', $facility->location_id)
+                    ->whereIn('recipe_id', $recipesToRemove)
+                    ->update(['is_active' => false]);
+            }
+
+            // 追加処理：既存レコードがあればis_activeをtrueに、なければ新規作成
+            foreach ($recipesToAdd as $recipeId) {
+                $existing = CompoundingRecipeLocation::where('location_id', $facility->location_id)
+                    ->where('recipe_id', $recipeId)
+                    ->first();
+
+                if ($existing) {
+                    $existing->update(['is_active' => true]);
+                } else {
+                    CompoundingRecipeLocation::create([
+                        'recipe_id' => $recipeId,
+                        'location_id' => $facility->location_id,
+                        'is_active' => true
+                    ]);
+                }
+            }
+
+            $this->auditLog('town_facilities.recipes_updated', [
+                'facility_id' => $facility->id,
+                'facility_name' => $facility->name,
+                'location_id' => $facility->location_id,
+                'recipes_added' => count($recipesToAdd),
+                'recipes_removed' => count($recipesToRemove),
+                'total_recipes' => count($newRecipeIds)
+            ], 'medium');
+
+            $message = '調合レシピの設定を更新しました。（有効: ' . count($newRecipeIds) . '件）';
+
+            // AJAXリクエストの場合はJSONで返す
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'total_recipes' => count($newRecipeIds)
+                ]);
+            }
+
+            return back()->withSuccess($message);
+
+        } catch (\Exception $e) {
+            Log::error('Admin facility recipes update error: ' . $e->getMessage(), [
+                'facility_id' => $facility->id,
+                'location_id' => $facility->location_id,
+                'recipes' => $validated['recipes'] ?? [],
+                'user_id' => $this->user?->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            $errorMessage = '調合レシピの更新中にエラーが発生しました。';
+
+            // AJAXリクエストの場合はJSONで返す
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $errorMessage
+                ], 500);
+            }
+
+            return back()
+                ->withInput()
+                ->withError($errorMessage);
         }
     }
 
@@ -531,6 +683,42 @@ class AdminTownFacilityController extends AdminController
                 'message' => 'アイテムの削除中にエラーが発生しました。'
             ], 500);
         }
+    }
+
+    /**
+     * API: 施設管理用のアイテム一覧取得
+     */
+    public function getItemsApi()
+    {
+        $this->initializeForRequest();
+        
+        $categoryLabels = [
+            'material' => '材料',
+            'weapon' => '武器',
+            'shield' => '盾',
+            'head_equipment' => '頭装備',
+            'body_equipment' => '胴装備',
+            'foot_equipment' => '足装備',
+            'accessory' => '装飾品',
+            'bag' => '鞄',
+            'potion' => 'ポーション',
+        ];
+
+        $items = \App\Models\Item::orderBy('category')->orderBy('name')
+            ->get(['id', 'name', 'category', 'value'])
+            ->map(function ($item) use ($categoryLabels) {
+                $categoryLabel = $categoryLabels[$item->category->value] ?? $item->category->value;
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'category' => $item->category->value,
+                    'category_label' => $categoryLabel,
+                    'value' => $item->value,
+                    'display_name' => $item->name . ' (' . $categoryLabel . ' - ' . number_format($item->value) . 'G)',
+                ];
+            });
+
+        return response()->json($items);
     }
 
     /**

@@ -169,6 +169,96 @@
                 </div>
             @endif
 
+            <!-- 調合レシピ一覧（調合店のみ） -->
+            @if ($facility->facility_type === 'compounding_shop')
+                <div class="admin-card mb-4">
+                    <div class="admin-card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h3 class="admin-card-title">
+                                <i class="fas fa-flask me-2"></i>
+                                利用可能な調合レシピ（{{ $availableRecipes->count() }}件）
+                            </h3>
+                            <a href="{{ route('admin.town-facilities.edit', $facility) }}" class="btn btn-success btn-sm">
+                                <i class="fas fa-edit me-1"></i> レシピ管理
+                            </a>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        @if ($availableRecipes->count() > 0)
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>レシピ名</th>
+                                            <th>成果物</th>
+                                            <th>必要Lv</th>
+                                            <th>成功率</th>
+                                            <th>SPコスト</th>
+                                            <th>材料</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($availableRecipes as $recipe)
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-bold">{{ $recipe->name }}</div>
+                                                    <small class="text-muted">{{ $recipe->recipe_key }}</small>
+                                                </td>
+                                                <td>
+                                                    @if($recipe->productItem)
+                                                        <div class="d-flex align-items-center">
+                                                            <span class="me-2">📦</span>
+                                                            <div>
+                                                                <div class="fw-bold">{{ $recipe->productItem->name }}</div>
+                                                                <small class="text-muted">× {{ $recipe->product_quantity }}</small>
+                                                            </div>
+                                                        </div>
+                                                    @else
+                                                        <span class="text-muted">不明なアイテム (ID: {{ $recipe->product_item_id }})</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <span class="badge badge-info">Lv {{ $recipe->required_skill_level }}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="fw-bold">{{ $recipe->success_rate }}%</span>
+                                                </td>
+                                                <td>
+                                                    <span class="fw-bold">{{ $recipe->sp_cost }} SP</span>
+                                                </td>
+                                                <td>
+                                                    @if($recipe->ingredients->count() > 0)
+                                                        <div class="recipe-ingredients">
+                                                            @foreach($recipe->ingredients as $ingredient)
+                                                                <div class="ingredient-item">
+                                                                    @if($ingredient->item)
+                                                                        <small>{{ $ingredient->item->name }} × {{ $ingredient->quantity }}</small>
+                                                                    @else
+                                                                        <small class="text-muted">不明 (ID: {{ $ingredient->item_id }}) × {{ $ingredient->quantity }}</small>
+                                                                    @endif
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @else
+                                                        <small class="text-muted">材料なし</small>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <div class="text-center py-4 text-muted">
+                                <i class="fas fa-flask fa-3x mb-3"></i>
+                                <h5>利用可能な調合レシピがありません</h5>
+                                <p>編集画面からレシピを有効化してください。</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
             <!-- 施設設定（サービス系施設） -->
             @if (in_array($facility->facility_type, ['blacksmith', 'alchemy_shop', 'tavern']) && $facility->facility_config)
                 <div class="admin-card mb-4">
@@ -284,6 +374,15 @@
                         </div>
                     </div>
                     
+                    @if ($facility->facility_type === 'compounding_shop')
+                        <div class="stat-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>利用可能レシピ</span>
+                                <span class="badge badge-info">{{ $availableRecipes->count() }}</span>
+                            </div>
+                        </div>
+                    @endif
+                    
                     @if ($facilityItems->count() > 0)
                         <div class="stat-item mb-0">
                             <div class="d-flex justify-content-between align-items-center">
@@ -371,6 +470,10 @@
                             @elseif ($facility->facility_type === 'tavern')
                                 <li>HP・MP・SPの回復</li>
                                 <li>休息サービス</li>
+                            @elseif ($facility->facility_type === 'compounding_shop')
+                                <li>調合レシピの管理</li>
+                                <li>材料から消耗品を作成</li>
+                                <li>レシピの有効/無効切り替え</li>
                             @else
                                 <li>専用サービスの提供</li>
                             @endif
@@ -444,6 +547,15 @@
 .facility-type-info li {
     margin-bottom: 0.25rem;
     color: var(--admin-secondary);
+}
+
+.recipe-ingredients {
+    max-width: 200px;
+}
+
+.ingredient-item {
+    margin-bottom: 0.125rem;
+    line-height: 1.2;
 }
 </style>
 @endsection

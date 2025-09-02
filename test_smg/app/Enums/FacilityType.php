@@ -13,6 +13,7 @@ enum FacilityType: string
     case GUILD = 'guild';
     case TAVERN = 'tavern';
     case ALCHEMY_SHOP = 'alchemy_shop';
+    case COMPOUNDING_SHOP = 'compounding_shop';
     case LIBRARY = 'library';
 
     public function getDisplayName(): string
@@ -27,6 +28,7 @@ enum FacilityType: string
             self::GUILD => 'ギルド',
             self::TAVERN => '酒屋',
             self::ALCHEMY_SHOP => '錬金屋',
+            self::COMPOUNDING_SHOP => '調合店',
             self::LIBRARY => '図書館',
         };
     }
@@ -43,6 +45,7 @@ enum FacilityType: string
             self::GUILD => 'クエストの受注や情報収集ができます。',
             self::TAVERN => 'HP、MP、SPを回復できます。',
             self::ALCHEMY_SHOP => '武器・防具を素材で強化できます。',
+            self::COMPOUNDING_SHOP => '材料から消耗品などを調合できます。',
             self::LIBRARY => '知識を得ることができます。',
         };
     }
@@ -59,6 +62,7 @@ enum FacilityType: string
             self::GUILD => '🏛️',
             self::TAVERN => '🍺',
             self::ALCHEMY_SHOP => '⚗️',
+            self::COMPOUNDING_SHOP => '⚗️',
             self::LIBRARY => '📚',
         };
     }
@@ -75,6 +79,7 @@ enum FacilityType: string
             self::GUILD => 'GuildFacilityController',
             self::TAVERN => 'TavernFacilityController',
             self::ALCHEMY_SHOP => 'AlchemyFacilityController',
+            self::COMPOUNDING_SHOP => 'CompoundingFacilityController',
             self::LIBRARY => 'LibraryFacilityController',
         };
     }
@@ -91,6 +96,7 @@ enum FacilityType: string
             self::GUILD => 'facilities.guild',
             self::TAVERN => 'facilities.tavern',
             self::ALCHEMY_SHOP => 'facilities.alchemy',
+            self::COMPOUNDING_SHOP => 'facilities.compounding',
             self::LIBRARY => 'facilities.library',
         };
     }

@@ -35,7 +35,7 @@
             @if(auth()->user()->can('locations.delete'))
             <form method="POST" action="{{ route('admin.dungeons.destroy', $dungeon->id) }}" 
                   style="display: inline;" 
-                  onsubmit="return confirm('このダンジョン「{{ $dungeon->dungeon_name }}」を削除してもよろしいですか？\n関連するフロア情報（{{ $dungeon->floors->count() }}個）も削除されます。')">
+                  onsubmit="return confirm('このダンジョン「{{ $dungeon->dungeon_name }}」を削除してもよろしいですか？\n子フロア（{{ $dungeon->floors->count() }}個）は削除されず、dungeon_idがnullになります。')">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="admin-btn admin-btn-danger">

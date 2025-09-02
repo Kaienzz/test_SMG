@@ -125,27 +125,28 @@
     </div>
     @endif
 
-    @if(isset($dungeon) && $dungeon->floors->count() > 0)
+    @if(isset($dungeon))
     <!-- フロア情報プレビュー（編集時のみ） -->
     <div class="admin-card">
         <div class="admin-card-header">
             <h3 class="admin-card-title">
-                <i class="fas fa-layer-group"></i> 現在のフロア構成
+                <i class="fas fa-layer-group"></i> {{ $dungeon->dungeon_name }} のフロア
             </h3>
         </div>
         <div class="admin-card-body">
+            @if($dungeon->floors->count() > 0)
             <div style="margin-bottom: 1rem; color: var(--admin-secondary);">
                 このダンジョンには現在 {{ $dungeon->floors->count() }} 個のフロアが設定されています。
             </div>
-            <div style="display: grid; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
+            <div style="display: grid; gap: 0.5rem; max-height: 300px; overflow-y: auto;">
                 @foreach($dungeon->floors as $floor)
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: var(--admin-bg); border: 1px solid var(--admin-border); border-radius: 0.375rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: white; border: 1px solid var(--admin-border); border-radius: 0.375rem;">
                     <div style="display: flex; align-items: center; gap: 1rem;">
-                        <code style="background: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">
+                        <code style="background: var(--admin-bg); padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">
                             {{ $floor->id }}
                         </code>
                         <div>
-                            <div style="font-weight: 600; font-size: 0.875rem;">{{ $floor->name }}</div>
+                            <div style="font-weight: 600;">{{ $floor->name }}</div>
                             @if($floor->description)
                             <div style="font-size: 0.75rem; color: var(--admin-secondary);">
                                 {{ Str::limit($floor->description, 40) }}
@@ -153,7 +154,19 @@
                             @endif
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        @if(isset($floor->length))
+                        <span class="admin-badge admin-badge-info">長さ: {{ $floor->length }}</span>
+                        @endif
+                        @if(isset($floor->difficulty))
+                        @php
+                            $difficultyColors = ['easy' => 'success', 'normal' => 'info', 'hard' => 'danger'];
+                            $difficultyLabels = ['easy' => '簡単', 'normal' => '普通', 'hard' => '困難'];
+                        @endphp
+                        <span class="admin-badge admin-badge-{{ $difficultyColors[$floor->difficulty] ?? 'secondary' }}">
+                            {{ $difficultyLabels[$floor->difficulty] ?? $floor->difficulty }}
+                        </span>
+                        @endif
                         @if($floor->is_active)
                         <span class="admin-badge admin-badge-success admin-badge-sm">Active</span>
                         @else
@@ -163,15 +176,33 @@
                 </div>
                 @endforeach
             </div>
+            @else
+            <div style="text-align: center; padding: 2rem; color: var(--admin-secondary);">
+                <div style="margin-bottom: 1rem;">
+                    <i class="fas fa-layer-group fa-2x" style="opacity: 0.3;"></i>
+                </div>
+                <p style="margin-bottom: 0;">このダンジョンにはまだフロアが設定されていません。</p>
+                <p style="margin-bottom: 0; font-size: 0.875rem;">フロアを追加してダンジョンの構造を作成しましょう。</p>
+            </div>
+            @endif
             <div style="margin-top: 1rem; text-align: right;">
+                @if($dungeon->floors->count() > 0)
                 <a href="{{ route('admin.dungeons.floors', $dungeon->id) }}" 
-                   class="admin-btn admin-btn-sm admin-btn-info">
+                   class="admin-btn admin-btn-sm admin-btn-primary">
                     <i class="fas fa-cog"></i> フロア管理
                 </a>
+                @endif
+                @php
+                    $user = auth()->user();
+                    $permissionService = app(\App\Services\Admin\AdminPermissionService::class);
+                    $canEdit = $user && ($user->admin_level === 'super' || $permissionService->hasPermission($user, 'locations.edit'));
+                @endphp
+                @if($canEdit)
                 <a href="{{ route('admin.dungeons.create-floor', $dungeon->id) }}" 
                    class="admin-btn admin-btn-sm admin-btn-success">
                     <i class="fas fa-plus"></i> フロア追加
                 </a>
+                @endif
             </div>
         </div>
     </div>
@@ -206,13 +237,34 @@
 </div>
 
 <!-- フォーム送信ボタン -->
-<div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
-    <a href="{{ route('admin.dungeons.index') }}" class="admin-btn admin-btn-secondary">
-        <i class="fas fa-times"></i> キャンセル
-    </a>
-    <button type="submit" class="admin-btn admin-btn-primary">
-        <i class="fas fa-save"></i> {{ isset($dungeon) ? '更新' : '作成' }}
-    </button>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem;">
+    <!-- 左側：フロア追加ボタン（編集時のみ） -->
+    <div>
+        @if(isset($dungeon))
+            @php
+                $user = auth()->user();
+                $permissionService = app(\App\Services\Admin\AdminPermissionService::class);
+                $canEdit = $user && ($user->admin_level === 'super' || $permissionService->hasPermission($user, 'locations.edit'));
+            @endphp
+            @if($canEdit)
+            <a href="{{ route('admin.dungeons.create-floor', $dungeon->id) }}" 
+               class="admin-btn admin-btn-success"
+               title="このダンジョンに新しいフロアを追加します">
+                <i class="fas fa-plus"></i> 新しいフロアを追加
+            </a>
+            @endif
+        @endif
+    </div>
+    
+    <!-- 右側：従来のボタン -->
+    <div style="display: flex; gap: 1rem;">
+        <a href="{{ route('admin.dungeons.index') }}" class="admin-btn admin-btn-secondary">
+            <i class="fas fa-times"></i> キャンセル
+        </a>
+        <button type="submit" class="admin-btn admin-btn-primary">
+            <i class="fas fa-save"></i> {{ isset($dungeon) ? '更新' : '作成' }}
+        </button>
+    </div>
 </div>
 
 <style>

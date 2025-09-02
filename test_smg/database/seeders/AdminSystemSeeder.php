@@ -84,6 +84,12 @@ class AdminSystemSeeder extends Seeder
             
             // monsters権限の完全実装
             ['name' => 'monsters.delete', 'category' => 'monsters', 'action' => 'delete', 'display_name' => 'モンスター削除', 'required_level' => 50, 'is_dangerous' => true],
+            
+            // gathering権限（採集管理）
+            ['name' => 'gathering.view', 'category' => 'gathering', 'action' => 'view', 'display_name' => '採集データ表示', 'required_level' => 10],
+            ['name' => 'gathering.create', 'category' => 'gathering', 'action' => 'create', 'display_name' => '採集データ作成', 'required_level' => 30],
+            ['name' => 'gathering.edit', 'category' => 'gathering', 'action' => 'edit', 'display_name' => '採集データ編集', 'required_level' => 25],
+            ['name' => 'gathering.delete', 'category' => 'gathering', 'action' => 'delete', 'display_name' => '採集データ削除', 'required_level' => 40, 'is_dangerous' => true],
         ];
 
         foreach ($permissions as $permission) {
@@ -129,6 +135,7 @@ class AdminSystemSeeder extends Seeder
                 'level' => 70,
                 'permissions' => [
                     'users.*', 'players.*', 'items.*', 'monsters.*', 'town_facilities.*',
+                    'locations.*', 'gathering.*',
                     'analytics.view', 'analytics.export', 'system.logs'
                 ],
                 'is_system_role' => true,
@@ -162,6 +169,7 @@ class AdminSystemSeeder extends Seeder
                 'level' => 50,
                 'permissions' => [
                     'items.*', 'monsters.*', 'town_facilities.*',
+                    'locations.*', 'gathering.*',
                     'players.view', 'players.stats',
                     'analytics.view', 'analytics.advanced'
                 ],
@@ -179,7 +187,8 @@ class AdminSystemSeeder extends Seeder
                 'level' => 30,
                 'permissions' => [
                     'analytics.*', 'users.view', 'players.view',
-                    'items.view', 'monsters.view', 'town_facilities.view'
+                    'items.view', 'monsters.view', 'town_facilities.view',
+                    'locations.view', 'gathering.view'
                 ],
                 'is_system_role' => true,
                 'can_access_analytics' => true,

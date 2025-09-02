@@ -362,6 +362,131 @@
             color: #1e40af;
         }
 
+        /* フォーム要素 */
+        .admin-input, .admin-form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--admin-border);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            background-color: var(--admin-content-bg);
+            color: var(--color-text-primary);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .admin-input:focus, .admin-form-input:focus {
+            outline: none;
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .admin-input:invalid, .admin-form-input:invalid {
+            border-color: var(--admin-danger);
+        }
+
+        .admin-textarea, .admin-form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--admin-border);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            background-color: var(--admin-content-bg);
+            color: var(--color-text-primary);
+            min-height: 120px;
+            resize: vertical;
+            font-family: inherit;
+            line-height: 1.5;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .admin-textarea:focus, .admin-form-textarea:focus {
+            outline: none;
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .admin-select, .admin-form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--admin-border);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            background-color: var(--admin-content-bg);
+            color: var(--color-text-primary);
+            background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"><path stroke="%236b7280" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 8l4 4 4-4"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 16px;
+            padding-right: 2.5rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .admin-select:focus, .admin-form-select:focus {
+            outline: none;
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .admin-checkbox, .admin-form-checkbox {
+            width: 1rem;
+            height: 1rem;
+            border: 1px solid var(--admin-border);
+            border-radius: 0.25rem;
+            background-color: var(--admin-content-bg);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .admin-checkbox:checked, .admin-form-checkbox:checked {
+            background-color: var(--admin-primary);
+            border-color: var(--admin-primary);
+        }
+
+        .admin-radio, .admin-form-radio {
+            width: 1rem;
+            height: 1rem;
+            border: 1px solid var(--admin-border);
+            border-radius: 50%;
+            background-color: var(--admin-content-bg);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .admin-radio:checked, .admin-form-radio:checked {
+            background-color: var(--admin-primary);
+            border-color: var(--admin-primary);
+        }
+
+        /* フォームラベル */
+        .admin-label, .admin-form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+        }
+
+        .admin-label.required:after, .admin-form-label.required:after {
+            content: ' *';
+            color: var(--admin-danger);
+        }
+
+        /* フォームヘルプテキスト */
+        .admin-help-text, .admin-form-help {
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--admin-secondary);
+            line-height: 1.4;
+        }
+
+        /* フォームエラー */
+        .admin-error, .admin-form-error {
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--admin-danger);
+            line-height: 1.4;
+        }
+
         /* テーブル */
         .admin-table {
             width: 100%;
@@ -1053,6 +1178,12 @@
                             </svg>
                             アイテム管理
                         </a>
+                        <a href="{{ route('admin.compounding.recipes.index') }}" class="admin-nav-item {{ request()->routeIs('admin.compounding.*') ? 'active' : '' }}">
+                            <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M7 2a1 1 0 00-.707 1.707L7 4.414v3.758a1 1 0 01-.293.707l-4 4C.817 14.769 2.156 18 4.828 18h10.343c2.673 0 4.010-3.231 2.121-5.121l-4-4A1 1 0 0113 8.172V4.414l.707-.707A1 1 0 0013 2H7zm2 6.172V4h2v4.172a3 3 0 00.879 2.12l1.027 1.028a4 4 0 00-2.171.102l-.47.156a4 4 0 01-2.53 0l-.47-.156a4 4 0 00-2.171-.102L6.12 10.292A3 3 0 009 8.172z" clip-rule="evenodd"></path>
+                            </svg>
+                            調合レシピ管理
+                        </a>
                         <a href="{{ route('admin.monsters.index') }}" class="admin-nav-item {{ request()->routeIs('admin.monsters.index') || request()->routeIs('admin.monsters.show') || request()->routeIs('admin.monsters.edit') || request()->routeIs('admin.monsters.create') ? 'active' : '' }}">
                             <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
@@ -1098,12 +1229,6 @@
                                 </svg>
                                 接続管理
                             </a>
-                            <a href="{{ route('admin.dungeons.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.dungeons*') ? 'active' : '' }}">
-                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                                </svg>
-                                親ダンジョンの管理（ダンジョン情報管理）
-                            </a>
                             {{-- 🆕 採集管理を追加 --}}
                             @if($canManageLocations ?? false)
                             <a href="{{ route('admin.gathering.index') }}" class="admin-nav-subitem {{ request()->routeIs('admin.gathering*') ? 'active' : '' }}">
@@ -1113,6 +1238,33 @@
                                 採集管理
                             </a>
                             @endif
+                        </div>
+                    </div>
+                    @endif
+
+                    <!-- ダンジョン管理 -->
+                    @if($canManageLocations ?? false)
+                    <div class="admin-nav-section">
+                        <div class="admin-nav-title">ダンジョン管理</div>
+                        <a href="{{ route('admin.dungeons.index') }}" class="admin-nav-item {{ request()->routeIs('admin.dungeons.index') ? 'active' : '' }}">
+                            <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" clip-rule="evenodd"></path>
+                            </svg>
+                            ダンジョン一覧
+                        </a>
+                        <div class="admin-nav-submenu">
+                            <a href="{{ route('admin.dungeons.create') }}" class="admin-nav-subitem {{ request()->routeIs('admin.dungeons.create') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                                </svg>
+                                新規ダンジョン作成
+                            </a>
+                            <a href="{{ route('admin.dungeons.orphans') }}" class="admin-nav-subitem {{ request()->routeIs('admin.dungeons.orphans') ? 'active' : '' }}">
+                                <svg class="admin-nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                </svg>
+                                オーファン整理
+                            </a>
                         </div>
                     </div>
                     @endif

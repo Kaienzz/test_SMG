@@ -12,6 +12,7 @@ class FacilityItem extends Model
     protected $fillable = [
         'facility_id',
         'item_id',
+        'item_name',
         'price',
         'stock',
         'is_available',

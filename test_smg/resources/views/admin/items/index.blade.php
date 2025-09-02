@@ -177,6 +177,7 @@
                                 <input type="checkbox" id="select-all-checkbox" style="display: none;">
                             </th>
                             @endif
+                            <th style="width: 80px;">ID</th>
                             <th>アイテム情報</th>
                             <th>カテゴリ</th>
                             <th>エフェクト</th>
@@ -193,6 +194,9 @@
                                 <input type="checkbox" class="item-checkbox" value="{{ $item['id'] }}" style="display: none;">
                             </td>
                             @endif
+                            <td style="text-align: center; font-family: monospace; font-weight: bold; color: var(--admin-secondary);">
+                                {{ $item['id'] }}
+                            </td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                                     <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--admin-primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">
@@ -275,7 +279,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="{{ auth()->user()->can('items.edit') ? '7' : '6' }}" style="text-align: center; padding: 3rem; color: var(--admin-secondary);">
+                            <td colspan="{{ auth()->user()->can('items.edit') ? '8' : '7' }}" style="text-align: center; padding: 3rem; color: var(--admin-secondary);">
                                 条件に一致するアイテムが見つかりませんでした
                             </td>
                         </tr>

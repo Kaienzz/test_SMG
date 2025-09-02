@@ -100,10 +100,6 @@
                                        style="border-radius: 0 0.5rem 0.5rem 0; flex: 1;"
                                        placeholder="1f"
                                        required>
-                                <input type="hidden" 
-                                       id="id" 
-                                       name="id" 
-                                       value="{{ old('id') }}">
                             </div>
                             <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--admin-secondary);">
                                 フロアIDは「{{ $dungeon->dungeon_id }}_」の後に続く部分を入力してください。<br>
@@ -173,11 +169,11 @@
                             <input type="number" 
                                    id="length" 
                                    name="length" 
-                                   value="{{ old('length', 50) }}" 
+                                   value="{{ old('length', 100) }}" 
                                    class="admin-input"
                                    min="1" 
                                    max="1000"
-                                   placeholder="50"
+                                   placeholder="100"
                                    required>
                             <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--admin-secondary);">
                                 1-1000の範囲で入力
@@ -189,29 +185,6 @@
                             @enderror
                         </div>
 
-                        <!-- 難易度 -->
-                        <div>
-                            <label for="difficulty" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
-                                難易度 <span style="color: var(--admin-danger);">*</span>
-                            </label>
-                            <select id="difficulty" name="difficulty" class="admin-select" required>
-                                <option value="">選択してください</option>
-                                <option value="easy" {{ old('difficulty') === 'easy' ? 'selected' : '' }}>
-                                    簡単
-                                </option>
-                                <option value="normal" {{ old('difficulty', 'normal') === 'normal' ? 'selected' : '' }}>
-                                    普通
-                                </option>
-                                <option value="hard" {{ old('difficulty') === 'hard' ? 'selected' : '' }}>
-                                    困難
-                                </option>
-                            </select>
-                            @error('difficulty')
-                            <div style="margin-top: 0.5rem; color: var(--admin-danger); font-size: 0.875rem;">
-                                {{ $message }}
-                            </div>
-                            @enderror
-                        </div>
 
                         <!-- エンカウント率 -->
                         <div>
@@ -221,14 +194,14 @@
                             <input type="number" 
                                    id="encounter_rate" 
                                    name="encounter_rate" 
-                                   value="{{ old('encounter_rate', 0.4) }}" 
+                                   value="{{ old('encounter_rate', 0.1) }}" 
                                    class="admin-input"
                                    min="0" 
                                    max="1"
                                    step="0.01"
-                                   placeholder="0.40">
+                                   placeholder="0.10">
                             <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--admin-secondary);">
-                                0.00-1.00の範囲（例: 0.40 = 40%）
+                                0.00-1.00の範囲（例: 0.10 = 10%）
                             </div>
                             @error('encounter_rate')
                             <div style="margin-top: 0.5rem; color: var(--admin-danger); font-size: 0.875rem;">
@@ -282,18 +255,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const dungeonId = '{{ $dungeon->dungeon_id }}';
     const floorSuffixInput = document.getElementById('floor_suffix');
-    const idInput = document.getElementById('id');
     const nameInput = document.getElementById('name');
-    
-    // フロアIDを自動生成
-    function updateFloorId() {
-        const suffix = floorSuffixInput.value;
-        if (suffix) {
-            idInput.value = dungeonId + '_' + suffix;
-        } else {
-            idInput.value = '';
-        }
-    }
     
     // フロア名を自動生成
     function updateFloorName() {
@@ -317,14 +279,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     floorSuffixInput.addEventListener('input', function() {
-        updateFloorId();
         updateFloorName();
     });
-    
-    // 初期値設定
-    if (floorSuffixInput.value) {
-        updateFloorId();
-    }
 
     // フォームバリデーション
     const form = document.querySelector('form');
@@ -332,10 +288,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const floorSuffix = floorSuffixInput.value;
         const name = nameInput.value;
         const length = document.getElementById('length').value;
-        const difficulty = document.getElementById('difficulty').value;
         
         // 必須項目チェック
-        if (!floorSuffix || !name || !length || !difficulty) {
+        if (!floorSuffix || !name || !length) {
             e.preventDefault();
             alert('必須項目をすべて入力してください。');
             return;

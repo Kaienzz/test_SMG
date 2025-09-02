@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminTownController;
 use App\Http\Controllers\Admin\AdminTownFacilityController;
 use App\Http\Controllers\Admin\AdminRouteConnectionController;
 use App\Http\Controllers\Admin\AdminGatheringController;
+use App\Http\Controllers\Admin\AdminCompoundingRecipeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -228,15 +229,55 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
             Route::delete('/gathering/{mapping}', [AdminGatheringController::class, 'destroy'])->name('gathering.destroy');
         });
     });
+
+    // 調合レシピ管理（Phase1: items系権限を流用）
+    Route::middleware(['admin.permission:items.view'])->group(function () {
+        Route::get('/compounding/recipes', [AdminCompoundingRecipeController::class, 'index'])->name('compounding.recipes.index');
+        Route::get('/compounding/recipes/create', [AdminCompoundingRecipeController::class, 'create'])->name('compounding.recipes.create');
+        Route::get('/compounding/recipes/{id}/edit', [AdminCompoundingRecipeController::class, 'edit'])->name('compounding.recipes.edit');
+
+        Route::middleware(['admin.permission:items.edit'])->group(function () {
+            Route::post('/compounding/recipes', [AdminCompoundingRecipeController::class, 'store'])->name('compounding.recipes.store');
+            Route::put('/compounding/recipes/{id}', [AdminCompoundingRecipeController::class, 'update'])->name('compounding.recipes.update');
+        });
+        Route::middleware(['admin.permission:items.delete'])->group(function () {
+            Route::delete('/compounding/recipes/{id}', [AdminCompoundingRecipeController::class, 'destroy'])->name('compounding.recipes.destroy');
+        });
+    });
     
     // Dungeon管理（新分離型システム - DungeonDescベース）
+    
+    // View権限
     Route::middleware(['admin.permission:locations.view'])->group(function () {
-        Route::resource('dungeons', AdminDungeonController::class);
-        
-        // ダンジョンフロア管理（追加ルート）
+        Route::get('dungeons', [AdminDungeonController::class, 'index'])->name('dungeons.index');
+        Route::get('dungeons/create', [AdminDungeonController::class, 'create'])->name('dungeons.create');
+        Route::get('dungeons/orphans', [AdminDungeonController::class, 'orphans'])->name('dungeons.orphans');
+        Route::get('dungeons/{dungeon}', [AdminDungeonController::class, 'show'])->name('dungeons.show');
         Route::get('dungeons/{dungeon}/floors', [AdminDungeonController::class, 'floors'])->name('dungeons.floors');
+    });
+    
+    // Edit権限
+    Route::middleware(['admin.permission:locations.edit'])->group(function () {
+        Route::post('dungeons', [AdminDungeonController::class, 'store'])->name('dungeons.store');
+        Route::get('dungeons/{dungeon}/edit', [AdminDungeonController::class, 'edit'])->name('dungeons.edit');
+        Route::put('dungeons/{dungeon}', [AdminDungeonController::class, 'update'])->name('dungeons.update');
+        Route::patch('dungeons/{dungeon}', [AdminDungeonController::class, 'update']);
+        
+        // ダンジョンフロア管理（編集操作）
         Route::get('dungeons/{dungeon}/create-floor', [AdminDungeonController::class, 'createFloor'])->name('dungeons.create-floor');
         Route::post('dungeons/{dungeon}/floors', [AdminDungeonController::class, 'storeFloor'])->name('dungeons.floors.store');
+        
+        // フロアアタッチ機能
+        Route::get('dungeons/{dungeon}/attach-floors-form', [AdminDungeonController::class, 'attachFloorsForm'])->name('dungeons.attach-floors-form');
+        Route::post('dungeons/{dungeon}/attach-floors', [AdminDungeonController::class, 'attachFloors'])->name('dungeons.attach-floors');
+        
+        // オーファンフロア管理（編集操作）
+        Route::post('dungeons/orphans', [AdminDungeonController::class, 'processOrphans'])->name('dungeons.process-orphans');
+    });
+    
+    // Delete権限
+    Route::middleware(['admin.permission:locations.delete'])->group(function () {
+        Route::delete('dungeons/{dungeon}', [AdminDungeonController::class, 'destroy'])->name('dungeons.destroy');
     });
     
     // 分析・監視（権限チェック付き）

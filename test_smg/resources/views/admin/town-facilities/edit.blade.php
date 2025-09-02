@@ -235,8 +235,8 @@
                 </div>
             @endif
 
-            <!-- サービス系施設設定（鍛冶屋・錬金屋等） -->
-            @if (in_array($facility->facility_type, ['blacksmith', 'alchemy_shop']))
+            <!-- サービス系施設設定（鍛冶屋・錬金屋・調合店等） -->
+            @if (in_array($facility->facility_type, ['blacksmith', 'alchemy_shop', 'compounding_shop', 'tavern']))
                 <div class="admin-card mb-4">
                     <div class="admin-card-header">
                         <h3 class="admin-card-title">
@@ -314,6 +314,330 @@
                                             <label class="form-check-label" for="material_synthesis">
                                                 <i class="fas fa-atom me-1"></i> 素材合成
                                             </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            @elseif ($facility->facility_type === 'compounding_shop')
+                                <!-- 調合店設定 -->
+                                <div class="row">
+                                    <div class="col-md-12 mb-4">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="fas fa-mortar-pestle me-2"></i>
+                                            調合店運営設定
+                                        </h6>
+                                        <div class="alert alert-info mb-4">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            <strong>調合レシピの管理について</strong><br>
+                                            個別のレシピ（材料・成功率・必要レベル等）は
+                                            <a href="{{ route('admin.compounding.recipes.index') }}" target="_blank" class="alert-link">
+                                                <i class="fas fa-external-link-alt"></i> 調合レシピ管理画面
+                                            </a>
+                                            で設定・管理してください。<br>
+                                            こちらは調合店の基本運営設定のみを行います。
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <div class="form-check mb-4">
+                                                    <input type="checkbox" name="config[auto_learn_skill]" id="auto_learn_skill" 
+                                                           class="form-check-input" value="1"
+                                                           {{ ($facility->facility_config['auto_learn_skill'] ?? true) ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="auto_learn_skill">
+                                                        <i class="fas fa-graduation-cap me-1"></i> 調合スキル自動習得
+                                                    </label>
+                                                    <br><small class="text-muted">未習得プレイヤーに調合スキル（生産/調合）を自動付与する</small>
+                                                </div>
+                                                
+                                                <!-- 調合レシピ管理（サービス設定内・簡易版） -->
+                                                <div class="service-recipes-section">
+                                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                                        <div>
+                                                            <h6 class="text-muted mb-1">
+                                                                <i class="fas fa-flask me-2"></i>
+                                                                利用可能な調合レシピ
+                                                            </h6>
+                                                            <small class="text-muted">
+                                                                現在 <strong>{{ isset($availableRecipes) ? $availableRecipes->count() : 0 }}</strong> 個のレシピが利用可能
+                                                            </small>
+                                                        </div>
+                                                        <div>
+                                                            <a href="#recipe-management-section" class="btn btn-primary btn-sm">
+                                                                <i class="fas fa-cogs me-1"></i> レシピを管理
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- 現在有効なレシピの簡易表示 -->
+                                                    @if (isset($availableRecipes) && $availableRecipes->count() > 0)
+                                                        <div class="current-recipes-summary">
+                                                            <div class="row">
+                                                                @foreach ($availableRecipes->take(6) as $recipe)
+                                                                    <div class="col-md-4 mb-2">
+                                                                        <div class="recipe-summary-card">
+                                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                                <div>
+                                                                                    <small class="fw-bold">{{ $recipe->name }}</small>
+                                                                                    <br><small class="text-muted">Lv.{{ $recipe->required_skill_level }}</small>
+                                                                                </div>
+                                                                                <span class="badge badge-success">{{ $recipe->success_rate }}%</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                @endforeach
+                                                                @if ($availableRecipes->count() > 6)
+                                                                    <div class="col-12">
+                                                                        <small class="text-muted">...他 {{ $availableRecipes->count() - 6 }} 件</small>
+                                                                    </div>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    @else
+                                                        <div class="text-center py-2 text-muted">
+                                                            <small>レシピが設定されていません</small>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @elseif ($facility->facility_type === 'tavern')
+                                <!-- 酒場設定 -->
+                                <div class="row">
+                                                            <i class="fas fa-table me-1"></i> テーブル表示
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-success" id="card-mode-btn" onclick="switchToCardMode()">
+                                                            <i class="fas fa-plus me-1"></i> カード追加
+                                                        </button>
+                                                    </div>
+                                                    <div class="btn-group">
+                                                        <input type="text" id="recipe-table-search" class="form-control form-control-sm" placeholder="レシピ名で検索..." onkeyup="filterTableRecipes()" style="width: 200px;">
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- カードモード（レシピ追加用） -->
+                                                <div id="card-mode-section" style="display: none;">
+                                                    <div class="recipe-cards-container">
+                                                        <div class="recipes-grid">
+                                                            @foreach ($allRecipes as $recipe)
+                                                                @if (!in_array($recipe->id, $currentRecipeIds ?? []))
+                                                                    <div class="recipe-card searchable-recipe-card" data-recipe-name="{{ strtolower($recipe->name) }}">
+                                                                        <div class="recipe-card-header">
+                                                                            <div class="d-flex justify-content-between align-items-start">
+                                                                                <div class="recipe-info">
+                                                                                    <h6 class="recipe-title">{{ $recipe->name }}</h6>
+                                                                                    <small class="text-muted">{{ $recipe->recipe_key }}</small>
+                                                                                </div>
+                                                                                <button type="button" class="btn btn-success btn-sm" onclick="addSingleRecipe({{ $recipe->id }}, '{{ addslashes($recipe->name) }}')">
+                                                                                    <i class="fas fa-plus"></i>
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="recipe-card-body">
+                                                                            <div class="recipe-details">
+                                                                                @if($recipe->productItem)
+                                                                                    <div class="product-info mb-2">
+                                                                                        <small><strong>成果物:</strong> {{ $recipe->productItem->name }} × {{ $recipe->product_quantity }}</small>
+                                                                                    </div>
+                                                                                @endif
+                                                                                <div class="recipe-stats">
+                                                                                    <span class="badge badge-info">Lv.{{ $recipe->required_skill_level }}</span>
+                                                                                    <span class="badge {{ $recipe->success_rate >= 90 ? 'badge-success' : ($recipe->success_rate >= 70 ? 'badge-warning' : 'badge-danger') }}">
+                                                                                        {{ $recipe->success_rate }}%
+                                                                                    </span>
+                                                                                    <span class="text-warning"><small>{{ $recipe->sp_cost }}SP</small></span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                @endif
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        
+                                            <!-- テーブルモード（既存の詳細管理） -->
+                                            <form method="POST" action="{{ route('admin.town-facilities.update-recipes', $facility) }}" id="recipesForm">
+                                                @csrf
+                                                @method('POST')
+                                                
+                                                <div id="table-mode-section">
+                                                    <div class="mb-3">
+                                                        <div class="d-flex gap-2 mb-3">
+                                                            <button type="button" class="btn btn-sm btn-outline-success" onclick="selectAllRecipes()">
+                                                                <i class="fas fa-check-double me-1"></i> 全選択
+                                                            </button>
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllRecipes()">
+                                                                <i class="fas fa-times me-1"></i> 全解除
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                
+                                                <div class="table-responsive">
+                                                    <table class="table table-hover table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th width="60">選択</th>
+                                                                <th>レシピ名</th>
+                                                                <th>成果物</th>
+                                                                <th>必要Lv</th>
+                                                                <th>成功率</th>
+                                                                <th>SPコスト</th>
+                                                                <th>操作</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($allRecipes as $recipe)
+                                                                <tr class="recipe-row searchable-table-row" data-recipe-name="{{ strtolower($recipe->name) }}">
+                                                                    <td>
+                                                                        <div class="form-check">
+                                                                            <input type="checkbox" 
+                                                                                   name="recipes[]" 
+                                                                                   value="{{ $recipe->id }}" 
+                                                                                   id="recipe_{{ $recipe->id }}"
+                                                                                   class="form-check-input recipe-checkbox"
+                                                                                   {{ in_array($recipe->id, $currentRecipeIds) ? 'checked' : '' }}>
+                                                                            <label class="form-check-label" for="recipe_{{ $recipe->id }}"></label>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>
+                                                                        <div class="d-flex align-items-center">
+                                                                            <span class="me-2">⚗️</span>
+                                                                            <div>
+                                                                                <div class="fw-bold">{{ $recipe->name }}</div>
+                                                                                <small class="text-muted">{{ $recipe->recipe_key }}</small>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>
+                                                                        @if($recipe->productItem)
+                                                                            <div class="d-flex align-items-center">
+                                                                                <span class="me-2">📦</span>
+                                                                                <div>
+                                                                                    <div class="fw-bold">{{ $recipe->productItem->name }}</div>
+                                                                                    <small class="text-muted">× {{ $recipe->product_quantity }}</small>
+                                                                                </div>
+                                                                            </div>
+                                                                        @else
+                                                                            <span class="text-muted">不明 (ID: {{ $recipe->product_item_id }})</span>
+                                                                        @endif
+                                                                    </td>
+                                                                    <td>
+                                                                        <span class="badge badge-info">Lv.{{ $recipe->required_skill_level }}</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span class="badge {{ $recipe->success_rate >= 90 ? 'badge-success' : ($recipe->success_rate >= 70 ? 'badge-warning' : 'badge-danger') }}">
+                                                                            {{ $recipe->success_rate }}%
+                                                                        </span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span class="text-warning fw-bold">{{ $recipe->sp_cost }}SP</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <a href="{{ route('admin.compounding.recipes.edit', $recipe) }}" 
+                                                                           class="btn btn-outline-primary btn-sm" 
+                                                                           target="_blank" 
+                                                                           title="レシピを編集">
+                                                                            <i class="fas fa-edit"></i>
+                                                                        </a>
+                                                                    </td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                
+                                                <div class="d-flex justify-content-between align-items-center pt-3" style="border-top: 1px solid var(--admin-border);">
+                                                    <div class="text-muted">
+                                                        <small>
+                                                            <i class="fas fa-info-circle me-1"></i>
+                                                            現在 <span id="selected-count">{{ count($currentRecipeIds) }}</span> 個のレシピが選択されています
+                                                        </small>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-primary">
+                                                        <i class="fas fa-save me-1"></i> レシピ選択を保存
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        @else
+                                            <div class="text-center py-4 text-muted">
+                                                <i class="fas fa-flask fa-2x mb-3"></i>
+                                                <h6>調合レシピがありません</h6>
+                                                <p class="mb-0">
+                                                    <a href="{{ route('admin.compounding.recipes.index') }}" target="_blank" class="text-primary">
+                                                        <i class="fas fa-plus me-1"></i>調合レシピ管理画面
+                                                    </a>
+                                                    でレシピを作成してください。
+                                                </p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @elseif ($facility->facility_type === 'tavern')
+                                <!-- 酒場設定 -->
+                                <div class="row">
+                                    <div class="col-md-12 mb-4">
+                                        <h6 class="text-muted mb-3">
+                                            <i class="fas fa-heart me-2"></i>
+                                            回復サービス設定
+                                        </h6>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="form-group mb-3">
+                                                    <label for="hp_recovery_rate" class="form-label">
+                                                        <i class="fas fa-heart me-1 text-danger"></i> HP回復量 (1Gあたり)
+                                                    </label>
+                                                    <input type="number" name="config[hp_recovery_rate]" id="hp_recovery_rate" 
+                                                           class="form-control" min="1" max="100" step="1"
+                                                           value="{{ $facility->facility_config['hp_recovery_rate'] ?? $facility->facility_config['hp_rate'] ?? 10 }}">
+                                                    <small class="text-muted">1Gold支払いで回復するHP量</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-group mb-3">
+                                                    <label for="mp_recovery_rate" class="form-label">
+                                                        <i class="fas fa-magic me-1 text-primary"></i> MP回復量 (1Gあたり)
+                                                    </label>
+                                                    <input type="number" name="config[mp_recovery_rate]" id="mp_recovery_rate" 
+                                                           class="form-control" min="1" max="100" step="1"
+                                                           value="{{ $facility->facility_config['mp_recovery_rate'] ?? $facility->facility_config['mp_rate'] ?? 15 }}">
+                                                    <small class="text-muted">1Gold支払いで回復するMP量</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-group mb-3">
+                                                    <label for="sp_recovery_rate" class="form-label">
+                                                        <i class="fas fa-bolt me-1 text-warning"></i> SP回復量 (1Gあたり)
+                                                    </label>
+                                                    <input type="number" name="config[sp_recovery_rate]" id="sp_recovery_rate" 
+                                                           class="form-control" min="1" max="100" step="1"
+                                                           value="{{ $facility->facility_config['sp_recovery_rate'] ?? $facility->facility_config['sp_rate'] ?? 5 }}">
+                                                    <small class="text-muted">1Gold支払いで回復するSP量</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3">
+                                                    <label for="full_heal_discount" class="form-label">
+                                                        <i class="fas fa-percentage me-1"></i> 全回復割引率 (%)
+                                                    </label>
+                                                    <input type="number" name="config[full_heal_discount]" id="full_heal_discount" 
+                                                           class="form-control" min="0" max="50" step="1"
+                                                           value="{{ ($facility->facility_config['full_heal_discount'] ?? 0.1) * 100 }}">
+                                                    <small class="text-muted">全回復時の割引率（0-50%）</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check mb-3" style="margin-top: 2rem;">
+                                                    <input type="checkbox" name="config[status_healing_available]" id="status_healing" 
+                                                           class="form-check-input" value="1"
+                                                           {{ ($facility->facility_config['status_healing_available'] ?? true) ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="status_healing">
+                                                        <i class="fas fa-shield-alt me-1"></i> 状態異常回復サービス
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -400,6 +724,191 @@
     </div>
 </div>
 
+@if ($facility->facility_type === 'compounding_shop')
+<!-- 調合レシピ管理（フル幅セクション） -->
+<div class="container-fluid px-4">
+    <div class="admin-card mt-4">
+        <div class="admin-card-header">
+            <h3 class="admin-card-title" id="recipe-management-section">
+                <i class="fas fa-flask me-2"></i>
+                調合レシピの管理
+            </h3>
+        </div>
+        <div class="admin-card-body">
+            @if (isset($allRecipes) && $allRecipes->count() > 0)
+                <!-- モード切り替えコントロール -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-primary" id="table-mode-btn" onclick="switchToTableMode()">
+                            <i class="fas fa-table me-1"></i> テーブル表示
+                        </button>
+                        <button type="button" class="btn btn-outline-success" id="card-mode-btn" onclick="switchToCardMode()">
+                            <i class="fas fa-plus me-1"></i> カード追加
+                        </button>
+                    </div>
+                    <div class="recipe-search-container">
+                        <input type="text" id="recipe-table-search" class="form-control" placeholder="レシピ名で検索..." onkeyup="filterTableRecipes()" style="width: 300px;">
+                    </div>
+                </div>
+
+                <!-- カードモード（レシピ追加用） -->
+                <div id="card-mode-section" style="display: none;">
+                    <div class="recipe-cards-container">
+                        <div class="recipes-grid">
+                            @foreach ($allRecipes as $recipe)
+                                @if (!in_array($recipe->id, $currentRecipeIds ?? []))
+                                    <div class="recipe-card searchable-recipe-card" data-recipe-name="{{ strtolower($recipe->name) }}">
+                                        <div class="recipe-card-header">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="recipe-info">
+                                                    <h6 class="recipe-title">{{ $recipe->name }}</h6>
+                                                    <small class="text-muted">{{ $recipe->recipe_key }}</small>
+                                                </div>
+                                                <button type="button" class="btn btn-success btn-sm" onclick="addSingleRecipe({{ $recipe->id }}, '{{ addslashes($recipe->name) }}')">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="recipe-card-body">
+                                            <div class="recipe-details">
+                                                @if($recipe->productItem)
+                                                    <div class="product-info mb-2">
+                                                        <small><strong>成果物:</strong> {{ $recipe->productItem->name }} × {{ $recipe->product_quantity }}</small>
+                                                    </div>
+                                                @endif
+                                                <div class="recipe-stats">
+                                                    <span class="badge badge-info">Lv.{{ $recipe->required_skill_level }}</span>
+                                                    <span class="badge {{ $recipe->success_rate >= 90 ? 'badge-success' : ($recipe->success_rate >= 70 ? 'badge-warning' : 'badge-danger') }}">
+                                                        {{ $recipe->success_rate }}%
+                                                    </span>
+                                                    <span class="text-warning"><small>{{ $recipe->sp_cost }}SP</small></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
+                <!-- テーブルモード（既存の詳細管理） -->
+                <div id="table-mode-section">
+                    <form method="POST" action="{{ route('admin.town-facilities.update-recipes', $facility) }}" id="recipesForm">
+                        @csrf
+                        @method('POST')
+                        
+                        <div class="d-flex gap-2 mb-3">
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="selectAllRecipes()">
+                                <i class="fas fa-check-double me-1"></i> 全選択
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllRecipes()">
+                                <i class="fas fa-times me-1"></i> 全解除
+                            </button>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th width="60">選択</th>
+                                        <th>レシピ名</th>
+                                        <th>成果物</th>
+                                        <th>必要Lv</th>
+                                        <th>成功率</th>
+                                        <th>SPコスト</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($allRecipes as $recipe)
+                                        <tr class="recipe-row searchable-table-row" data-recipe-name="{{ strtolower($recipe->name) }}">
+                                            <td>
+                                                <div class="form-check">
+                                                    <input type="checkbox" 
+                                                           name="recipes[]" 
+                                                           value="{{ $recipe->id }}" 
+                                                           id="recipe_{{ $recipe->id }}"
+                                                           class="form-check-input recipe-checkbox"
+                                                           {{ in_array($recipe->id, $currentRecipeIds) ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="recipe_{{ $recipe->id }}"></label>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <span class="me-2">⚗️</span>
+                                                    <div>
+                                                        <div class="fw-bold">{{ $recipe->name }}</div>
+                                                        <small class="text-muted">{{ $recipe->recipe_key }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if($recipe->productItem)
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="me-2">📦</span>
+                                                        <div>
+                                                            <div class="fw-bold">{{ $recipe->productItem->name }}</div>
+                                                            <small class="text-muted">× {{ $recipe->product_quantity }}</small>
+                                                        </div>
+                                                    </div>
+                                                @else
+                                                    <span class="text-muted">不明 (ID: {{ $recipe->product_item_id }})</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-info">Lv.{{ $recipe->required_skill_level }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge {{ $recipe->success_rate >= 90 ? 'badge-success' : ($recipe->success_rate >= 70 ? 'badge-warning' : 'badge-danger') }}">
+                                                    {{ $recipe->success_rate }}%
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="text-warning fw-bold">{{ $recipe->sp_cost }}SP</span>
+                                            </td>
+                                            <td>
+                                                <a href="{{ route('admin.compounding.recipes.edit', $recipe) }}" 
+                                                   class="btn btn-outline-primary btn-sm" 
+                                                   target="_blank" 
+                                                   title="レシピを編集">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center pt-3" style="border-top: 1px solid var(--admin-border);">
+                            <div class="text-muted">
+                                <small>
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    現在 <span id="selected-count">{{ count($currentRecipeIds ?? []) }}</span> 個のレシピが選択されています
+                                </small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> レシピ選択を保存
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            @else
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-flask fa-4x mb-4"></i>
+                    <h4>調合レシピがありません</h4>
+                    <p class="mb-4">まず調合レシピを作成してください。</p>
+                    <a href="{{ route('admin.compounding.recipes.index') }}" target="_blank" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>調合レシピ管理画面
+                    </a>
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+@endif
+
 <style>
 .required::after {
     content: ' *';
@@ -433,30 +942,550 @@
 .badge-secondary { background-color: var(--admin-secondary); color: white; }
 .badge-info { background-color: var(--admin-info); color: white; }
 .badge-danger { background-color: var(--admin-danger); color: white; }
+.badge-warning { background-color: var(--admin-warning); color: white; }
+
+/* 調合レシピ管理スタイル */
+.service-recipes-section {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--admin-border);
+}
+
+.current-recipes-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.recipe-tag {
+    display: inline-flex;
+    align-items: center;
+    background-color: #e3f2fd;
+    border: 1px solid #2196f3;
+    border-radius: 1rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    color: #1976d2;
+}
+
+.recipe-tag .recipe-name {
+    margin-right: 0.5rem;
+}
+
+.recipe-tag .btn {
+    padding: 0.125rem 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1;
+    border: none;
+}
+
+.recipes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.recipe-card {
+    background: white;
+    border: 1px solid var(--admin-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.recipe-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-color: var(--admin-primary);
+}
+
+.recipe-card-header {
+    margin-bottom: 0.5rem;
+}
+
+.recipe-title {
+    margin: 0;
+    color: var(--admin-dark);
+    font-size: 0.9rem;
+}
+
+.recipe-card-body {
+    font-size: 0.8rem;
+}
+
+.recipe-stats {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.recipe-stats .badge {
+    font-size: 0.7rem;
+}
+
+.product-info {
+    color: var(--admin-secondary);
+}
+
+/* レシピ追加セクション（インライン）スタイル */
+.add-recipe-container {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.add-recipe-container .recipes-grid {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    background: white;
+}
+
+/* レシピサマリーカード（サービス設定内） */
+.recipe-summary-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    transition: box-shadow 0.2s;
+}
+
+.recipe-summary-card:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* レシピカードコンテナ */
+.recipe-cards-container {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+}
+
+.recipe-cards-container .recipes-grid {
+    max-height: 400px;
+    overflow-y: auto;
+    background: white;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+}
+
+/* ボタン状態の調整 */
+.btn-group .btn {
+    margin-right: 0;
+}
 </style>
+
+<!-- アイテム追加モーダル -->
+@if (in_array($facility->facility_type, ['item_shop', 'weapon_shop', 'armor_shop', 'magic_shop']))
+<div class="modal fade" id="addItemModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>販売アイテム追加
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addItemForm">
+                    @csrf
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="form-group mb-3">
+                                <label for="item_select" class="form-label">
+                                    <i class="fas fa-box me-1"></i> アイテム選択
+                                </label>
+                                <select name="item_id" id="item_select" class="form-control" required>
+                                    <option value="">-- アイテムを選択してください --</option>
+                                </select>
+                                <small class="text-muted">販売するアイテムを選択してください</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group mb-3">
+                                <label for="item_price" class="form-label">
+                                    <i class="fas fa-coins me-1"></i> 販売価格
+                                </label>
+                                <input type="number" name="price" id="item_price" class="form-control" min="1" required>
+                                <small class="text-muted">Gold</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="item_stock" class="form-label">
+                                    <i class="fas fa-warehouse me-1"></i> 在庫数
+                                </label>
+                                <input type="number" name="stock" id="item_stock" class="form-control" min="-1" value="-1" required>
+                                <small class="text-muted">-1で無限在庫</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-3" style="margin-top: 2rem;">
+                                <input type="checkbox" name="is_available" id="item_available" class="form-check-input" value="1" checked>
+                                <label class="form-check-label" for="item_available">
+                                    <i class="fas fa-check me-1"></i> 販売開始する
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> キャンセル
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitAddItem()">
+                    <i class="fas fa-plus me-1"></i> アイテムを追加
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- アイテム編集モーダル -->
+<div class="modal fade" id="editItemModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>アイテム編集
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editItemForm">
+                    @csrf
+                    <input type="hidden" id="edit_item_id" name="item_id">
+                    <div class="form-group mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-box me-1"></i> アイテム名
+                        </label>
+                        <div class="admin-readonly-field">
+                            <span id="edit_item_name">-</span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="edit_item_price" class="form-label">
+                                    <i class="fas fa-coins me-1"></i> 販売価格
+                                </label>
+                                <input type="number" name="price" id="edit_item_price" class="form-control" min="1" required>
+                                <small class="text-muted">Gold</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="edit_item_stock" class="form-label">
+                                    <i class="fas fa-warehouse me-1"></i> 在庫数
+                                </label>
+                                <input type="number" name="stock" id="edit_item_stock" class="form-control" min="-1" required>
+                                <small class="text-muted">-1で無限在庫</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" name="is_available" id="edit_item_available" class="form-check-input" value="1">
+                        <label class="form-check-label" for="edit_item_available">
+                            <i class="fas fa-check me-1"></i> 販売中
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> キャンセル
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitEditItem()">
+                    <i class="fas fa-save me-1"></i> 更新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 
 <!-- JavaScript for item management -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // アイテム一覧をロード
+    loadAvailableItems();
+    
+    // 調合レシピのチェックボックス変更時のイベントリスナー
+    const recipeCheckboxes = document.querySelectorAll('.recipe-checkbox');
+    recipeCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+    
+    // 初期状態でテーブルモードをアクティブにする
+    if (document.getElementById('table-mode-btn')) {
+        switchToTableMode();
+    }
+    
     // アイテム追加モーダル表示
     window.showAddItemModal = function() {
-        // TODO: アイテム選択モーダルの実装
-        alert('アイテム追加モーダルを実装中です');
+        $('#addItemModal').modal('show');
+        loadAvailableItems();
     };
     
     // アイテム編集
     window.editFacilityItem = function(itemId) {
-        // TODO: インライン編集またはモーダル編集の実装
-        alert('アイテム編集機能を実装中です（アイテムID: ' + itemId + '）');
+        fetch(`/admin/town-facilities/{{ $facility->id }}/items/${itemId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const item = data.item;
+                    document.getElementById('edit_item_id').value = item.id;
+                    document.getElementById('edit_item_name').textContent = item.item_name;
+                    document.getElementById('edit_item_price').value = item.price;
+                    document.getElementById('edit_item_stock').value = item.stock;
+                    document.getElementById('edit_item_available').checked = item.is_available;
+                    $('#editItemModal').modal('show');
+                } else {
+                    alert('アイテム情報の取得に失敗しました: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('アイテム情報の取得中にエラーが発生しました。');
+            });
     };
     
     // アイテム削除
     window.deleteFacilityItem = function(itemId) {
         if (confirm('このアイテムを販売リストから削除しますか？')) {
-            // TODO: Ajax削除の実装
-            alert('アイテム削除機能を実装中です（アイテムID: ' + itemId + '）');
+            fetch(`/admin/town-facilities/{{ $facility->id }}/items/${itemId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`item-row-${itemId}`).remove();
+                    alert(data.message);
+                } else {
+                    alert('削除に失敗しました: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('削除中にエラーが発生しました。');
+            });
         }
     };
+    
+    // アイテム追加実行
+    window.submitAddItem = function() {
+        const formData = new FormData(document.getElementById('addItemForm'));
+        const itemSelect = document.getElementById('item_select');
+        const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+        
+        if (!selectedOption.value) {
+            alert('アイテムを選択してください。');
+            return;
+        }
+        
+        formData.append('item_name', selectedOption.text.split(' (')[0]);
+        
+        fetch(`/admin/town-facilities/{{ $facility->id }}/items`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                $('#addItemModal').modal('hide');
+                location.reload(); // ページをリロードして最新状態を表示
+            } else {
+                alert('追加に失敗しました: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('追加中にエラーが発生しました。');
+        });
+    };
+    
+    // アイテム編集実行
+    window.submitEditItem = function() {
+        const formData = new FormData(document.getElementById('editItemForm'));
+        const itemId = document.getElementById('edit_item_id').value;
+        
+        fetch(`/admin/town-facilities/{{ $facility->id }}/items/${itemId}`, {
+            method: 'PUT',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                $('#editItemModal').modal('hide');
+                location.reload(); // ページをリロードして最新状態を表示
+            } else {
+                alert('更新に失敗しました: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('更新中にエラーが発生しました。');
+        });
+    };
+    
+    // 利用可能アイテム一覧をロード
+    function loadAvailableItems() {
+        fetch('/admin/api/items')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('item_select');
+                if (select) {
+                    select.innerHTML = '<option value="">-- アイテムを選択してください --</option>';
+                    
+                    let currentCategory = null;
+                    data.forEach(item => {
+                        if (currentCategory !== item.category_label) {
+                            if (currentCategory !== null) {
+                                select.appendChild(document.createElement('optgroup')).setAttribute('label', '');
+                            }
+                            const optgroup = document.createElement('optgroup');
+                            optgroup.setAttribute('label', item.category_label);
+                            select.appendChild(optgroup);
+                            currentCategory = item.category_label;
+                        }
+                        
+                        const option = document.createElement('option');
+                        option.value = item.id;
+                        option.textContent = item.display_name;
+                        select.lastElementChild.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading items:', error);
+            });
+    }
+    
+    // 調合レシピ関連の関数
+    window.selectAllRecipes = function() {
+        const checkboxes = document.querySelectorAll('.recipe-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        updateSelectedCount();
+    };
+    
+    window.deselectAllRecipes = function() {
+        const checkboxes = document.querySelectorAll('.recipe-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        updateSelectedCount();
+    };
+    
+    function updateSelectedCount() {
+        const checkedCount = document.querySelectorAll('.recipe-checkbox:checked').length;
+        const countElement = document.getElementById('selected-count');
+        if (countElement) {
+            countElement.textContent = checkedCount;
+        }
+    }
+    
+    // 調合レシピ管理関数（モード切り替え）
+    window.switchToTableMode = function() {
+        document.getElementById('table-mode-section').style.display = 'block';
+        document.getElementById('card-mode-section').style.display = 'none';
+        document.getElementById('table-mode-btn').classList.remove('btn-outline-primary');
+        document.getElementById('table-mode-btn').classList.add('btn-primary');
+        document.getElementById('card-mode-btn').classList.remove('btn-success');
+        document.getElementById('card-mode-btn').classList.add('btn-outline-success');
+    };
+    
+    window.switchToCardMode = function() {
+        document.getElementById('table-mode-section').style.display = 'none';
+        document.getElementById('card-mode-section').style.display = 'block';
+        document.getElementById('table-mode-btn').classList.remove('btn-primary');
+        document.getElementById('table-mode-btn').classList.add('btn-outline-primary');
+        document.getElementById('card-mode-btn').classList.remove('btn-outline-success');
+        document.getElementById('card-mode-btn').classList.add('btn-success');
+    };
+    
+    window.addSingleRecipe = function(recipeId, recipeName) {
+        // 個別のレシピを追加
+        fetch(`/admin/town-facilities/{{ $facility->id }}/recipes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                recipes: [...getCurrentRecipeIds(), recipeId]
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success || data.message) {
+                location.reload(); // ページをリロードして最新状態を表示
+            } else {
+                alert('レシピの追加に失敗しました: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('レシピの追加中にエラーが発生しました。');
+        });
+    };
+    
+    
+    // 検索機能（新）
+    window.filterTableRecipes = function() {
+        const searchTerm = document.getElementById('recipe-table-search').value.toLowerCase();
+        
+        // カードモードの検索
+        const recipeCards = document.querySelectorAll('.searchable-recipe-card');
+        recipeCards.forEach(card => {
+            const recipeName = card.getAttribute('data-recipe-name');
+            if (recipeName.includes(searchTerm)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        // テーブルモードの検索
+        const tableRows = document.querySelectorAll('.searchable-table-row');
+        tableRows.forEach(row => {
+            const recipeName = row.getAttribute('data-recipe-name');
+            if (recipeName.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    };
+    
+    function getCurrentRecipeIds() {
+        const checkedBoxes = document.querySelectorAll('.recipe-checkbox:checked');
+        return Array.from(checkedBoxes).map(checkbox => parseInt(checkbox.value));
+    }
 });
 </script>
 @endsection

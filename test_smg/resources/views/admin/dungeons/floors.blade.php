@@ -44,6 +44,9 @@
                     <a href="{{ route('admin.dungeons.create-floor', $dungeon->id) }}" class="admin-btn admin-btn-primary">
                         <i class="fas fa-plus"></i> 新規フロア作成
                     </a>
+                    <button id="attach-floors-btn" class="admin-btn admin-btn-success">
+                        <i class="fas fa-link"></i> 既存フロアをアタッチ
+                    </button>
                     @endif
                 </div>
             </div>
@@ -230,6 +233,25 @@
     </div>
 
     @if($dungeon->floors->count() > 0)
+    <!-- アタッチフォームモーダル -->
+    <div id="attach-floors-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div class="modal-content" style="background: white; margin: 5% auto; padding: 0; width: 80%; max-width: 800px; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div class="modal-header" style="padding: 1.5rem; border-bottom: 1px solid var(--admin-border); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--admin-primary);">
+                    <i class="fas fa-link"></i> フロアアタッチ - {{ $dungeon->dungeon_name }}
+                </h3>
+                <button id="close-attach-modal" style="background: none; border: none; font-size: 1.5rem; color: var(--admin-secondary); cursor: pointer;">&times;</button>
+            </div>
+            <div id="attach-floors-form-container" class="modal-body" style="padding: 1.5rem; max-height: 60vh; overflow-y: auto;">
+                <!-- フォームは動的に読み込み -->
+                <div class="text-center" style="padding: 2rem;">
+                    <i class="fas fa-spinner fa-spin fa-2x" style="color: var(--admin-primary);"></i>
+                    <p style="margin-top: 1rem; color: var(--admin-secondary);">読み込み中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 推奨次のアクション -->
     <div class="admin-card" style="margin-top: 2rem; background: linear-gradient(135deg, #f0fdf4, #dcfce7);">
         <div class="admin-card-header">
@@ -239,13 +261,13 @@
         </div>
         <div class="admin-card-body">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                @if($dungeon->floors->where('hasMonsterSpawns', false)->count() > 0)
+                @if($dungeon->floors->filter(function($floor) { return !$floor->hasMonsterSpawns(); })->count() > 0)
                 <div style="padding: 1rem; background: white; border-radius: 0.5rem; border: 1px solid var(--admin-border);">
                     <h4 style="margin: 0 0 0.5rem 0; color: var(--admin-warning);">
                         <i class="fas fa-dragon"></i> モンスタースポーン設定
                     </h4>
                     <p style="margin: 0 0 1rem 0; color: var(--admin-secondary); font-size: 0.875rem;">
-                        {{ $dungeon->floors->where('hasMonsterSpawns', false)->count() }} 個のフロアにモンスタースポーンが設定されていません。
+                        {{ $dungeon->floors->filter(function($floor) { return !$floor->hasMonsterSpawns(); })->count() }} 個のフロアにモンスタースポーンが設定されていません。
                     </p>
                     <a href="{{ route('admin.monster-spawns.index') }}" class="admin-btn admin-btn-sm admin-btn-warning">
                         スポーン設定へ
@@ -260,7 +282,7 @@
                     <p style="margin: 0 0 1rem 0; color: var(--admin-secondary); font-size: 0.875rem;">
                         フロア間の接続を設定してダンジョンの構造を完成させてください。
                     </p>
-                    <a href="{{ route('admin.locations.connections') }}" class="admin-btn admin-btn-sm admin-btn-info">
+                    <a href="{{ route('admin.route-connections.index') }}" class="admin-btn admin-btn-sm admin-btn-info">
                         接続管理へ
                     </a>
                 </div>
@@ -294,5 +316,139 @@
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
 }
+
+.modal {
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+    animation: slideInDown 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const attachBtn = document.getElementById('attach-floors-btn');
+    const attachModal = document.getElementById('attach-floors-modal');
+    const closeBtn = document.getElementById('close-attach-modal');
+    const formContainer = document.getElementById('attach-floors-form-container');
+    
+    // アタッチボタンクリック
+    attachBtn?.addEventListener('click', function() {
+        attachModal.style.display = 'block';
+        loadAttachForm();
+    });
+    
+    // モーダルを閉じる
+    closeBtn?.addEventListener('click', function() {
+        attachModal.style.display = 'none';
+    });
+    
+    // 背景クリックで閉じる
+    attachModal?.addEventListener('click', function(e) {
+        if (e.target === attachModal) {
+            attachModal.style.display = 'none';
+        }
+    });
+    
+    // アタッチフォーム読み込み
+    function loadAttachForm(searchQuery = '', onlyOrphans = true) {
+        const params = new URLSearchParams({
+            search: searchQuery,
+            only_orphans: onlyOrphans ? '1' : '0'
+        });
+        
+        fetch(`{{ route('admin.dungeons.attach-floors-form', $dungeon->id) }}?${params}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                formContainer.innerHTML = data.html;
+                bindFormEvents();
+            } else {
+                formContainer.innerHTML = `
+                    <div class="admin-alert admin-alert-danger">
+                        ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            formContainer.innerHTML = `
+                <div class="admin-alert admin-alert-danger">
+                    アタッチフォームの読み込みに失敗しました。
+                </div>
+            `;
+        });
+    }
+    
+    // フォームイベントをバインド
+    function bindFormEvents() {
+        // 検索フォーム
+        const searchForm = document.getElementById('attach-search-form');
+        searchForm?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(searchForm);
+            loadAttachForm(
+                formData.get('search') || '',
+                formData.get('only_orphans') === '1'
+            );
+        });
+        
+        // アタッチ実行フォーム
+        const attachForm = document.getElementById('attach-floors-form');
+        attachForm?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(attachForm);
+            
+            fetch(`{{ route('admin.dungeons.attach-floors', $dungeon->id) }}`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 成功時はページをリロード
+                    window.location.reload();
+                } else {
+                    alert('エラー: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('アタッチ処理に失敗しました。');
+            });
+        });
+    }
+    
+    // グローバル関数として公開
+    window.loadAttachForm = loadAttachForm;
+});
+</script>
 @endsection

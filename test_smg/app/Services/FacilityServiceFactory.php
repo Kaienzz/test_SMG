@@ -14,6 +14,7 @@ class FacilityServiceFactory
             FacilityType::BLACKSMITH => new BlacksmithFacilityService(),
             FacilityType::TAVERN => new TavernFacilityService(),
             FacilityType::ALCHEMY_SHOP => new AlchemyFacilityService(),
+            FacilityType::COMPOUNDING_SHOP => new CompoundingFacilityService(),
             // 他の施設タイプは将来実装
             default => throw new \InvalidArgumentException("Unsupported facility type: {$facilityType->value}")
         };
@@ -26,6 +27,7 @@ class FacilityServiceFactory
             FacilityType::BLACKSMITH => BlacksmithFacilityController::class,
             FacilityType::TAVERN => TavernFacilityController::class,
             FacilityType::ALCHEMY_SHOP => AlchemyFacilityController::class,
+            FacilityType::COMPOUNDING_SHOP => CompoundingFacilityController::class,
             // 他の施設タイプは将来実装
             default => throw new \InvalidArgumentException("Unsupported facility type: {$facilityType->value}")
         };
