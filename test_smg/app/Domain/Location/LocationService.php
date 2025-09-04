@@ -140,10 +140,9 @@ class LocationService
     private function getBranchesFromConfig(string $locationId, int $position): ?array
     {
         try {
-            // 新スキーマ: edge_type='branch' で指定位置の分岐を取得
+            // 新スキーマ: 指定位置に接続があれば分岐として扱う（edge_typeは問わない）
             $connections = RouteConnection::where('source_location_id', $locationId)
                                            ->where('source_position', $position)
-                                           ->where('edge_type', 'branch')
                                            ->enabled()
                                            ->with('targetLocation')
                                            ->get();
@@ -288,9 +287,10 @@ class LocationService
         
         // 位置50で分岐がある場合の自動停止処理
         if ($this->hasBranchAt($locationId, 50)) {
-            // 位置50を通過する移動の場合、50で停止
-            if (($currentPosition < 50 && $newPosition > 50) || 
-                ($currentPosition > 50 && $newPosition < 50)) {
+            // 現在位置が50でない場合、移動によって50に到達する、または50を通過する場合は50で強制停止
+            if ($currentPosition != 50 && 
+                (($currentPosition < 50 && $newPosition >= 50) || 
+                 ($currentPosition > 50 && $newPosition <= 50))) {
                 $newPosition = 50;
             }
         }
@@ -1084,17 +1084,45 @@ class LocationService
             return true;
         }
         
-        // Apply new position-based visibility rules
-        if ($connection->source_position === 0) {
-            return $currentPosition <= 0;
+        // Ensure both values are integers for consistent comparison
+        $sourcePos = (int) $connection->source_position;
+        $currentPos = (int) $currentPosition;
+        
+        // Apply position-based visibility rules with explicit type conversion
+        if ($sourcePos === 0) {
+            return $currentPos <= 0;
         }
         
-        if ($connection->source_position === 100) {
-            return $currentPosition >= 100;
+        if ($sourcePos === 100) {
+            return $currentPos >= 100;
         }
         
-        // For middle positions (like 50), exact match required
-        return $currentPosition === $connection->source_position;
+        // For all other positions (like 50), require exact match
+        $match = $currentPos === $sourcePos;
+        
+        // Enhanced debug log for all boundary positions
+        if (in_array($sourcePos, [0, 50, 100]) || in_array($currentPos, [0, 50, 100])) {
+            \Log::info('🔍 [POSITION] shouldShowConnectionAtPosition debug (explicit int conversion)', [
+                'connection_id' => $connection->id,
+                'original_source_position' => $connection->source_position,
+                'original_source_position_type' => gettype($connection->source_position),
+                'converted_source_position' => $sourcePos,
+                'original_current_position' => $currentPosition,
+                'original_current_position_type' => gettype($currentPosition),
+                'converted_current_position' => $currentPos,
+                'match' => $match,
+                'is_boundary_0' => $sourcePos === 0,
+                'is_boundary_100' => $sourcePos === 100,
+                'final_result' => (
+                    ($sourcePos === 0 && $currentPos <= 0) ||
+                    ($sourcePos === 100 && $currentPos >= 100) ||
+                    ($sourcePos !== 0 && $sourcePos !== 100 && $match)
+                )
+            ]);
+        }
+        
+        // Use explicit int comparison for reliable results
+        return $match;
     }
     
     /**
@@ -1212,11 +1240,51 @@ class LocationService
                 ];
             }
             
-            // Verify connection is available at current position
-            if (!$this->shouldShowConnectionAtPosition($connection, $player->game_position ?? 0)) {
+            // Verify player is in the correct location for this connection
+            if ($player->location_id !== $connection->source_location_id) {
+                \Log::warning('🔍 [MOVE] Location mismatch', [
+                    'connection_id' => $connectionId,
+                    'player_id' => $player->id,
+                    'player_location' => $player->location_id,
+                    'connection_source_location' => $connection->source_location_id,
+                    'mismatch' => true
+                ]);
                 return [
                     'success' => false,
-                    'error' => 'この接続は現在の位置では利用できません'
+                    'error' => 'プレイヤーの現在地と接続の出発地が一致しません'
+                ];
+            }
+            
+            // Refresh player data to ensure we have the latest position
+            $player->refresh();
+            
+            // Verify connection is available at current position
+            $currentPosition = $player->game_position ?? 0;
+            $shouldShow = $this->shouldShowConnectionAtPosition($connection, $currentPosition);
+            
+            // Only log validation failures now to reduce noise
+            if (!$shouldShow) {
+                \Log::warning('🔍 [MOVE] Connection validation FAILED', [
+                    'connection_id' => $connectionId,
+                    'player_id' => $player->id,
+                    'player_location' => $player->location_id,
+                    'player_position' => $currentPosition,
+                    'player_position_type' => gettype($currentPosition),
+                    'connection_source_location' => $connection->source_location_id,
+                    'connection_source_position' => $connection->source_position,
+                    'connection_source_position_type' => gettype($connection->source_position),
+                    'connection_target_location' => $connection->target_location_id,
+                    'connection_edge_type' => $connection->edge_type,
+                    'location_match' => $player->location_id === $connection->source_location_id,
+                    'shouldShow' => $shouldShow,
+                    'position_exact_match' => $currentPosition === $connection->source_position,
+                    'position_loose_match' => $currentPosition == $connection->source_position,
+                    'validation_context' => 'MOVE_TO_CONNECTION_TARGET'
+                ]);
+                
+                return [
+                    'success' => false,
+                    'error' => "この接続は現在の位置では利用できません (プレイヤー: {$player->location_id}:{$currentPosition}, 接続: {$connection->source_location_id}:{$connection->source_position})"
                 ];
             }
             
